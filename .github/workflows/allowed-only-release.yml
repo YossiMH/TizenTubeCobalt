@@ -1,3 +1,4 @@
+# Release workflow for the liked/subscribed-only fork.
 name: Build Allowed-Only APKs
 
 on:
