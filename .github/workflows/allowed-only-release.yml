@@ -1,0 +1,193 @@
+name: Build Allowed-Only APKs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - x.js
+      - cobalt/shell/embedded_resources/cobalt_java_script_polyfill/tizentube_allowed_only_loader.js
+      - tools/tizentube_allowed_only_test.js
+      - tools/patch_allowed_only_apk.py
+      - .github/workflows/allowed-only-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run filter unit tests
+        run: node tools/tizentube_allowed_only_test.js
+
+      - name: Download upstream v2.0.2 APKs
+        run: |
+          mkdir -p dist work
+          curl -L --fail --retry 4 --retry-all-errors \
+            -o work/upstream-arm.apk \
+            https://github.com/reisxd/TizenTubeCobalt/releases/download/v2.0.2/cobalt-arm.apk
+          curl -L --fail --retry 4 --retry-all-errors \
+            -o work/upstream-arm64.apk \
+            https://github.com/reisxd/TizenTubeCobalt/releases/download/v2.0.2/cobalt-arm64.apk
+          echo 'ff90c6e85c37246b809cca80282910509782c1384eccfbb6066da3b497dd9fd2  work/upstream-arm.apk' | sha256sum -c -
+          echo '0e8a9cffc77a08cd116d38e262c3e9d7f261ba2093b5b2d2ef905f509c99133c  work/upstream-arm64.apk' | sha256sum -c -
+
+      - name: Patch document-start filter and fork package id
+        env:
+          FILTER_URL: https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@${{ github.sha }}/x.js
+        run: |
+          python3 tools/patch_allowed_only_apk.py work/upstream-arm.apk work/arm-unsigned.apk --script-url "$FILTER_URL"
+          python3 tools/patch_allowed_only_apk.py work/upstream-arm64.apk work/arm64-unsigned.apk --script-url "$FILTER_URL"
+
+      - name: Locate Android build tools
+        id: android-tools
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          test -n "$SDK_ROOT"
+          BUILD_TOOLS_VERSION=$(find "$SDK_ROOT/build-tools" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -n1)
+          echo "dir=$SDK_ROOT/build-tools/$BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          "$SDK_ROOT/build-tools/$BUILD_TOOLS_VERSION/apksigner" version
+
+      - name: Generate fork signing key
+        run: |
+          keytool -genkeypair -v \
+            -keystore work/allowed-only.keystore \
+            -storepass android \
+            -keypass android \
+            -alias allowedonly \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname 'CN=TizenTube Allowed Only,O=YossiMH,C=US'
+
+      - name: Align, sign, and statically verify APKs
+        env:
+          BT: ${{ steps.android-tools.outputs.dir }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sign_one() {
+            in_apk="$1"
+            out_apk="$2"
+            aligned="${in_apk%.apk}-aligned.apk"
+            "$BT/zipalign" -p -f 4 "$in_apk" "$aligned"
+            "$BT/apksigner" sign \
+              --ks work/allowed-only.keystore \
+              --ks-key-alias allowedonly \
+              --ks-pass pass:android \
+              --key-pass pass:android \
+              --out "$out_apk" "$aligned"
+            "$BT/apksigner" verify --verbose --print-certs "$out_apk"
+            "$BT/zipalign" -c -p 4 "$out_apk"
+            "$BT/aapt" dump badging "$out_apk" | tee "$out_apk.badging.txt"
+            grep -q "package: name='io.gh.yossim.tizentube.cobalt'" "$out_apk.badging.txt"
+            grep -q "application-label:'TizenSub+'" "$out_apk.badging.txt"
+          }
+          sign_one work/arm-unsigned.apk dist/TizenTube-Liked-Subs-arm.apk
+          sign_one work/arm64-unsigned.apk dist/TizenTube-Liked-Subs-arm64.apk
+          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
+
+      - name: Verify patched document-start loader is present
+        env:
+          EXPECTED_URL: https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@${{ github.sha }}/x.js
+        run: |
+          python3 - <<'PY'
+          import os, zipfile
+          expected = os.environ['EXPECTED_URL'].encode()
+          for apk in ['dist/TizenTube-Liked-Subs-arm.apk', 'dist/TizenTube-Liked-Subs-arm64.apk']:
+              with zipfile.ZipFile(apk) as z:
+                  libs = [n for n in z.namelist() if n.endswith('/libchrobalt.so')]
+                  assert libs, apk
+                  hits = sum(z.read(n).count(expected) for n in libs)
+                  assert hits == 1, (apk, libs, hits)
+                  print(apk, 'contains pinned document-start loader in', libs)
+          PY
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TizenTube-Liked-Subs-APKs
+          path: |
+            dist/TizenTube-Liked-Subs-arm.apk
+            dist/TizenTube-Liked-Subs-arm64.apk
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  emulator-smoke:
+    needs: build
+    runs-on: macos-15
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: TizenTube-Liked-Subs-APKs
+          path: dist
+
+      - name: Boot ARM64 emulator, install, and launch
+        id: emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: arm64-v8a
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          script: |
+            set -e
+            adb install -r dist/TizenTube-Liked-Subs-arm64.apk
+            PACKAGE=io.gh.yossim.tizentube.cobalt
+            ACTIVITY=$(adb shell cmd package resolve-activity --brief "$PACKAGE" | tr -d '\r' | tail -n1)
+            test -n "$ACTIVITY"
+            echo "Resolved activity: $ACTIVITY"
+            adb logcat -c
+            adb shell am start -W -n "$ACTIVITY"
+            sleep 12
+            adb shell pidof "$PACKAGE"
+            adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' || true
+            adb exec-out screencap -p > /tmp/tizentube-smoke.png
+            adb logcat -d > /tmp/tizentube-logcat.txt
+            if adb logcat -b crash -d | grep -q "$PACKAGE"; then
+              echo 'Crash buffer contains app package' >&2
+              adb logcat -b crash -d >&2
+              exit 1
+            fi
+
+      - name: Upload emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-smoke-evidence
+          path: |
+            /tmp/tizentube-smoke.png
+            /tmp/tizentube-logcat.txt
+          if-no-files-found: ignore
+
+  release:
+    needs: [build, emulator-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: TizenTube-Liked-Subs-APKs
+          path: dist
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view allowed-only-v1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release delete allowed-only-v1 --repo "$GITHUB_REPOSITORY" --cleanup-tag -y
+          fi
+          gh release create allowed-only-v1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title 'TizenTube Liked + Subscriptions v1' \
+            --notes 'Based on upstream TizenTube Cobalt v2.0.2. Video discovery and playback are filtered at document start so only videos in the signed-in account Liked videos list or from subscribed channels are exposed. The APKs use package io.gh.yossim.tizentube.cobalt so they can be installed beside upstream TizenTube.' \
+            dist/TizenTube-Liked-Subs-arm.apk \
+            dist/TizenTube-Liked-Subs-arm64.apk \
+            dist/SHA256SUMS.txt
