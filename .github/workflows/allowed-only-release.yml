@@ -148,27 +148,20 @@ jobs:
           emulator-boot-timeout: 600
           disable-animations: false
           script: |
-            set -e
-            ABIS=$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')
-            echo "Emulator ABIs: $ABIS"
-            echo "$ABIS" | grep -q 'arm64-v8a'
+            adb shell getprop ro.product.cpu.abilist | tr -d '\r' | tee /tmp/tizentube-abis.txt
+            grep -q 'arm64-v8a' /tmp/tizentube-abis.txt
             adb install -r dist/TizenTube-Liked-Subs-arm64.apk
-            PACKAGE=io.gh.yossim.tizentube.cobalt
-            ACTIVITY=$(adb shell cmd package resolve-activity --brief "$PACKAGE" | tr -d '\r' | tail -n1)
-            test -n "$ACTIVITY"
-            echo "Resolved activity: $ACTIVITY"
+            adb shell cmd package resolve-activity --brief io.gh.yossim.tizentube.cobalt | tr -d '\r' | tail -n1 | tee /tmp/tizentube-activity.txt
+            test -s /tmp/tizentube-activity.txt
             adb logcat -c
-            adb shell am start -W -n "$ACTIVITY"
+            adb shell am start -W -n "$(cat /tmp/tizentube-activity.txt)"
             sleep 12
-            adb shell pidof "$PACKAGE"
+            adb shell pidof io.gh.yossim.tizentube.cobalt
             adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' || true
             adb exec-out screencap -p > /tmp/tizentube-smoke.png
             adb logcat -d > /tmp/tizentube-logcat.txt
-            if adb logcat -b crash -d | grep -q "$PACKAGE"; then
-              echo 'Crash buffer contains app package' >&2
-              adb logcat -b crash -d >&2
-              exit 1
-            fi
+            adb logcat -b crash -d > /tmp/tizentube-crash.txt
+            ! grep -q 'io.gh.yossim.tizentube.cobalt' /tmp/tizentube-crash.txt
 
       - name: Upload emulator evidence
         if: always()
@@ -178,6 +171,9 @@ jobs:
           path: |
             /tmp/tizentube-smoke.png
             /tmp/tizentube-logcat.txt
+            /tmp/tizentube-crash.txt
+            /tmp/tizentube-abis.txt
+            /tmp/tizentube-activity.txt
           if-no-files-found: ignore
 
   release:
