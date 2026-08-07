@@ -128,7 +128,7 @@ jobs:
 
   emulator-smoke:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: macos-15
     timeout-minutes: 20
     continue-on-error: true
     steps:
@@ -146,7 +146,7 @@ jobs:
           arch: x86_64
           profile: pixel_2
           emulator-boot-timeout: 600
-          disable-animations: true
+          disable-animations: false
           script: |
             set -e
             ABIS=$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')
