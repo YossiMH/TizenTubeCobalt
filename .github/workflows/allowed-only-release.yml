@@ -128,7 +128,7 @@ jobs:
 
   emulator-smoke:
     needs: build
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 20
     continue-on-error: true
     steps:
