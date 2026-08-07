@@ -137,7 +137,7 @@ jobs:
           name: TizenTube-Liked-Subs-APKs
           path: dist
 
-      - name: Boot Android 11 emulator, install ARM64 APK, and launch
+      - name: Boot Android 11 emulator, install ARM APK, and launch
         id: emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -149,8 +149,9 @@ jobs:
           disable-animations: false
           script: |
             adb shell getprop ro.product.cpu.abilist | tr -d '\r' | tee /tmp/tizentube-abis.txt
-            grep -q 'arm64-v8a' /tmp/tizentube-abis.txt
-            adb install --no-streaming -r dist/TizenTube-Liked-Subs-arm64.apk
+            grep -q 'armeabi-v7a' /tmp/tizentube-abis.txt
+            adb logcat -c
+            adb install --no-streaming -r dist/TizenTube-Liked-Subs-arm.apk || { adb logcat -d > /tmp/tizentube-logcat.txt; adb logcat -b crash -d > /tmp/tizentube-crash.txt; exit 1; }
             adb shell cmd package resolve-activity --brief io.gh.yossim.tizentube.cobalt | tr -d '\r' | tail -n1 | tee /tmp/tizentube-activity.txt
             test -s /tmp/tizentube-activity.txt
             adb logcat -c
