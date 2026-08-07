@@ -15,12 +15,21 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: allowed-only-release
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            x.js
+            tools
+            cobalt/shell/embedded_resources/cobalt_java_script_polyfill
 
       - name: Run filter unit tests
         run: node tools/tizentube_allowed_only_test.js
