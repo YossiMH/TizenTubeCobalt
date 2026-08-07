@@ -128,8 +128,8 @@ jobs:
 
   emulator-smoke:
     needs: build
-    runs-on: macos-15
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/download-artifact@v4
@@ -137,18 +137,21 @@ jobs:
           name: TizenTube-Liked-Subs-APKs
           path: dist
 
-      - name: Boot ARM64 emulator, install, and launch
+      - name: Boot Android 11 emulator, install ARM64 APK, and launch
         id: emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
           target: google_apis
-          arch: arm64-v8a
+          arch: x86_64
           profile: pixel_2
-          emulator-boot-timeout: 900
+          emulator-boot-timeout: 600
           disable-animations: true
           script: |
             set -e
+            ABIS=$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')
+            echo "Emulator ABIs: $ABIS"
+            echo "$ABIS" | grep -q 'arm64-v8a'
             adb install -r dist/TizenTube-Liked-Subs-arm64.apk
             PACKAGE=io.gh.yossim.tizentube.cobalt
             ACTIVITY=$(adb shell cmd package resolve-activity --brief "$PACKAGE" | tr -d '\r' | tail -n1)
