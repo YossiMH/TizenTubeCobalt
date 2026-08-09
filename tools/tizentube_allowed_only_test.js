@@ -52,4 +52,24 @@ assert.deepStrictEqual(mod.continuationTokens({contents:[
   {continuationItemRenderer:{continuationEndpoint:{continuationCommand:{token:'t2'}}}}
 ]}),['t1','t2']);
 
+
+// Phone-remote-control surfaces: queue (cast/up-next) and mobile playback responses
+// must go through the same allowlist filter as browse/player responses.
+reset();
+mod.state.liked.add('liked1');
+mod.state.subs.add('UCsub');
+const queueResp = {contents:[
+  {playlistPanelVideoRenderer:{videoId:'liked1',navigationEndpoint:{watchEndpoint:{videoId:'liked1'}}}},
+  {playlistPanelVideoRenderer:{videoId:'badQ',navigationEndpoint:{watchEndpoint:{videoId:'badQ'}}}}
+]};
+const filteredQueue = mod.filterTree(JSON.parse(JSON.stringify(queueResp)));
+assert.strictEqual(filteredQueue.contents.length,1);
+assert.strictEqual(filteredQueue.contents[0].playlistPanelVideoRenderer.videoId,'liked1');
+
+const mobilePlaybackBad = mod.blockPlayerResponse({videoDetails:{videoId:'badM',channelId:'UCbad'},streamingData:{formats:[1]}});
+assert.strictEqual(mobilePlaybackBad.playabilityStatus.status,'ERROR');
+assert.strictEqual(mobilePlaybackBad.streamingData,undefined);
+const mobilePlaybackLiked = mod.blockPlayerResponse({videoDetails:{videoId:'liked1',channelId:'UCother'},streamingData:{formats:[1]}});
+assert.ok(mobilePlaybackLiked.streamingData);
+
 console.log('All TizenTube allowed-only unit tests passed.');

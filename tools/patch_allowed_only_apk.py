@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
+import struct
 import zipfile
+import zlib
 from pathlib import Path
 
 OLD_PACKAGE = b"io.gh.reisxd.tizentube.cobalt"
@@ -22,6 +25,19 @@ def replace_same_length(data: bytes, old: bytes, new: bytes):
     if count16:
         data = data.replace(old16, new16)
     return data, count, count16
+
+
+def re_sign_dex(data: bytes) -> bytes:
+    """Recompute the DEX header checksum (adler32 of bytes 12..end) and
+    signature (SHA-1 of bytes 32..end) after in-place byte replacement.
+    Without this, ART rejects the dex and the app crashes at launch with
+    ClassNotFoundException."""
+    if len(data) < 0x70 or data[:4] != b"dex\n":
+        return data
+    body = bytearray(data)
+    body[12:32] = hashlib.sha1(data[32:]).digest()
+    body[8:12] = struct.pack("<I", zlib.adler32(bytes(body[12:])) & 0xFFFFFFFF)
+    return bytes(body)
 
 
 def make_document_start_loader(script_url: str, target_size: int) -> bytes:
@@ -79,6 +95,11 @@ def patch_apk(input_apk: Path, output_apk: Path, repo_root: Path, script_url: st
                 if matches:
                     data = data.replace(polyfill, loader)
                     counts["polyfill"] += matches
+
+            # In-place byte replacement invalidates the dex header signature;
+            # re-sign so ART can load the dex at runtime.
+            if info.filename.endswith(".dex"):
+                data = re_sign_dex(data)
 
             zout.writestr(info, data)
 

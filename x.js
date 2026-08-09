@@ -18,7 +18,7 @@ function json(s){try{return typeof s=='string'&&s?JSON.parse(s):null}catch(e){re
 function cfg(){try{var y=w.ytcfg;if(!y)return;var get=typeof y.get=='function'?function(k){return y.get(k)}:function(k){return y.data_&&y.data_[k]};S.ctx=S.ctx||get('INNERTUBE_CONTEXT');S.key=S.key||get('INNERTUBE_API_KEY')}catch(e){}}
 function url(x){try{return new URL(typeof x=='string'?x:x&&x.url||'',w.location&&w.location.href||'https://www.youtube.com/')}catch(e){return null}}
 function isapi(u){return u&&u.pathname.indexOf('/youtubei/v1/')>=0}
-function filtapi(u){return isapi(u)&&/(browse|search|next|player|reel|music\/get_queue)/.test(u.pathname)}
+function filtapi(u){return isapi(u)&&/(browse|search|next|player|reel|queue|get_mobile_playback)/.test(u.pathname)}
 function payload(u,x){return /\/player$/.test(u.pathname)?player(x):filter(x)}
 function headers(h){var o={};try{var H=new w.Headers(h);H.forEach(function(v,k){o[k]=v});return o}catch(e){}if(obj(h))Object.keys(h).forEach(function(k){o[k]=h[k]});return o}
 async function capture(input,init){var u=url(input);if(!isapi(u))return null;cfg();S.key=S.key||u.searchParams.get('key');var h=headers(init&&init.headers||input&&input.headers);if(Object.keys(h).length)S.hdr=h;var t='';if(init&&typeof init.body=='string')t=init.body;else try{if(input&&input.clone)t=await input.clone().text()}catch(e){}var b=json(t);if(b&&b.context)S.ctx=S.ctx||b.context;return u}
