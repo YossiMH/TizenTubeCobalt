@@ -119,5 +119,19 @@ assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/not_an_api')), f
   const mod2 = require('../x.js');
   assert.strictEqual(mod2.state, firstState, 'second load must reuse the same module instance');
 
+  // Every stripped video must be counted so device logs can prove blocking.
+  reset();
+  mod.state.stripped = 0;
+  mod.state.liked.add('liked1');
+  const stripFeed = mod.filterTree({ contents: [
+    { videoRenderer: { videoId: 'liked1', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCa' } } }] } } },
+    { videoRenderer: { videoId: 'badX', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCb' } } }] } } }
+  ] });
+  assert.strictEqual(stripFeed.contents.length, 1, 'allowed video stays');
+  assert.strictEqual(mod.state.stripped, 1, 'one disallowed video must be counted as stripped');
+  const stripPlayer = mod.blockPlayerResponse({ videoDetails: { videoId: 'badY', channelId: 'UCb' }, streamingData: { formats: [1] } });
+  assert.strictEqual(stripPlayer.playabilityStatus.status, 'ERROR');
+  assert.strictEqual(mod.state.stripped, 2, 'blocked player must be counted as stripped');
+
   console.log('All TizenTube allowed-only unit tests passed.');
 })().catch((e) => { console.error(e); process.exit(1); });
