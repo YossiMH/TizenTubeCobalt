@@ -1,46 +1,74 @@
-# 💠 TizenTube Cobalt
+# 💠 TizenTube Cobalt — Liked + Subscriptions Only
 
 <p align="center">
     <img width="700px" src=".github/assets/TizenTube_Cobalt-Official_Banner.png">
     <br>
 </p>
 
-**TizenTube Cobalt** is an app based on [Cobalt](https://cobalt.dev) that enhances your favourite streaming website viewing experience by removing ads, adding [SponsorBlock](https://sponsor.ajay.app/) support, and providing useful features like video speed control.
+This fork of **TizenTube Cobalt** keeps the original TizenTube experience while adding an account-based allowlist: **a video is available only when you have liked that video or you are subscribed to its channel** on the signed-in YouTube account.
 
-<details>
-<summary><strong>What is Cobalt?</strong></summary>
+The restriction is applied at document start and filters YouTube discovery/playback responses used by search results, home/recommendation shelves, related suggestions, queues/autoplay, and player responses. The allowlist is rebuilt from the signed-in account's Liked videos and subscriptions, so likes/subscriptions made on other devices are picked up from the same account.
 
-Cobalt is a lightweight, cross-platform application container and runtime for HTML5-based apps, originally developed by Google for embedded and resource-constrained devices (like smart TVs, set-top boxes, and game consoles). It implements a subset of the W3C HTML5 standard and runs web apps with high performance on a wide range of hardware.
+> This is an independent fork. The upstream project is [reisxd/TizenTubeCobalt](https://github.com/reisxd/TizenTubeCobalt).
 
-</details>
+## ⬇️ Download the allowed-only build
 
-## ✨ Features
+**Current release: [TizenTube Liked + Subscriptions v1](https://github.com/YossiMH/TizenTubeCobalt/releases/tag/allowed-only-v1)**
 
-- 🛑 **Ad Blocker**: Enjoy your favourite streaming website without interruptions from ads.
-- ❗ **SponsorBlock Support**: Automatically skip sponsored segments in videos.
-- ⏭️ **Video Speed Control**: Adjust playback speed to your preference.
-- 🔺 **[DeArrow](https://dearrow.ajay.app/) Support**: Remove clickbait and misleading video titles.
-- ➕ **More to come!** Request features via [issues](https://github.com/reisxd/TizenTube/issues/new).
+Choose the APK for your device:
 
-## ⬇️ Download
+- **ARM64 / `arm64-v8a` (most modern Android TV / Google TV devices):** [TizenTube-Liked-Subs-arm64.apk](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v1/TizenTube-Liked-Subs-arm64.apk)
+- **32-bit ARM / `armeabi-v7a` (older devices):** [TizenTube-Liked-Subs-arm.apk](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v1/TizenTube-Liked-Subs-arm.apk)
+- [SHA-256 checksums](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v1/SHA256SUMS.txt)
 
-Get the latest release for your platform:
+The fork APK uses package ID `io.gh.yossim.tizentube.cobalt`, so it can be installed beside upstream TizenTube Cobalt rather than replacing it.
 
-[**Download Latest Release**](https://github.com/reisxd/TizenTubeCobalt/releases/latest)
+## 🔒 What “allowed only” means
 
-AFTVNews code: `6366500`
+A video passes the filter when **either** condition is true:
 
-For a better experience, preferably use TizenTube Cobalt on a [**Google TV certified device.**](https://www.androidtv-guide.com/)
+1. Its video ID is present in the signed-in account's **Liked videos** list, or
+2. Its channel ID is present in the signed-in account's **subscriptions**.
 
-## ❔ How to Install
+Everything else is removed from video-bearing discovery responses. A disallowed direct/player response has its streaming data removed and is returned as unavailable instead of being allowed to play.
 
-1. Download the latest release from the link above.
-2. Sideload or install the app on your device (using a file manager, ADB, or platform-specific method).
-3. Open the app and enjoy an enhanced streaming experience!
+The filter covers the YouTube internal API surfaces used for browse/home feeds, search, next/related/autoplay, player responses, reels, and queue responses. Non-video UI such as search text suggestions is not intentionally removed.
 
-## ℹ️ Community & Support
+## ✅ Verification included in this fork
 
+- Unit tests cover liked videos, subscribed-channel videos, disallowed videos, player blocking, subscription extraction, liked-video extraction, and continuation handling.
+- The release builder verifies the exact upstream APK hashes before patching.
+- The produced APKs are zip-aligned, signed, checked for the fork package ID/label, and checked to contain the document-start loader pinned to the exact source commit used for the release.
+- The release contains both ARM and ARM64 APKs plus SHA-256 checksums.
+
+Run the JavaScript filter tests locally with:
+
+```bash
+node tools/tizentube_allowed_only_test.js
+```
+
+## ✨ Upstream TizenTube features
+
+The fork retains TizenTube Cobalt features including:
+
+- 🛑 Ad blocking
+- ❗ SponsorBlock support
+- ⏭️ Video speed control
+- 🔺 DeArrow support
+
+## ❔ Install and sign in
+
+1. Download the correct APK above.
+2. Sideload/install it on the Android TV / Google TV device.
+3. Launch **TizenSub+**.
+4. Sign into the same YouTube account whose Likes and subscriptions should define the allowed catalog.
+5. Reload/relaunch the app after making account changes elsewhere when you want to force a fresh allowlist sync immediately.
+
+## ℹ️ Upstream community & support
+
+For upstream TizenTube questions, see the original project's community links:
+
+- [Upstream repository](https://github.com/reisxd/TizenTubeCobalt)
 - [Discord Server](https://discord.gg/m2P7v8Y2qR)
 - [Telegram Channel](https://t.me/tizentubecobaltofficial)
 - [Matrix Space](https://matrix.to/#/!BLE5ubNYktI30e8K0j:matrix.6513006.xyz)
-- [Report Issues / Request Features](https://github.com/reisxd/TizenTube/issues)
