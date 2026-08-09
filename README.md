@@ -23,6 +23,12 @@ Choose the APK for your device:
 
 The fork APK uses package ID `io.gh.yossim.tizentube.cobalt`, so it can be installed beside upstream TizenTube Cobalt rather than replacing it.
 
+## Updates
+
+Starting with the next release, every release is signed with the same permanent key, so a future release can be installed directly over the previous one (no need to uninstall first). The release pipeline now refuses to build an installer with a temporary signing key, because that would silently break future updates for everyone who installed it.
+
+One-time note for the current release: the first release was signed with a one-time key that no longer exists. If you installed that first release and later install the next one, Android may ask you to uninstall the old app first. That is a one-time step; after that, future releases update in place.
+
 ## 🔒 What “allowed only” means
 
 A video passes the filter when **either** condition is true:

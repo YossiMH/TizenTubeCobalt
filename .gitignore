@@ -341,3 +341,6 @@ third_party/rust/target/
 
 # Extensions: Generated DNR e.g. /_metadata/generated_indexed_rulesets/_ruleset1
 **/_metadata/generated_indexed_rulesets/
+
+# Local agent temp work; must never be committed
+.temp/

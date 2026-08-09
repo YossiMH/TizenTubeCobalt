@@ -1,0 +1,7 @@
+# Persistent release signing identity
+# Every release APK must be signed by the key whose certificate has this
+# SHA-256 fingerprint. The key itself lives only in the repository's
+# ALLOWED_ONLY_KEYSTORE_BASE64 / ALLOWED_ONLY_KEYSTORE_PASSWORD secrets and
+# in the user's private backup; it is never committed to this repository.
+# Format: SHA256 fingerprint with colons, uppercase.
+SHA256:F8:82:1E:41:4C:D2:E0:93:F6:4F:6C:FB:6E:32:54:59:2E:83:9B:1C:1D:0A:FC:D3:B2:DE:C0:EE:10:65:B9:AB
