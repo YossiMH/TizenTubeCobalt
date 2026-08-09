@@ -41,7 +41,7 @@ jobs:
             cobalt/shell/embedded_resources/cobalt_java_script_polyfill
 
       - name: Run filter unit tests
-        run: node tools/tizentube_allowed_only_test.js && node tools/signing_identity_test.js && node tools/tizentube_boot_recovery_test.js
+        run: node tools/tizentube_allowed_only_test.js && node tools/signing_identity_test.js && node tools/tizentube_boot_recovery_test.js && python3 tools/patch_allowed_only_apk_test.py
 
       - name: Download upstream v2.0.2 APKs
         run: |
@@ -160,7 +160,6 @@ jobs:
     needs: build
     runs-on: macos-15-intel
     timeout-minutes: 30
-    continue-on-error: true
     steps:
       - uses: actions/download-artifact@v4
         with:
