@@ -1,5 +1,3 @@
-// Permanent behavior tests for allowlist boot recovery (self-healing).
-// No mocks: real Node HTTP server + real fetch + real timers.
 'use strict';
 const assert = require('assert');
 const http = require('http');
@@ -124,11 +122,55 @@ async function testRetryDelaySchedule() {
   assert.ok(capped.every((d) => d <= 10000), 'delays must never exceed the cap');
 }
 
+
+async function testPartialFailureRetriesUntilLikedFeedLoads() {
+  reset();
+  // The liked-videos endpoint fails on the first 2 attempts while
+  // subscriptions and guide succeed: partial allowlist must not be accepted.
+  let likedFailures = 0;
+  const partialHandler = (req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      let parsed = null;
+      try { parsed = JSON.parse(body || '{}'); } catch (e) { parsed = {}; }
+      const url = req.url || '';
+      res.setHeader('content-type', 'application/json');
+      if (url.includes('/guide')) {
+        res.end(JSON.stringify(guidePayload));
+      } else if (parsed.browseId === 'VLLL') {
+        if (likedFailures < 2) {
+          likedFailures++;
+          res.statusCode = 500;
+          res.end('boom');
+        } else {
+          res.end(JSON.stringify(likedPayload));
+        }
+      } else if (parsed.browseId === 'FEchannels') {
+        res.end(JSON.stringify(channelsPayload));
+      } else {
+        res.end(JSON.stringify({}));
+      }
+    });
+  };
+  const { srv, port } = await startServer(partialHandler);
+  try {
+    const base = 'http://127.0.0.1:' + port;
+    const result = await mod.bootWithRetry({ apiBase: base, maxAttempts: 4, baseDelayMs: 5 });
+    assert.strictEqual(result.ok, true, 'boot must retry until the liked feed loads');
+    assert.ok(mod.state.liked.has('L1'), 'liked video must be collected after retry');
+    assert.ok(mod.state.subs.has('UCsub'), 'subscribed channel must be collected');
+    assert.ok(mod.state.retries >= 1, 'partial failure must trigger retries');
+  } finally {
+    await closeServer(srv);
+  }
+}
 (async function main() {
   await testRetryDelaySchedule();
   await testBootSucceedsOnFirstTry();
   await testTransientFailureRecoversWithRetry();
   await testPersistentFailureExhaustsBudgetAndReportsErrors();
+  await testPartialFailureRetriesUntilLikedFeedLoads();
   console.log('All TizenTube boot recovery tests passed.');
 })().catch((e) => {
   console.error(e);
