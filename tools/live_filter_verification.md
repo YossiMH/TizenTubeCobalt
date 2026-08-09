@@ -28,3 +28,22 @@ Cold-start logcat from the installed build:
 ```
 
 After sign-in, the same log lines report the account allowlist size, and each API response logs how many videos it stripped.
+
+## On-TV signed-out session proof (Onn 4K Pro, 2026-08-09, final build)
+
+Drove the installed app in a fully signed-out state (deep link to search, remote-key navigation). The app fetched real YouTube responses including home browse feeds and reel/shorts suggestions. The device log shows every response emptied:
+
+```
+[allowed-only] filter active
+[allowed-only] signed out: everything blocked (sign in to watch)
+[allowed-only] boot ready (0 liked, 0 subscribed)
+[allowed-only] stripped 5 video(s) from /youtubei/v1/reel/reel_item_watch
+[allowed-only] stripped 28 video(s) from /youtubei/v1/reel/reel_watch_sequence
+[allowed-only] stripped 66 video(s) from /youtubei/v1/browse
+[allowed-only] stripped 68 video(s) from /youtubei/v1/browse
+[allowed-only] stripped 45 video(s) from /youtubei/v1/browse
+[allowed-only] stripped 216 video(s) from /youtubei/v1/browse
+[allowed-only] stripped 15 video(s) from /youtubei/v1/browse
+```
+
+476 videos across 9 responses stripped to zero. A signed-out YouTube finds and suggests nothing.
