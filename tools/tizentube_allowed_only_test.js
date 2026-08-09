@@ -5,6 +5,7 @@ function reset() {
   mod.state.liked.clear();
   mod.state.subs.clear();
   mod.state.v2c.clear();
+  mod.state.loggedIn = null;
 }
 
 reset();
@@ -92,4 +93,31 @@ assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/brow
 assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/player')), true, 'player must be filtered');
 assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/not_an_api')), false, 'non-API pages must pass through');
 
-console.log('All TizenTube allowed-only unit tests passed.');
+(async function () {
+  // Guest/signed-out mode must fail closed: no account, no allowlist, nothing plays.
+  reset();
+  mod.state.loggedIn = false;
+  const guestBoot = await mod.bootWithRetry({ maxAttempts: 2, baseDelayMs: 1 });
+  assert.strictEqual(guestBoot.ok, true, 'guest boot must succeed instantly (fail closed)');
+  assert.strictEqual(guestBoot.guest, true, 'guest boot must report guest mode');
+  assert.strictEqual(mod.state.ready, true, 'guest filter must be ready');
+  assert.strictEqual(mod.state.liked.size, 0, 'guest must not collect a liked allowlist');
+  assert.strictEqual(mod.state.subs.size, 0, 'guest must not collect a subscription allowlist');
+  const guestFeed = mod.filterTree({ contents: [
+    { videoRenderer: { videoId: 'any1', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCany' } } }] } } }
+  ] });
+  assert.strictEqual(guestFeed.contents.length, 0, 'guest feed must show no videos');
+  const guestPlayer = mod.blockPlayerResponse({ videoDetails: { videoId: 'any2', channelId: 'UCany' }, streamingData: { formats: [1] } });
+  assert.strictEqual(guestPlayer.playabilityStatus.status, 'ERROR', 'guest player must be blocked');
+  assert.strictEqual(guestPlayer.streamingData, undefined, 'guest player must have no streams');
+
+  // A second load of the script (e.g. when both the native redirect and the DOM
+  // loader inject it) must reuse the same module instead of double-installing.
+  const firstState = mod.state;
+  const resolved = require.resolve('../x.js');
+  delete require.cache[resolved];
+  const mod2 = require('../x.js');
+  assert.strictEqual(mod2.state, firstState, 'second load must reuse the same module instance');
+
+  console.log('All TizenTube allowed-only unit tests passed.');
+})().catch((e) => { console.error(e); process.exit(1); });

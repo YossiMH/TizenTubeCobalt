@@ -14,6 +14,7 @@ function reset() {
   mod.state.p = null;
   mod.state.errors = [];
   mod.state.retries = 0;
+  mod.state.loggedIn = null;
 }
 
 function startServer(handler) {
@@ -165,12 +166,35 @@ async function testPartialFailureRetriesUntilLikedFeedLoads() {
     await closeServer(srv);
   }
 }
+async function testGuestModeFailsClosedWithoutAnyNetwork() {
+  reset();
+  mod.state.loggedIn = false;
+  let requests = 0;
+  const countingHandler = (req, res) => { requests++; res.end('{}'); };
+  const { srv, port } = await startServer(countingHandler);
+  try {
+    const result = await mod.bootWithRetry({
+      apiBase: 'http://127.0.0.1:' + port,
+      maxAttempts: 2,
+      baseDelayMs: 5,
+    });
+    assert.strictEqual(result.ok, true, 'guest boot must succeed instantly (fail closed)');
+    assert.strictEqual(result.guest, true, 'guest boot must report guest mode');
+    assert.strictEqual(requests, 0, 'guest mode must not fetch liked/subscription data');
+    assert.strictEqual(mod.state.liked.size, 0, 'guest must not collect a liked allowlist');
+    assert.strictEqual(mod.state.subs.size, 0, 'guest must not collect a subscription allowlist');
+    assert.strictEqual(mod.state.ready, true, 'guest filter must be ready');
+  } finally {
+    await closeServer(srv);
+  }
+}
 (async function main() {
   await testRetryDelaySchedule();
   await testBootSucceedsOnFirstTry();
   await testTransientFailureRecoversWithRetry();
   await testPersistentFailureExhaustsBudgetAndReportsErrors();
   await testPartialFailureRetriesUntilLikedFeedLoads();
+  await testGuestModeFailsClosedWithoutAnyNetwork();
   console.log('All TizenTube boot recovery tests passed.');
 })().catch((e) => {
   console.error(e);

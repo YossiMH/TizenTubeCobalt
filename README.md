@@ -1,4 +1,4 @@
-# =ý TizenTube Cobalt  Liked + Subscriptions Only
+# TizenTube Cobalt â€” Liked + Subscriptions Only
 
 <p align="center">
     <img width="700px" src=".github/assets/TizenTube_Cobalt-Official_Banner.png">
@@ -11,15 +11,15 @@ The restriction is applied at document start and filters YouTube discovery/playb
 
 > This is an independent fork. The upstream project is [reisxd/TizenTubeCobalt](https://github.com/reisxd/TizenTubeCobalt).
 
-##  Download the allowed-only build
+## Download the allowed-only build
 
-**Current release: [TizenTube Liked + Subscriptions v2](https://github.com/YossiMH/TizenTubeCobalt/releases/tag/allowed-only-v2)**
+**Current release: [TizenTube Liked + Subscriptions v3](https://github.com/YossiMH/TizenTubeCobalt/releases/tag/allowed-only-v3)**
 
 Choose the APK for your device:
 
-- **ARM64 / `arm64-v8a` (most modern Android TV / Google TV devices):** [TizenTube-Liked-Subs-arm64.apk](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v2/TizenTube-Liked-Subs-arm64.apk)
-- **32-bit ARM / `armeabi-v7a` (older devices):** [TizenTube-Liked-Subs-arm.apk](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v2/TizenTube-Liked-Subs-arm.apk)
-- [SHA-256 checksums](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v2/SHA256SUMS.txt)
+- **ARM64 / `arm64-v8a` (most modern Android TV / Google TV devices):** [TizenTube-Liked-Subs-arm64.apk](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v3/TizenTube-Liked-Subs-arm64.apk)
+- **32-bit ARM / `armeabi-v7a` (older devices):** [TizenTube-Liked-Subs-arm.apk](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v3/TizenTube-Liked-Subs-arm.apk)
+- [SHA-256 checksums](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v3/SHA256SUMS.txt)
 
 The fork APK uses package ID `io.gh.yossim.tizentube.cobalt`, so it can be installed beside upstream TizenTube Cobalt rather than replacing it.
 
@@ -27,9 +27,9 @@ The fork APK uses package ID `io.gh.yossim.tizentube.cobalt`, so it can be insta
 
 Every release from v2 onward is signed with the same permanent key, so a future release can be installed directly over the previous one (no need to uninstall first). The release pipeline refuses to build an installer with a temporary signing key, because that would silently break future updates for everyone who installed it.
 
-One-time note: the first release (v1) was signed with a one-time key that no longer exists. If you installed v1 and now install v2, Android may ask you to uninstall the old app first. That is a one-time step; from v2 onward, future releases update in place.
+One-time note: the first release (v1) was signed with a one-time key that no longer exists. If you installed v1 and now install v2 or v3, Android may ask you to uninstall the old app first. That is a one-time step; from v2 onward, future releases update in place.
 
-## = What allowed only means
+## What "allowed only" means
 
 A video passes the filter when **either** condition is true:
 
@@ -40,9 +40,11 @@ Everything else is removed from video-bearing discovery responses. A disallowed 
 
 The filter covers the YouTube internal API surfaces used for browse/home feeds, search, next/related/autoplay, player responses, reels, and queue responses. Non-video UI such as search text suggestions is not intentionally removed.
 
-##  Verification included in this fork
+**Signed out or guest mode is fully blocked.** The allowed list comes only from the signed-in account's Likes and subscriptions, so when no account is signed in (including the app's guest option) every video is removed from the home/search/related surfaces and every player response is returned as unavailable. Sign in with the Google account whose Likes/subscriptions define the allowed catalog; nothing is watchable until then.
 
-- Unit tests cover liked videos, subscribed-channel videos, disallowed videos, player blocking, subscription extraction, liked-video extraction, and continuation handling.
+## Verification included in this fork
+
+- Unit tests cover liked videos, subscribed-channel videos, disallowed videos, player blocking, subscription extraction, liked-video extraction, continuation handling, signed-out (guest) fail-closed behavior, and loader double-load protection.
 - The release builder verifies the exact upstream APK hashes before patching.
 - The produced APKs are zip-aligned, signed, checked for the fork package ID/label, and checked to contain the document-start loader pinned to the exact source commit used for the release.
 - The release contains both ARM and ARM64 APKs plus SHA-256 checksums.
@@ -53,29 +55,24 @@ Run the JavaScript filter tests locally with:
 node tools/tizentube_allowed_only_test.js
 ```
 
-## ( Upstream TizenTube features
+## Upstream TizenTube features
 
-The fork retains TizenTube Cobalt features including:
-
-- =ý Ad blocking
-- W SponsorBlock support
-- ý Video speed control
-- =: DeArrow support
+This fork is built from the upstream TizenTube Cobalt release, but its in-app script slot loads this fork's allowed-only filter instead of the upstream mod script, because that slot is the only injection path that survives YouTube's on-device security policy. The fork's purpose is the liked/subscribed-only restriction; the upstream runtime script's extras (ad blocking, sponsor skip, speed controls) do not run in this fork.
 
 ## TV setup and phone remote control
 
 - Install the APK from the download section above (ARM64 for modern boxes like the Onn 4K; ARM for older devices).
 - On the box, one-time step: enable Developer options (Settings > About > tap Build 7 times), enable USB/network debugging, and allow this PC when it asks.
-- Optional: run the included setup script to remove every other YouTube-capable app on the box (stock YouTube, browsers, SmartTube) without changing the OS or launcher:
+- Optional: run the included setup script to remove every other YouTube-capable app on the box (stock YouTube, browsers, SmartTube) without changing the OS or launcher. It picks the right app build automatically (ARM64 for modern boxes like the Onn 4K Pro, 32-bit ARM for older devices):
 
 ```powershell
 pwsh tools/onn_setup.ps1 -Serial 192.168.1.172:5555
 ```
 
-- Sign in on the TV with the Google account whose Likes/subscriptions define the allowed catalog.
+- Sign in on the TV with the Google account whose Likes/subscriptions define the allowed catalog. Signed-out/guest mode shows nothing, by design.
 - Phone remote control: open the YouTube app on your phone, tap the cast/remote icon, and pair with this TV (standard YouTube TV pairing). Pairing passes through the filter untouched; only disallowed playback is blocked, so phone control of the TV works while the TV still refuses to play anything outside the allowed list.
 
-## T Install and sign in
+## Install and sign in
 
 1. Download the correct APK above.
 2. Sideload/install it on the Android TV / Google TV device.
@@ -83,7 +80,7 @@ pwsh tools/onn_setup.ps1 -Serial 192.168.1.172:5555
 4. Sign into the same YouTube account whose Likes and subscriptions should define the allowed catalog.
 5. Reload/relaunch the app after making account changes elsewhere when you want to force a fresh allowlist sync immediately.
 
-## 9 Upstream community & support
+## Upstream community & support
 
 For upstream TizenTube questions, see the original project's community links:
 

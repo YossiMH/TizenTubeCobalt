@@ -13,10 +13,20 @@
 
 param(
     [string]$Serial = '192.168.1.172:5555',
-    [string]$ApkPath = (Join-Path $PSScriptRoot '..\.temp\release-build\dist\TizenTube-Liked-Subs-arm.apk'),
+    [string]$ApkPath = '',
     [string]$Adb = 'C:\Users\YossiMH\AppData\Local\Android\Sdk\platform-tools\adb.exe',
     [switch]$Restore
 )
+
+# Pick the app build that matches the box: ARM64 for modern boxes like the Onn
+# 4K Pro, 32-bit ARM for older devices. The release ships both.
+function Get-MatchingApk {
+    param([string]$DeviceAbi)
+    if ($DeviceAbi -like 'arm64*') {
+        return (Join-Path $PSScriptRoot '..\.temp\release-build\dist\TizenTube-Liked-Subs-arm64.apk')
+    }
+    return (Join-Path $PSScriptRoot '..\.temp\release-build\dist\TizenTube-Liked-Subs-arm.apk')
+}
 
 $ErrorActionPreference = 'Stop'
 
@@ -67,6 +77,11 @@ if ($Restore) {
     exit 0
 }
 
+if (-not $ApkPath) {
+    $DeviceAbi = (& $Adb -s $Serial shell getprop ro.product.cpu.abi 2>$null | Select-Object -First 1).Trim()
+    $ApkPath = Get-MatchingApk -DeviceAbi $DeviceAbi
+    Write-Host "Device ABI: $DeviceAbi -> $(Split-Path $ApkPath -Leaf)"
+}
 if (-not (Test-Path $ApkPath)) { throw "APK not found: $ApkPath" }
 
 Write-Host '=== Installing fixed release APK ==='

@@ -60,24 +60,36 @@ def build_test_apk(tmp: Path) -> Path:
         # Real binary manifests carry strings in UTF-16, so exercise both encodings.
         z.writestr('AndroidManifest.xml', (OLD_PACKAGE.decode() + '\nTizenTube\n').encode('utf-16le'))
         z.writestr('classes.dex', dex)
-        z.writestr('lib/arm64-v8a/libchrobalt.so', polyfill + OLD_PACKAGE + b' TizenTube')
+        z.writestr('lib/arm64-v8a/libchrobalt.so', polyfill + OLD_PACKAGE + b' TizenTube ' + patcher.UPSTREAM_USERSCRIPT_URL)
     return in_apk
 
 
 def main() -> None:
     # The document-start loader must never use eval: YouTube TV enforces Trusted
     # Types CSP and refuses eval, so the filter would silently never install.
-    loader = patcher.make_document_start_loader('https://example.test/x.js', 4096)
+    polyfill = (REPO_ROOT / patcher.POLYFILL_PATH).read_bytes()
+    loader = patcher.make_document_start_loader(
+        'https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@752b76abfc5b69033e44115b31db41318c9162a3/x.js',
+        len(polyfill),
+    )
     assert b'eval' not in loader, 'loader must not use eval (Trusted Types blocks it)'
     assert b'createElement' in loader, 'loader must inject a script element'
     assert b'appendChild' in loader, 'loader must append the script element'
+    # YouTube TV enforces Trusted Types: assigning a plain string to script.src is
+    # refused ("This document requires 'TrustedScriptURL' assignment"), so the
+    # loader must wrap the URL in a TrustedScriptURL produced by a policy.
+    assert b'trustedTypes' in loader, 'loader must use the Trusted Types factory'
+    assert b'createScriptURL' in loader, 'loader must produce a TrustedScriptURL'
+    assert b'@752b76a/x.js' in loader, 'loader must pin the 7-char SHA of the filter commit'
+    assert len(loader.rstrip(b' ')) <= len(polyfill), 'loader must fit the embedded polyfill slot'
 
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
         in_apk = build_test_apk(tmp)
         out_apk = tmp / 'out.apk'
         counts, libs, _, _ = patcher.patch_apk(
-            in_apk, out_apk, REPO_ROOT, 'https://example.test/x.js',
+            in_apk, out_apk, REPO_ROOT,
+            'https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@752b76abfc5b69033e44115b31db41318c9162a3/x.js',
         )
         assert counts['package_ascii'] >= 1, counts
         assert counts['package_utf16'] >= 1, counts
@@ -92,6 +104,15 @@ def main() -> None:
         with zipfile.ZipFile(out_apk) as z:
             so = z.read('lib/arm64-v8a/libchrobalt.so')
         assert b'eval' not in so, 'patched .so must not contain an eval-based loader'
+        # The upstream app's native user-script injection must now point at our
+        # filter script, byte-for-byte the same length so string tables stay valid.
+        assert b'foxreis' not in so, 'upstream user-script URL must be redirected'
+        native = patcher.pinned_cdn_url(
+            'https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@752b76abfc5b69033e44115b31db41318c9162a3/x.js', 9
+        ).encode()
+        assert len(native) == len(patcher.UPSTREAM_USERSCRIPT_URL)
+        assert native in so, 'native injection must point at the filter script'
+        assert counts['upstream_script_redirect'] >= 1, counts
     print('All APK patcher dex-integrity and loader-safety tests passed.')
 
 

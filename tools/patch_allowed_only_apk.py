@@ -11,6 +11,13 @@ NEW_PACKAGE = b"io.gh.yossim.tizentube.cobalt"
 OLD_LABEL = b"TizenTube"
 NEW_LABEL = b"TizenSub+"
 POLYFILL_PATH = Path("cobalt/shell/embedded_resources/cobalt_java_script_polyfill/html_media_element_extension_on_java_bridge.js")
+# The upstream release injects its user script from this exact URL through a
+# native (Cobalt/V8) path that is exempt from the page's Trusted Types policy.
+# Replacing the bytes with our own same-length CDN URL redirects that native
+# injection to the allowed-only filter script.
+UPSTREAM_USERSCRIPT_URL = b"https://cdn.jsdelivr.net/npm/@foxreis/tizentube/dist/userScript.js"
+ALLOWED_ONLY_CDN_PREFIX = "https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@"
+XJS_SUFFIX = "/x.js"
 
 
 def replace_same_length(data: bytes, old: bytes, new: bytes):
@@ -40,16 +47,40 @@ def re_sign_dex(data: bytes) -> bytes:
     return bytes(body)
 
 
+def pinned_cdn_url(script_url: str, sha_chars: int) -> str:
+    """Short-SHA CDN pin that fits the fixed-size byte slots in the APK.
+
+    The native injection slot is exactly 66 bytes (the upstream user-script
+    URL), so its pin uses 9 SHA characters; the document-start loader slot is
+    288 bytes, so it uses a 7-character pin.
+    """
+    if not script_url.startswith(ALLOWED_ONLY_CDN_PREFIX) or not script_url.endswith(XJS_SUFFIX):
+        raise ValueError(f"Unsupported filter URL: {script_url!r}")
+    sha = script_url[len(ALLOWED_ONLY_CDN_PREFIX):-len(XJS_SUFFIX)]
+    if len(sha) < 10:
+        raise ValueError(f"Filter URL SHA too short: {sha!r}")
+    return ALLOWED_ONLY_CDN_PREFIX + sha[:sha_chars] + XJS_SUFFIX
+
+
 def make_document_start_loader(script_url: str, target_size: int) -> bytes:
-    # Trusted-Types-safe: YouTube TV's CSP refuses eval(), so the filter must be
-    # injected as a real <script> element (the same mechanism upstream uses).
+    # Trusted-Types-safe: YouTube TV's CSP refuses eval() and refuses assigning a
+    # plain string to script.src ("This document requires 'TrustedScriptURL'
+    # assignment"). The loader therefore creates a Trusted Types policy that
+    # wraps the URL, and falls back to a plain assignment on pages without
+    # Trusted Types. It must fit the original polyfill's fixed byte size.
+    dom_url = pinned_cdn_url(script_url, 7)
     loader = (
         'if(/(^|\\.)youtube\\.com$/.test(location.hostname)){'
-        'var s=document.createElement("script");s.src=' + repr(script_url) + ';'
-        '(document.head||document.documentElement).appendChild(s)}'
+        "u='" + dom_url + "',s=document.createElement('script'),"
+        's.src=trustedTypes?trustedTypes.createPolicy("t",{createScriptURL:x=>x}).createScriptURL(u):u,'
+        'document.documentElement.appendChild(s)}'
     ).encode("utf-8")
     if len(loader) > target_size:
         raise ValueError(f"Document-start loader is {len(loader)} bytes, larger than {target_size}-byte embedded polyfill")
+    if b"eval(" in loader or b"eval " in loader:
+        raise ValueError("Loader must never use eval (YouTube TV Trusted Types refuses it)")
+    if b"createScriptURL" not in loader:
+        raise ValueError("Loader must use a Trusted Types policy for script.src")
     # JavaScript whitespace padding preserves the generated resource's fixed byte size.
     return loader + (b" " * (target_size - len(loader)))
 
@@ -65,6 +96,11 @@ def should_strip_signature(name: str) -> bool:
 def patch_apk(input_apk: Path, output_apk: Path, repo_root: Path, script_url: str):
     polyfill = (repo_root / POLYFILL_PATH).read_bytes()
     loader = make_document_start_loader(script_url, len(polyfill))
+    native_url = pinned_cdn_url(script_url, 9).encode("utf-8")
+    if len(native_url) != len(UPSTREAM_USERSCRIPT_URL):
+        raise ValueError(
+            f"Native redirect URL length {len(native_url)} != upstream {len(UPSTREAM_USERSCRIPT_URL)}"
+        )
 
     counts = {
         "package_ascii": 0,
@@ -73,6 +109,7 @@ def patch_apk(input_apk: Path, output_apk: Path, repo_root: Path, script_url: st
         "label_utf16": 0,
         "polyfill": 0,
         "signatures_removed": 0,
+        "upstream_script_redirect": 0,
     }
     lib_seen = []
 
@@ -98,6 +135,13 @@ def patch_apk(input_apk: Path, output_apk: Path, repo_root: Path, script_url: st
                     data = data.replace(polyfill, loader)
                     counts["polyfill"] += matches
 
+            # Redirect the upstream app's native user-script injection to our
+            # filter script. Same length, so every string table/offset stays valid.
+            upstream_count = data.count(UPSTREAM_USERSCRIPT_URL)
+            if upstream_count:
+                data = data.replace(UPSTREAM_USERSCRIPT_URL, native_url)
+                counts["upstream_script_redirect"] += upstream_count
+
             # In-place byte replacement invalidates the dex header signature;
             # re-sign so ART can load the dex at runtime.
             if info.filename.endswith(".dex"):
@@ -113,6 +157,10 @@ def patch_apk(input_apk: Path, output_apk: Path, repo_root: Path, script_url: st
         )
     if counts["package_ascii"] + counts["package_utf16"] < 1:
         raise RuntimeError("Could not find the upstream applicationId in the APK")
+    if counts["upstream_script_redirect"] < 1:
+        raise RuntimeError(
+            f"Could not find the upstream user-script URL to redirect; upstream release may have changed: {counts}"
+        )
 
     return counts, lib_seen, len(polyfill), len(loader.rstrip(b" "))
 
