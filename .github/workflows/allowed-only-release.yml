@@ -1,1 +1,234 @@
-IyBSZWxlYXNlIHdvcmtmbG93IGZvciB0aGUgbGlrZWQvc3Vic2NyaWJlZC1vbmx5IGZvcmsuCm5hbWU6IEJ1aWxkIEFsbG93ZWQtT25seSBBUEtzCgpvbjoKICBwdXNoOgogICAgYnJhbmNoZXM6IFttYWluXQogICAgcGF0aHM6CiAgICAgIC0geC5qcwogICAgICAtIGNvYmFsdC9zaGVsbC9lbWJlZGRlZF9yZXNvdXJjZXMvY29iYWx0X2phdmFfc2NyaXB0X3BvbHlmaWxsL3RpemVudHViZV9hbGxvd2VkX29ubHlfbG9hZGVyLmpzCiAgICAgIC0gdG9vbHMvdGl6ZW50dWJlX2FsbG93ZWRfb25seV90ZXN0LmpzCiAgICAgIC0gdG9vbHMvc2lnbmluZ19pZGVudGl0eV90ZXN0LmpzCiAgICAgIC0gdG9vbHMvdmVyaWZ5X3NpZ25pbmdfaWRlbnRpdHkuanMKICAgICAgLSB0b29scy9yZWxlYXNlLXNpZ25pbmctZmluZ2VycHJpbnQudHh0CiAgICAgIC0gdG9vbHMvcGF0Y2hfYWxsb3dlZF9vbmx5X2Fway5weQogICAgICAtIC5naXRodWIvd29ya2Zsb3dzL2FsbG93ZWQtb25seS1yZWxlYXNlLnltbAogIHdvcmtmbG93X2Rpc3BhdGNoOgogICAgaW5wdXRzOgogICAgICByZWxlYXNlX3RhZzoKICAgICAgICBkZXNjcmlwdGlvbjogJ1JlbGVhc2UgdGFnIHRvIHB1Ymxpc2ggKG11c3Qgbm90IGFscmVhZHkgZXhpc3QpJwogICAgICAgIHJlcXVpcmVkOiBmYWxzZQogICAgICAgIGRlZmF1bHQ6ICdhbGxvd2VkLW9ubHktdjEnCgpwZXJtaXNzaW9uczoKICBjb250ZW50czogd3JpdGUKCmNvbmN1cnJlbmN5OgogIGdyb3VwOiBhbGxvd2VkLW9ubHktcmVsZWFzZQogIGNhbmNlbC1pbi1wcm9ncmVzczogdHJ1ZQoKam9iczoKICBidWlsZDoKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHRpbWVvdXQtbWludXRlczogMzAKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFjdGlvbnMvY2hlY2tvdXRAdjQKICAgICAgICB3aXRoOgogICAgICAgICAgc3BhcnNlLWNoZWNrb3V0OiB8CiAgICAgICAgICAgIHguanMKICAgICAgICAgICAgdG9vbHMKICAgICAgICAgICAgY29iYWx0L3NoZWxsL2VtYmVkZGVkX3Jlc291cmNlcy9jb2JhbHRfamF2YV9zY3JpcHRfcG9seWZpbGwKCiAgICAgIC0gbmFtZTogUnVuIGZpbHRlciB1bml0IHRlc3RzCiAgICAgICAgcnVuOiBub2RlIHRvb2xzL3RpemVudHViZV9hbGxvd2VkX29ubHlfdGVzdC5qcyAmJiBub2RlIHRvb2xzL3NpZ25pbmdfaWRlbnRpdHlfdGVzdC5qcwoKICAgICAgLSBuYW1lOiBEb3dubG9hZCB1cHN0cmVhbSB2Mi4wLjIgQVBLcwogICAgICAgIHJ1bjogfAogICAgICAgICAgbWtkaXIgLXAgZGlzdCB3b3JrCiAgICAgICAgICBjdXJsIC1MIC0tZmFpbCAtLXJldHJ5IDQgLS1yZXRyeS1hbGwtZXJyb3JzIFwKICAgICAgICAgICAgLW8gd29yay91cHN0cmVhbS1hcm0uYXBrIFwKICAgICAgICAgICAgaHR0cHM6Ly9naXRodWIuY29tL3JlaXN4ZC9UaXplblR1YmVDb2JhbHQvcmVsZWFzZXMvZG93bmxvYWQvdjIuMC4yL2NvYmFsdC1hcm0uYXBrCiAgICAgICAgICBjdXJsIC1MIC0tZmFpbCAtLXJldHJ5IDQgLS1yZXRyeS1hbGwtZXJyb3JzIFwKICAgICAgICAgICAgLW8gd29yay91cHN0cmVhbS1hcm02NC5hcGsgXAogICAgICAgICAgICBodHRwczovL2dpdGh1Yi5jb20vcmVpc3hkL1RpemVuVHViZUNvYmFsdC9yZWxlYXNlcy9kb3dubG9hZC92Mi4wLjIvY29iYWx0LWFybTY0LmFwawogICAgICAgICAgZWNobyAnZmY5MGM2ZTg1YzM3MjQ2YjgwOWNjYTgwMjgyOTEwNTA5NzgyYzEzODRlY2NmYmI2MDY2ZGEzYjQ5N2RkOWZkMiAgd29yay91cHN0cmVhbS1hcm0uYXBrJyB8IHNoYTI1NnN1bSAtYyAtCiAgICAgICAgICBlY2hvICcwZThhOWNmZmM3N2EwOGNkMTE2ZDM4ZTI2MmMzZTlkN2YyNjFiYTIwOTNiNWIyZDJlZjkwNWY1MDljOTkxMzNjICB3b3JrL3Vwc3RyZWFtLWFybTY0LmFwaycgfCBzaGEyNTZzdW0gLWMgLQoKICAgICAgLSBuYW1lOiBQYXRjaCBkb2N1bWVudC1zdGFydCBmaWx0ZXIgYW5kIGZvcmsgcGFja2FnZSBpZAogICAgICAgIGVudjoKICAgICAgICAgIEZJTFRFUl9VUkw6IGh0dHBzOi8vY2RuLmpzZGVsaXZyLm5ldC9naC9Zb3NzaU1IL1RpemVuVHViZUNvYmFsdEAke3sgZ2l0aHViLnNoYSB9fS94LmpzCiAgICAgICAgcnVuOiB8CiAgICAgICAgICBweXRob24zIHRvb2xzL3BhdGNoX2FsbG93ZWRfb25seV9hcGsucHkgd29yay91cHN0cmVhbS1hcm0uYXBrIHdvcmsvYXJtLXVuc2lnbmVkLmFwayAtLXNjcmlwdC11cmwgIiRGSUxURVJfVVJMIgogICAgICAgICAgcHl0aG9uMyB0b29scy9wYXRjaF9hbGxvd2VkX29ubHlfYXBrLnB5IHdvcmsvdXBzdHJlYW0tYXJtNjQuYXBrIHdvcmsvYXJtNjQtdW5zaWduZWQuYXBrIC0tc2NyaXB0LXVybCAiJEZJTFRFUl9VUkwiCgogICAgICAtIG5hbWU6IExvY2F0ZSBBbmRyb2lkIGJ1aWxkIHRvb2xzCiAgICAgICAgaWQ6IGFuZHJvaWQtdG9vbHMKICAgICAgICBzaGVsbDogYmFzaAogICAgICAgIHJ1bjogfAogICAgICAgICAgU0RLX1JPT1Q9IiR7QU5EUk9JRF9TREtfUk9PVDotJHtBTkRST0lEX0hPTUU6LX19IgogICAgICAgICAgdGVzdCAtbiAiJFNES19ST09UIgogICAgICAgICAgQlVJTERfVE9PTFNfVkVSU0lPTj0kKGZpbmQgIiRTREtfUk9PVC9idWlsZC10b29scyIgLW1pbmRlcHRoIDEgLW1heGRlcHRoIDEgLXR5cGUgZCAtcHJpbnRmICclZlxuJyB8IHNvcnQgLVYgfCB0YWlsIC1uMSkKICAgICAgICAgIGVjaG8gImRpcj0kU0RLX1JPT1QvYnVpbGQtdG9vbHMvJEJVSUxEX1RPT0xTX1ZFUlNJT04iID4+ICIkR0lUSFVCX09VVFBVVCIKICAgICAgICAgICIkU0RLX1JPT1QvYnVpbGQtdG9vbHMvJEJVSUxEX1RPT0xTX1ZFUlNJT04vYXBrc2lnbmVyIiB2ZXJzaW9uCgogICAgICAtIG5hbWU6IFJlc3RvcmUgcGVyc2lzdGVudCBmb3JrIHNpZ25pbmcga2V5CiAgICAgICAgZW52OgogICAgICAgICAgS1NfQjY0OiAke3sgc2VjcmV0cy5BTExPV0VEX09OTFlfS0VZU1RPUkVfQkFTRTY0IH19CiAgICAgICAgICBLU19QQVNTOiAke3sgc2VjcmV0cy5BTExPV0VEX09OTFlfS0VZU1RPUkVfUEFTU1dPUkQgfX0KICAgICAgICBydW46IHwKICAgICAgICAgIGlmIFsgLXogIiRLU19CNjQiIF0gfHwgWyAteiAiJEtTX1BBU1MiIF07IHRoZW4KICAgICAgICAgICAgZWNobyAiOjplcnJvcjo6UGVyc2lzdGVudCBzaWduaW5nIGtleSBpcyBub3QgY29uZmlndXJlZC4gUmVmdXNpbmcgdG8gYnVpbGQgd2l0aCBhIHRocm93YXdheSBrZXk6IGZ1dHVyZSByZWxlYXNlcyB3b3VsZCBub3QgaW5zdGFsbCBvdmVyIHByZXZpb3VzIGluc3RhbGxzLiBDb25maWd1cmUgQUxMT1dFRF9PTkxZX0tFWVNUT1JFX0JBU0U2NCBhbmQgQUxMT1dFRF9PTkxZX0tFWVNUT1JFX1BBU1NXT1JEIGZyb20gdGhlIHByaXZhdGUga2V5IGJhY2t1cC4gVGhlIGV4cGVjdGVkIGlkZW50aXR5IGlzIHBpbm5lZCBpbiB0b29scy9yZWxlYXNlLXNpZ25pbmctZmluZ2VycHJpbnQudHh0LiIKICAgICAgICAgICAgZXhpdCAxCiAgICAgICAgICBmaQogICAgICAgICAgZWNobyAiJEtTX0I2NCIgPiB3b3JrL2tleXN0b3JlLmI2NAogICAgICAgICAgcHJpbnRmICclcycgIiRLU19QQVNTIiA+IHdvcmsva2V5c3RvcmUucGFzcwogICAgICAgICAgbm9kZSB0b29scy92ZXJpZnlfc2lnbmluZ19pZGVudGl0eS5qcyB3b3JrL2tleXN0b3JlLmI2NCB3b3JrL2tleXN0b3JlLnBhc3MgdG9vbHMvcmVsZWFzZS1zaWduaW5nLWZpbmdlcnByaW50LnR4dAogICAgICAgICAgYmFzZTY0IC1kIHdvcmsva2V5c3RvcmUuYjY0ID4gd29yay9hbGxvd2VkLW9ubHkua2V5c3RvcmUKCiAgICAgIC0gbmFtZTogQWxpZ24sIHNpZ24sIGFuZCBzdGF0aWNhbGx5IHZlcmlmeSBBUEtzCiAgICAgICAgZW52OgogICAgICAgICAgQlQ6ICR7eyBzdGVwcy5hbmRyb2lkLXRvb2xzLm91dHB1dHMuZGlyIH19CiAgICAgICAgICBLU19QQVNTOiAke3sgc2VjcmV0cy5BTExPV0VEX09OTFlfS0VZU1RPUkVfUEFTU1dPUkQgfX0KICAgICAgICBzaGVsbDogYmFzaAogICAgICAgIHJ1bjogfAogICAgICAgICAgc2V0IC1ldW8gcGlwZWZhaWwKICAgICAgICAgIHNpZ25fb25lKCkgewogICAgICAgICAgICBpbl9hcGs9IiQxIgogICAgICAgICAgICBvdXRfYXBrPSIkMiIKICAgICAgICAgICAgYWxpZ25lZD0iJHtpbl9hcGslLmFwa30tYWxpZ25lZC5hcGsiCiAgICAgICAgICAgICIkQlQvemlwYWxpZ24iIC1wIC1mIDQgIiRpbl9hcGsiICIkYWxpZ25lZCIKICAgICAgICAgICAgIiRCVC9hcGtzaWduZXIiIHNpZ24gXAogICAgICAgICAgICAgIC0ta3Mgd29yay9hbGxvd2VkLW9ubHkua2V5c3RvcmUgXAogICAgICAgICAgICAgIC0ta3Mta2V5LWFsaWFzIGFsbG93ZWRvbmx5IFwKICAgICAgICAgICAgICAtLWtzLXBhc3MgInBhc3M6JEtTX1BBU1MiIFwKICAgICAgICAgICAgICAtLWtleS1wYXNzICJwYXNzOiRLU19QQVNTIiBcCiAgICAgICAgICAgICAgLS1vdXQgIiRvdXRfYXBrIiAiJGFsaWduZWQiCiAgICAgICAgICAgICIkQlQvYXBrc2lnbmVyIiB2ZXJpZnkgLS12ZXJib3NlIC0tcHJpbnQtY2VydHMgIiRvdXRfYXBrIgogICAgICAgICAgICAiJEJUL3ppcGFsaWduIiAtYyAtcCA0ICIkb3V0X2FwayIKICAgICAgICAgICAgIiRCVC9hYXB0IiBkdW1wIGJhZGdpbmcgIiRvdXRfYXBrIiB8IHRlZSAiJG91dF9hcGsuYmFkZ2luZy50eHQiCiAgICAgICAgICAgIGdyZXAgLXEgInBhY2thZ2U6IG5hbWU9J2lvLmdoLnlvc3NpbS50aXplbnR1YmUuY29iYWx0JyIgIiRvdXRfYXBrLmJhZGdpbmcudHh0IgogICAgICAgICAgICBncmVwIC1xICJhcHBsaWNhdGlvbi1sYWJlbDonVGl6ZW5TdWIrJyIgIiRvdXRfYXBrLmJhZGdpbmcudHh0IgogICAgICAgICAgfQogICAgICAgICAgc2lnbl9vbmUgd29yay9hcm0tdW5zaWduZWQuYXBrIGRpc3QvVGl6ZW5UdWJlLUxpa2VkLVN1YnMtYXJtLmFwawogICAgICAgICAgc2lnbl9vbmUgd29yay9hcm02NC11bnNpZ25lZC5hcGsgZGlzdC9UaXplblR1YmUtTGlrZWQtU3Vicy1hcm02NC5hcGsKICAgICAgICAgIHNoYTI1NnN1bSBkaXN0LyouYXBrIHwgdGVlIGRpc3QvU0hBMjU2U1VNUy50eHQKCiAgICAgIC0gbmFtZTogVmVyaWZ5IHNpZ25lZCBBUEsgY2VydGlmaWNhdGUgbWF0Y2hlcyBwaW5uZWQgaWRlbnRpdHkKICAgICAgICBlbnY6CiAgICAgICAgICBCVDogJHt7IHN0ZXBzLmFuZHJvaWQtdG9vbHMub3V0cHV0cy5kaXIgfX0KICAgICAgICBzaGVsbDogYmFzaAogICAgICAgIHJ1bjogfAogICAgICAgICAgc2V0IC1ldW8gcGlwZWZhaWwKICAgICAgICAgIGV4cGVjdGVkPSQoYXdrIC1GJ1NIQTI1NjonICcvXlNIQTI1Njove3ByaW50ICQyfScgdG9vbHMvcmVsZWFzZS1zaWduaW5nLWZpbmdlcnByaW50LnR4dCB8IHRyIC1kICc6JyB8IHRyICdhLWYnICdBLUYnKQogICAgICAgICAgZm9yIGFwayBpbiBkaXN0L1RpemVuVHViZS1MaWtlZC1TdWJzLWFybS5hcGsgZGlzdC9UaXplblR1YmUtTGlrZWQtU3Vicy1hcm02NC5hcGs7IGRvCiAgICAgICAgICAgIGFjdHVhbD0kKCIkQlQvYXBrc2lnbmVyIiB2ZXJpZnkgLS1wcmludC1jZXJ0cyAiJGFwayIgfCBncmVwIC1pICdTSEEtMjU2JyB8IHNlZCAtRSAncy8uKmRpZ2VzdDogKi8vJyB8IHRyIC1kICc6JyB8IHRyICdhLWYnICdBLUYnKQogICAgICAgICAgICBpZiBbICIkYWN0dWFsIiAhPSAiJGV4cGVjdGVkIiBdOyB0aGVuCiAgICAgICAgICAgICAgZWNobyAiOjplcnJvcjo6JGFwayBjZXJ0aWZpY2F0ZSBmaW5nZXJwcmludCAkYWN0dWFsIGRvZXMgbm90IG1hdGNoIHBpbm5lZCBpZGVudGl0eSAkZXhwZWN0ZWQiCiAgICAgICAgICAgICAgZXhpdCAxCiAgICAgICAgICAgIGZpCiAgICAgICAgICAgIGVjaG8gIiRhcGsgY2VydGlmaWNhdGUgbWF0Y2hlcyBwaW5uZWQgc2lnbmluZyBpZGVudGl0eSIKICAgICAgICAgIGRvbmUKCiAgICAgIC0gbmFtZTogVmVyaWZ5IHBhdGNoZWQgZG9jdW1lbnQtc3RhcnQgbG9hZGVyIGlzIHByZXNlbnQKICAgICAgICBlbnY6CiAgICAgICAgICBFWFBFQ1RFRF9VUkw6IGh0dHBzOi8vY2RuLmpzZGVsaXZyLm5ldC9naC9Zb3NzaU1IL1RpemVuVHViZUNvYmFsdEAke3sgZ2l0aHViLnNoYSB9fS94LmpzCiAgICAgICAgcnVuOiB8CiAgICAgICAgICBweXRob24zIC0gPDwnUFknCiAgICAgICAgICBpbXBvcnQgb3MsIHppcGZpbGUKICAgICAgICAgIGV4cGVjdGVkID0gb3MuZW52aXJvblsnRVhQRUNURURfVVJMJ10uZW5jb2RlKCkKICAgICAgICAgIGZvciBhcGsgaW4gWydkaXN0L1RpemVuVHViZS1MaWtlZC1TdWJzLWFybS5hcGsnLCAnZGlzdC9UaXplblR1YmUtTGlrZWQtU3Vicy1hcm02NC5hcGsnXToKICAgICAgICAgICAgICB3aXRoIHppcGZpbGUuWmlwRmlsZShhcGspIGFzIHo6CiAgICAgICAgICAgICAgICAgIGxpYnMgPSBbbiBmb3IgbiBpbiB6Lm5hbWVsaXN0KCkgaWYgbi5lbmRzd2l0aCgnL2xpYmNocm9iYWx0LnNvJyldCiAgICAgICAgICAgICAgICAgIGFzc2VydCBsaWJzLCBhcGsKICAgICAgICAgICAgICAgICAgaGl0cyA9IHN1bSh6LnJlYWQobikuY291bnQoZXhwZWN0ZWQpIGZvciBuIGluIGxpYnMpCiAgICAgICAgICAgICAgICAgIGFzc2VydCBoaXRzID09IDEsIChhcGssIGxpYnMsIGhpdHMpCiAgICAgICAgICAgICAgICAgIHByaW50KGFwaywgJ2NvbnRhaW5zIHBpbm5lZCBkb2N1bWVudC1zdGFydCBsb2FkZXIgaW4nLCBsaWJzKQogICAgICAgICAgUFkKCiAgICAgIC0gbmFtZTogVXBsb2FkIEFQSyBhcnRpZmFjdAogICAgICAgIHVzZXM6IGFjdGlvbnMvdXBsb2FkLWFydGlmYWN0QHY0CiAgICAgICAgd2l0aDoKICAgICAgICAgIG5hbWU6IFRpemVuVHViZS1MaWtlZC1TdWJzLUFQS3MKICAgICAgICAgIHBhdGg6IHwKICAgICAgICAgICAgZGlzdC9UaXplblR1YmUtTGlrZWQtU3Vicy1hcm0uYXBrCiAgICAgICAgICAgIGRpc3QvVGl6ZW5UdWJlLUxpa2VkLVN1YnMtYXJtNjQuYXBrCiAgICAgICAgICAgIGRpc3QvU0hBMjU2U1VNUy50eHQKICAgICAgICAgIGlmLW5vLWZpbGVzLWZvdW5kOiBlcnJvcgoKICBlbXVsYXRvci1zbW9rZToKICAgIG5lZWRzOiBidWlsZAogICAgcnVucy1vbjogbWFjb3MtMTUtaW50ZWwKICAgIHRpbWVvdXQtbWludXRlczogMzAKICAgIGNvbnRpbnVlLW9uLWVycm9yOiB0cnVlCiAgICBzdGVwczoKICAgICAgLSB1c2VzOiBhY3Rpb25zL2Rvd25sb2FkLWFydGlmYWN0QHY0CiAgICAgICAgd2l0aDoKICAgICAgICAgIG5hbWU6IFRpemVuVHViZS1MaWtlZC1TdWJzLUFQS3MKICAgICAgICAgIHBhdGg6IGRpc3QKCiAgICAgIC0gbmFtZTogQm9vdCBBbmRyb2lkIDExIGVtdWxhdG9yLCBpbnN0YWxsIEFSTSBBUEssIGFuZCBsYXVuY2gKICAgICAgICBpZDogZW11bGF0b3IKICAgICAgICB1c2VzOiByZWFjdGl2ZWNpcmN1cy9hbmRyb2lkLWVtdWxhdG9yLXJ1bm5lckB2MgogICAgICAgIHdpdGg6CiAgICAgICAgICBhcGktbGV2ZWw6IDMwCiAgICAgICAgICB0YXJnZXQ6IGdvb2dsZV9hcGlzCiAgICAgICAgICBhcmNoOiB4ODZfNjQKICAgICAgICAgIHByb2ZpbGU6IHBpeGVsXzIKICAgICAgICAgIGVtdWxhdG9yLWJvb3QtdGltZW91dDogNjAwCiAgICAgICAgICBkaXNhYmxlLWFuaW1hdGlvbnM6IGZhbHNlCiAgICAgICAgICBzY3JpcHQ6IHwKICAgICAgICAgICAgYWRiIHNoZWxsIGdldHByb3Agcm8ucHJvZHVjdC5jcHUuYWJpbGlzdCB8IHRyIC1kICdccicgfCB0ZWUgL3RtcC90aXplbnR1YmUtYWJpcy50eHQKICAgICAgICAgICAgZ3JlcCAtcSAnYXJtZWFiaS12N2EnIC90bXAvdGl6ZW50dWJlLWFiaXMudHh0CiAgICAgICAgICAgIGFkYiBsb2djYXQgLWMKICAgICAgICAgICAgYWRiIGluc3RhbGwgLS1uby1zdHJlYW1pbmcgLXIgZGlzdC9UaXplblR1YmUtTGlrZWQtU3Vicy1hcm0uYXBrIHx8IHsgYWRiIGxvZ2NhdCAtZCA+IC90bXAvdGl6ZW50dWJlLWxvZ2NhdC50eHQ7IGFkYiBsb2djYXQgLWIgY3Jhc2ggLWQgPiAvdG1wL3RpemVudHViZS1jcmFzaC50eHQ7IGV4aXQgMTsgfQogICAgICAgICAgICBhZGIgc2hlbGwgY21kIHBhY2thZ2UgcmVzb2x2ZS1hY3Rpdml0eSAtLWJyaWVmIGlvLmdoLnlvc3NpbS50aXplbnR1YmUuY29iYWx0IHwgdHIgLWQgJ1xyJyB8IHRhaWwgLW4xIHwgdGVlIC90bXAvdGl6ZW50dWJlLWFjdGl2aXR5LnR4dAogICAgICAgICAgICB0ZXN0IC1zIC90bXAvdGl6ZW50dWJlLWFjdGl2aXR5LnR4dAogICAgICAgICAgICBhZGIgbG9nY2F0IC1jCiAgICAgICAgICAgIGFkYiBzaGVsbCBhbSBzdGFydCAtVyAtbiAiJChjYXQgL3RtcC90aXplbnR1YmUtYWN0aXZpdHkudHh0KSIKICAgICAgICAgICAgc2xlZXAgMTIKICAgICAgICAgICAgYWRiIHNoZWxsIHBpZG9mIGlvLmdoLnlvc3NpbS50aXplbnR1YmUuY29iYWx0CiAgICAgICAgICAgIGFkYiBzaGVsbCBkdW1wc3lzIHdpbmRvdyB8IGdyZXAgLUUgJ21DdXJyZW50Rm9jdXN8bUZvY3VzZWRBcHAnIHx8IHRydWUKICAgICAgICAgICAgYWRiIGV4ZWMtb3V0IHNjcmVlbmNhcCAtcCA+IC90bXAvdGl6ZW50dWJlLXNtb2tlLnBuZwogICAgICAgICAgICBhZGIgbG9nY2F0IC1kID4gL3RtcC90aXplbnR1YmUtbG9nY2F0LnR4dAogICAgICAgICAgICBhZGIgbG9nY2F0IC1iIGNyYXNoIC1kID4gL3RtcC90aXplbnR1YmUtY3Jhc2gudHh0CiAgICAgICAgICAgICEgZ3JlcCAtcSAnaW8uZ2gueW9zc2ltLnRpemVudHViZS5jb2JhbHQnIC90bXAvdGl6ZW50dWJlLWNyYXNoLnR4dAoKICAgICAgLSBuYW1lOiBVcGxvYWQgZW11bGF0b3IgZXZpZGVuY2UKICAgICAgICBpZjogYWx3YXlzKCkKICAgICAgICB1c2VzOiBhY3Rpb25zL3VwbG9hZC1hcnRpZmFjdEB2NAogICAgICAgIHdpdGg6CiAgICAgICAgICBuYW1lOiBlbXVsYXRvci1zbW9rZS1ldmlkZW5jZQogICAgICAgICAgcGF0aDogfAogICAgICAgICAgICAvdG1wL3RpemVudHViZS1zbW9rZS5wbmcKICAgICAgICAgICAgL3RtcC90aXplbnR1YmUtbG9nY2F0LnR4dAogICAgICAgICAgICAvdG1wL3RpemVudHViZS1jcmFzaC50eHQKICAgICAgICAgICAgL3RtcC90aXplbnR1YmUtYWJpcy50eHQKICAgICAgICAgICAgL3RtcC90aXplbnR1YmUtYWN0aXZpdHkudHh0CiAgICAgICAgICBpZi1uby1maWxlcy1mb3VuZDogaWdub3JlCgogIHJlbGVhc2U6CiAgICBuZWVkczogW2J1aWxkLCBlbXVsYXRvci1zbW9rZV0KICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFjdGlvbnMvZG93bmxvYWQtYXJ0aWZhY3RAdjQKICAgICAgICB3aXRoOgogICAgICAgICAgbmFtZTogVGl6ZW5UdWJlLUxpa2VkLVN1YnMtQVBLcwogICAgICAgICAgcGF0aDogZGlzdAoKICAgICAgLSBuYW1lOiBQdWJsaXNoIEdpdEh1YiByZWxlYXNlCiAgICAgICAgZW52OgogICAgICAgICAgR0hfVE9LRU46ICR7eyBnaXRodWIudG9rZW4gfX0KICAgICAgICAgIFJFTEVBU0VfVEFHOiAke3sgaW5wdXRzLnJlbGVhc2VfdGFnIHx8ICdhbGxvd2VkLW9ubHktdjEnIH19CiAgICAgICAgcnVuOiB8CiAgICAgICAgICBpZiBnaCByZWxlYXNlIHZpZXcgIiRSRUxFQVNFX1RBRyIgLS1yZXBvICIkR0lUSFVCX1JFUE9TSVRPUlkiID4vZGV2L251bGwgMj4mMTsgdGhlbgogICAgICAgICAgICBlY2hvICJSZWxlYXNlICRSRUxFQVNFX1RBRyBhbHJlYWR5IGV4aXN0czsga2VlcGluZyBpdCBpbW11dGFibGUuIFJlLXJ1biB3aXRoIGEgbmV3IHJlbGVhc2VfdGFnIGlucHV0IHRvIHB1Ymxpc2ggYSBuZXcgdmVyc2lvbi4iCiAgICAgICAgICAgIGV4aXQgMAogICAgICAgICAgZmkKICAgICAgICAgIGdoIHJlbGVhc2UgY3JlYXRlICIkUkVMRUFTRV9UQUciIFwKICAgICAgICAgICAgLS1yZXBvICIkR0lUSFVCX1JFUE9TSVRPUlkiIFwKICAgICAgICAgICAgLS10YXJnZXQgIiRHSVRIVUJfU0hBIiBcCiAgICAgICAgICAgIC0tdGl0bGUgJ1RpemVuVHViZSBMaWtlZCArIFN1YnNjcmlwdGlvbnMnIFwKICAgICAgICAgICAgLS1ub3RlcyAnQmFzZWQgb24gdXBzdHJlYW0gVGl6ZW5UdWJlIENvYmFsdCB2Mi4wLjIuIFZpZGVvIGRpc2NvdmVyeSBhbmQgcGxheWJhY2sgYXJlIGZpbHRlcmVkIGF0IGRvY3VtZW50IHN0YXJ0IHNvIG9ubHkgdmlkZW9zIGluIHRoZSBzaWduZWQtaW4gYWNjb3VudCBMaWtlZCB2aWRlb3MgbGlzdCBvciBmcm9tIHN1YnNjcmliZWQgY2hhbm5lbHMgYXJlIGV4cG9zZWQuIFRoZSBBUEtzIHVzZSBwYWNrYWdlIGlvLmdoLnlvc3NpbS50aXplbnR1YmUuY29iYWx0IHNvIHRoZXkgY2FuIGJlIGluc3RhbGxlZCBiZXNpZGUgdXBzdHJlYW0gVGl6ZW5UdWJlLiBSZWxlYXNlcyBhcmUgc2lnbmVkIHdpdGggdGhlIHByb2plY3QgcGVyc2lzdGVudCBzaWduaW5nIGtleSBzbyBmdXR1cmUgcmVsZWFzZXMgaW5zdGFsbCBvdmVyIHByZXZpb3VzIG9uZXMuJyBcCiAgICAgICAgICAgIGRpc3QvVGl6ZW5UdWJlLUxpa2VkLVN1YnMtYXJtLmFwayBcCiAgICAgICAgICAgIGRpc3QvVGl6ZW5UdWJlLUxpa2VkLVN1YnMtYXJtNjQuYXBrIFwKICAgICAgICAgICAgZGlzdC9TSEEyNTZTVU1TLnR4dAo=
+# Release workflow for the liked/subscribed-only fork.
+name: Build Allowed-Only APKs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - x.js
+      - cobalt/shell/embedded_resources/cobalt_java_script_polyfill/tizentube_allowed_only_loader.js
+      - tools/tizentube_allowed_only_test.js
+      - tools/signing_identity_test.js
+      - tools/verify_signing_identity.js
+      - tools/release-signing-fingerprint.txt
+      - tools/patch_allowed_only_apk.py
+      - .github/workflows/allowed-only-release.yml
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to publish (must not already exist)'
+        required: false
+        default: 'allowed-only-v1'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: allowed-only-release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            x.js
+            tools
+            cobalt/shell/embedded_resources/cobalt_java_script_polyfill
+
+      - name: Run filter unit tests
+        run: node tools/tizentube_allowed_only_test.js && node tools/signing_identity_test.js
+
+      - name: Download upstream v2.0.2 APKs
+        run: |
+          mkdir -p dist work
+          curl -L --fail --retry 4 --retry-all-errors \
+            -o work/upstream-arm.apk \
+            https://github.com/reisxd/TizenTubeCobalt/releases/download/v2.0.2/cobalt-arm.apk
+          curl -L --fail --retry 4 --retry-all-errors \
+            -o work/upstream-arm64.apk \
+            https://github.com/reisxd/TizenTubeCobalt/releases/download/v2.0.2/cobalt-arm64.apk
+          echo 'ff90c6e85c37246b809cca80282910509782c1384eccfbb6066da3b497dd9fd2  work/upstream-arm.apk' | sha256sum -c -
+          echo '0e8a9cffc77a08cd116d38e262c3e9d7f261ba2093b5b2d2ef905f509c99133c  work/upstream-arm64.apk' | sha256sum -c -
+
+      - name: Patch document-start filter and fork package id
+        env:
+          FILTER_URL: https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@${{ github.sha }}/x.js
+        run: |
+          python3 tools/patch_allowed_only_apk.py work/upstream-arm.apk work/arm-unsigned.apk --script-url "$FILTER_URL"
+          python3 tools/patch_allowed_only_apk.py work/upstream-arm64.apk work/arm64-unsigned.apk --script-url "$FILTER_URL"
+
+      - name: Locate Android build tools
+        id: android-tools
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          test -n "$SDK_ROOT"
+          BUILD_TOOLS_VERSION=$(find "$SDK_ROOT/build-tools" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -n1)
+          echo "dir=$SDK_ROOT/build-tools/$BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          "$SDK_ROOT/build-tools/$BUILD_TOOLS_VERSION/apksigner" version
+
+      - name: Restore persistent fork signing key
+        env:
+          KS_B64: ${{ secrets.ALLOWED_ONLY_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ALLOWED_ONLY_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
+            echo "::error::Persistent signing key is not configured. Refusing to build with a throwaway key: future releases would not install over previous installs. Configure ALLOWED_ONLY_KEYSTORE_BASE64 and ALLOWED_ONLY_KEYSTORE_PASSWORD from the private key backup. The expected identity is pinned in tools/release-signing-fingerprint.txt."
+            exit 1
+          fi
+          echo "$KS_B64" > work/keystore.b64
+          printf '%s' "$KS_PASS" > work/keystore.pass
+          node tools/verify_signing_identity.js work/keystore.b64 work/keystore.pass tools/release-signing-fingerprint.txt
+          base64 -d work/keystore.b64 > work/allowed-only.keystore
+
+      - name: Align, sign, and statically verify APKs
+        env:
+          BT: ${{ steps.android-tools.outputs.dir }}
+          KS_PASS: ${{ secrets.ALLOWED_ONLY_KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sign_one() {
+            in_apk="$1"
+            out_apk="$2"
+            aligned="${in_apk%.apk}-aligned.apk"
+            "$BT/zipalign" -p -f 4 "$in_apk" "$aligned"
+            "$BT/apksigner" sign \
+              --ks work/allowed-only.keystore \
+              --ks-key-alias allowedonly \
+              --ks-pass "pass:$KS_PASS" \
+              --key-pass "pass:$KS_PASS" \
+              --out "$out_apk" "$aligned"
+            "$BT/apksigner" verify --verbose --print-certs "$out_apk"
+            "$BT/zipalign" -c -p 4 "$out_apk"
+            "$BT/aapt" dump badging "$out_apk" | tee "$out_apk.badging.txt"
+            grep -q "package: name='io.gh.yossim.tizentube.cobalt'" "$out_apk.badging.txt"
+            grep -q "application-label:'TizenSub+'" "$out_apk.badging.txt"
+          }
+          sign_one work/arm-unsigned.apk dist/TizenTube-Liked-Subs-arm.apk
+          sign_one work/arm64-unsigned.apk dist/TizenTube-Liked-Subs-arm64.apk
+          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
+
+      - name: Verify signed APK certificate matches pinned identity
+        env:
+          BT: ${{ steps.android-tools.outputs.dir }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(awk -F'SHA256:' '/^SHA256:/{print $2}' tools/release-signing-fingerprint.txt | tr -d ':' | tr 'a-f' 'A-F')
+          for apk in dist/TizenTube-Liked-Subs-arm.apk dist/TizenTube-Liked-Subs-arm64.apk; do
+            actual=$("$BT/apksigner" verify --print-certs "$apk" | grep -i 'SHA-256' | sed -E 's/.*digest: *//' | tr -d ':' | tr 'a-f' 'A-F')
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::$apk certificate fingerprint $actual does not match pinned identity $expected"
+              exit 1
+            fi
+            echo "$apk certificate matches pinned signing identity"
+          done
+
+      - name: Verify patched document-start loader is present
+        env:
+          EXPECTED_URL: https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@${{ github.sha }}/x.js
+        run: |
+          python3 - <<'PY'
+          import os, zipfile
+          expected = os.environ['EXPECTED_URL'].encode()
+          for apk in ['dist/TizenTube-Liked-Subs-arm.apk', 'dist/TizenTube-Liked-Subs-arm64.apk']:
+              with zipfile.ZipFile(apk) as z:
+                  libs = [n for n in z.namelist() if n.endswith('/libchrobalt.so')]
+                  assert libs, apk
+                  hits = sum(z.read(n).count(expected) for n in libs)
+                  assert hits == 1, (apk, libs, hits)
+                  print(apk, 'contains pinned document-start loader in', libs)
+          PY
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TizenTube-Liked-Subs-APKs
+          path: |
+            dist/TizenTube-Liked-Subs-arm.apk
+            dist/TizenTube-Liked-Subs-arm64.apk
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  emulator-smoke:
+    needs: build
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: TizenTube-Liked-Subs-APKs
+          path: dist
+
+      - name: Boot Android 11 emulator, install ARM APK, and launch
+        id: emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 600
+          disable-animations: false
+          script: |
+            adb shell getprop ro.product.cpu.abilist | tr -d '\r' | tee /tmp/tizentube-abis.txt
+            grep -q 'armeabi-v7a' /tmp/tizentube-abis.txt
+            adb logcat -c
+            adb install --no-streaming -r dist/TizenTube-Liked-Subs-arm.apk || { adb logcat -d > /tmp/tizentube-logcat.txt; adb logcat -b crash -d > /tmp/tizentube-crash.txt; exit 1; }
+            adb shell cmd package resolve-activity --brief io.gh.yossim.tizentube.cobalt | tr -d '\r' | tail -n1 | tee /tmp/tizentube-activity.txt
+            test -s /tmp/tizentube-activity.txt
+            adb logcat -c
+            adb shell am start -W -n "$(cat /tmp/tizentube-activity.txt)"
+            sleep 12
+            adb shell pidof io.gh.yossim.tizentube.cobalt
+            adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' || true
+            adb exec-out screencap -p > /tmp/tizentube-smoke.png
+            adb logcat -d > /tmp/tizentube-logcat.txt
+            adb logcat -b crash -d > /tmp/tizentube-crash.txt
+            ! grep -q 'io.gh.yossim.tizentube.cobalt' /tmp/tizentube-crash.txt
+
+      - name: Upload emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-smoke-evidence
+          path: |
+            /tmp/tizentube-smoke.png
+            /tmp/tizentube-logcat.txt
+            /tmp/tizentube-crash.txt
+            /tmp/tizentube-abis.txt
+            /tmp/tizentube-activity.txt
+          if-no-files-found: ignore
+
+  release:
+    needs: [build, emulator-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: TizenTube-Liked-Subs-APKs
+          path: dist
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'allowed-only-v1' }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; keeping it immutable. Re-run with a new release_tag input to publish a new version."
+            exit 0
+          fi
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title 'TizenTube Liked + Subscriptions' \
+            --notes 'Based on upstream TizenTube Cobalt v2.0.2. Video discovery and playback are filtered at document start so only videos in the signed-in account Liked videos list or from subscribed channels are exposed. The APKs use package io.gh.yossim.tizentube.cobalt so they can be installed beside upstream TizenTube. Releases are signed with the project persistent signing key so future releases install over previous ones.' \
+            dist/TizenTube-Liked-Subs-arm.apk \
+            dist/TizenTube-Liked-Subs-arm64.apk \
+            dist/SHA256SUMS.txt
