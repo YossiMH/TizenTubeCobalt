@@ -28,7 +28,6 @@ def make_minimal_dex() -> bytes:
     # contains the upstream applicationId in ASCII (as real dex string data does).
     header_size = 0x70
     string_data = OLD_PACKAGE + b'\x00' + b'A' * 64
-    file_size = header_size + len(string_data)
     h = bytearray(header_size)
     h[0:8] = b'dex\n035\x00'
     h[0x24:0x28] = struct.pack('<I', header_size)
@@ -66,12 +65,19 @@ def build_test_apk(tmp: Path) -> Path:
 
 
 def main() -> None:
+    # The document-start loader must never use eval: YouTube TV enforces Trusted
+    # Types CSP and refuses eval, so the filter would silently never install.
+    loader = patcher.make_document_start_loader('https://example.test/x.js', 4096)
+    assert b'eval' not in loader, 'loader must not use eval (Trusted Types blocks it)'
+    assert b'createElement' in loader, 'loader must inject a script element'
+    assert b'appendChild' in loader, 'loader must append the script element'
+
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
         in_apk = build_test_apk(tmp)
         out_apk = tmp / 'out.apk'
         counts, libs, _, _ = patcher.patch_apk(
-            in_apk, out_apk, REPO_ROOT, 'https://example.test/x.js'
+            in_apk, out_apk, REPO_ROOT, 'https://example.test/x.js',
         )
         assert counts['package_ascii'] >= 1, counts
         assert counts['package_utf16'] >= 1, counts
@@ -82,7 +88,11 @@ def main() -> None:
         assert OLD_PACKAGE not in patched_dex, 'upstream id must be gone from dex'
         # The regression: without re-signing, this assertion fails.
         assert dex_header_valid(patched_dex), 'patched dex header checksum/signature must be valid'
-    print('All APK patcher dex-integrity tests passed.')
+        # The injected loader must be Trusted-Types-safe too.
+        with zipfile.ZipFile(out_apk) as z:
+            so = z.read('lib/arm64-v8a/libchrobalt.so')
+        assert b'eval' not in so, 'patched .so must not contain an eval-based loader'
+    print('All APK patcher dex-integrity and loader-safety tests passed.')
 
 
 if __name__ == '__main__':

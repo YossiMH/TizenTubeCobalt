@@ -41,10 +41,12 @@ def re_sign_dex(data: bytes) -> bytes:
 
 
 def make_document_start_loader(script_url: str, target_size: int) -> bytes:
+    # Trusted-Types-safe: YouTube TV's CSP refuses eval(), so the filter must be
+    # injected as a real <script> element (the same mechanism upstream uses).
     loader = (
         'if(/(^|\\.)youtube\\.com$/.test(location.hostname)){'
-        'var x=new XMLHttpRequest;x.open("GET",' + repr(script_url).replace("'", '"') + ',false);'
-        'x.send();(0,eval)(x.responseText)}'
+        'var s=document.createElement("script");s.src=' + repr(script_url) + ';'
+        '(document.head||document.documentElement).appendChild(s)}'
     ).encode("utf-8")
     if len(loader) > target_size:
         raise ValueError(f"Document-start loader is {len(loader)} bytes, larger than {target_size}-byte embedded polyfill")
