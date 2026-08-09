@@ -188,6 +188,43 @@ async function testGuestModeFailsClosedWithoutAnyNetwork() {
     await closeServer(srv);
   }
 }
+async function testSignInTransitionRebuildsAllowlist() {
+  reset();
+  let loggedIn = false;
+  globalThis.ytcfg = {
+    get: (k) =>
+      k === 'LOGGED_IN'
+        ? loggedIn
+        : k === 'INNERTUBE_CONTEXT'
+          ? { client: { clientName: 'test' } }
+          : null,
+  };
+  try {
+    // Signed out: guest short-circuit, nothing fetched.
+    const guest = await mod.bootWithRetry({ maxAttempts: 2, baseDelayMs: 5 });
+    assert.strictEqual(guest.guest, true, 'signed out must fail closed');
+
+    // The user signs in on the TV without reloading: the next API boot must
+    // rebuild the allowlist from the account instead of staying blocked.
+    loggedIn = true;
+    const { srv, port } = await startServer(okHandler);
+    try {
+      const result = await mod.bootWithRetry({
+        apiBase: 'http://127.0.0.1:' + port,
+        maxAttempts: 2,
+        baseDelayMs: 5,
+      });
+      assert.strictEqual(result.ok, true, 'after sign-in the allowlist must load');
+      assert.strictEqual(result.guest, undefined, 'after sign-in this is no longer guest mode');
+      assert.ok(mod.state.liked.has('L1'), 'liked videos must be collected after sign-in');
+      assert.ok(mod.state.subs.has('UCsub'), 'subscriptions must be collected after sign-in');
+    } finally {
+      await closeServer(srv);
+    }
+  } finally {
+    delete globalThis.ytcfg;
+  }
+}
 (async function main() {
   await testRetryDelaySchedule();
   await testBootSucceedsOnFirstTry();
@@ -195,6 +232,7 @@ async function testGuestModeFailsClosedWithoutAnyNetwork() {
   await testPersistentFailureExhaustsBudgetAndReportsErrors();
   await testPartialFailureRetriesUntilLikedFeedLoads();
   await testGuestModeFailsClosedWithoutAnyNetwork();
+  await testSignInTransitionRebuildsAllowlist();
   console.log('All TizenTube boot recovery tests passed.');
 })().catch((e) => {
   console.error(e);
