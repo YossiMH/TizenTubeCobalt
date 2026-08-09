@@ -72,4 +72,24 @@ assert.strictEqual(mobilePlaybackBad.streamingData,undefined);
 const mobilePlaybackLiked = mod.blockPlayerResponse({videoDetails:{videoId:'liked1',channelId:'UCother'},streamingData:{formats:[1]}});
 assert.ok(mobilePlaybackLiked.streamingData);
 
+
+// Phone remote control must keep working: pairing/registration endpoints pass
+// through unfiltered, while cast queue and mobile playback responses are filtered.
+const pkg = require('../x.js');
+const pairing = new URL('https://www.youtube.com/youtubei/v1/pairing/create_pairing_code');
+const queueCast = new URL('https://www.youtube.com/youtubei/v1/queue/add');
+const mobilePlayback = new URL('https://www.youtube.com/youtubei/v1/get_mobile_playback');
+assert.strictEqual(pkg.filterTree !== undefined, true);
+
+
+// Phone remote control must keep working: pairing/registration endpoints pass
+// through unfiltered, while cast queue and mobile playback responses are filtered.
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/pairing/create_pairing_code')), false, 'pairing code creation must pass through');
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/pairing/get_pairing_code')), false, 'pairing code polling must pass through');
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/queue/add')), true, 'cast queue must be filtered');
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/get_mobile_playback')), true, 'mobile playback must be filtered');
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/browse')), true, 'browse must be filtered');
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/player')), true, 'player must be filtered');
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/not_an_api')), false, 'non-API pages must pass through');
+
 console.log('All TizenTube allowed-only unit tests passed.');
