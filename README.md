@@ -1,4 +1,4 @@
-# =  TizenTube Cobalt  Liked + Subscriptions Only
+# =ý TizenTube Cobalt  Liked + Subscriptions Only
 
 <p align="center">
     <img width="700px" src=".github/assets/TizenTube_Cobalt-Official_Banner.png">
@@ -57,10 +57,23 @@ node tools/tizentube_allowed_only_test.js
 
 The fork retains TizenTube Cobalt features including:
 
-- =Ñ Ad blocking
+- =ý Ad blocking
 - W SponsorBlock support
-- í Video speed control
+- ý Video speed control
 - =: DeArrow support
+
+## TV setup and phone remote control
+
+- Install the APK from the download section above (ARM64 for modern boxes like the Onn 4K; ARM for older devices).
+- On the box, one-time step: enable Developer options (Settings > About > tap Build 7 times), enable USB/network debugging, and allow this PC when it asks.
+- Optional: run the included setup script to remove every other YouTube-capable app on the box (stock YouTube, browsers, SmartTube) without changing the OS or launcher:
+
+```powershell
+pwsh tools/onn_setup.ps1 -Serial 192.168.1.172:5555
+```
+
+- Sign in on the TV with the Google account whose Likes/subscriptions define the allowed catalog.
+- Phone remote control: open the YouTube app on your phone, tap the cast/remote icon, and pair with this TV (standard YouTube TV pairing). Pairing passes through the filter untouched; only disallowed playback is blocked, so phone control of the TV works while the TV still refuses to play anything outside the allowed list.
 
 ## T Install and sign in
 
