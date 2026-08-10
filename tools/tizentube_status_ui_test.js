@@ -29,7 +29,9 @@ assert.strictEqual(mod.statusText(), 'Restricted YouTube - Ready: 2 liked, 1 sub
 S.liked.clear();
 S.subs.clear();
 S.errors.push('allowlist unavailable');
-assert.strictEqual(mod.statusText(), 'Restricted YouTube - Protecting you: list unavailable, retrying');
+S.subs.add('UCpartial');
+assert.strictEqual(mod.statusText(), 'Restricted YouTube - Protecting you: list unavailable, retrying', 'partial allowlists must never look ready');
+S.subs.clear();
 
 const appended = [];
 const body = {
