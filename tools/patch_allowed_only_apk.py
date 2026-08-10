@@ -19,6 +19,15 @@ UPSTREAM_USERSCRIPT_URL = b"https://cdn.jsdelivr.net/npm/@foxreis/tizentube/dist
 ALLOWED_ONLY_CDN_PREFIX = "https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@"
 XJS_SUFFIX = "/x.js"
 
+# Cobalt's Evergreen updater can replace the native runtime that contains the
+# injection above. A restricted build must not silently replace its enforcement
+# runtime independently of the signed APK. Keep both replacements byte-for-byte
+# the same size so patching does not alter native string-table offsets.
+EVERGREEN_UPDATE_URL_PROD = b"https://tools.google.com/service/update2/json"
+EVERGREEN_UPDATE_URL_QA = b"https://omaha-qa.sandbox.google.com/service/update2/json"
+DISABLED_EVERGREEN_URL_PROD = b"https://disabled.invalid/service/update2/json"
+DISABLED_EVERGREEN_URL_QA = b"https://disabled.invalid/service/update2/json?q=disabled"
+
 
 def replace_same_length(data: bytes, old: bytes, new: bytes):
     if len(old) != len(new):
@@ -32,6 +41,27 @@ def replace_same_length(data: bytes, old: bytes, new: bytes):
     if count16:
         data = data.replace(old16, new16)
     return data, count, count16
+
+
+def disable_evergreen_updates(data: bytes):
+    """Redirect Cobalt Evergreen update endpoints to reserved .invalid hosts.
+
+    The filter's native injection lives inside libchrobalt.so. Allowing Cobalt's
+    independently downloaded Evergreen runtime to replace that library would
+    let the enforcement mechanism disappear without a restricted APK upgrade.
+    """
+    total = 0
+    for old, new in (
+        (EVERGREEN_UPDATE_URL_PROD, DISABLED_EVERGREEN_URL_PROD),
+        (EVERGREEN_UPDATE_URL_QA, DISABLED_EVERGREEN_URL_QA),
+    ):
+        if len(old) != len(new):
+            raise ValueError(f"Evergreen replacement length mismatch: {old!r} -> {new!r}")
+        count = data.count(old)
+        if count:
+            data = data.replace(old, new)
+            total += count
+    return data, total
 
 
 def re_sign_dex(data: bytes) -> bytes:
@@ -110,6 +140,7 @@ def patch_apk(input_apk: Path, output_apk: Path, repo_root: Path, script_url: st
         "polyfill": 0,
         "signatures_removed": 0,
         "upstream_script_redirect": 0,
+        "evergreen_update_urls_disabled": 0,
     }
     lib_seen = []
 
@@ -142,6 +173,11 @@ def patch_apk(input_apk: Path, output_apk: Path, repo_root: Path, script_url: st
                 data = data.replace(UPSTREAM_USERSCRIPT_URL, native_url)
                 counts["upstream_script_redirect"] += upstream_count
 
+            # Prevent Cobalt Evergreen from independently replacing the native
+            # runtime that contains the enforcement injection.
+            data, evergreen_count = disable_evergreen_updates(data)
+            counts["evergreen_update_urls_disabled"] += evergreen_count
+
             # In-place byte replacement invalidates the dex header signature;
             # re-sign so ART can load the dex at runtime.
             if info.filename.endswith(".dex"):
@@ -160,6 +196,11 @@ def patch_apk(input_apk: Path, output_apk: Path, repo_root: Path, script_url: st
     if counts["upstream_script_redirect"] < 1:
         raise RuntimeError(
             f"Could not find the upstream user-script URL to redirect; upstream release may have changed: {counts}"
+        )
+    if counts["evergreen_update_urls_disabled"] < 1:
+        raise RuntimeError(
+            "Could not find a Cobalt Evergreen update endpoint to disable; "
+            f"upstream release may have changed: {counts}"
         )
 
     return counts, lib_seen, len(polyfill), len(loader.rstrip(b" "))
