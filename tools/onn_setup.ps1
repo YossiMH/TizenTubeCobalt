@@ -16,7 +16,8 @@ param(
     [string]$ApkPath = '',
     [string]$Adb = 'C:\Users\YossiMH\AppData\Local\Android\Sdk\platform-tools\adb.exe',
     [switch]$Restore,
-    [switch]$VerifyOnly
+    [switch]$VerifyOnly,
+    [switch]$VerifyApp
 )
 
 # Pick the app build that matches the box: ARM64 for modern boxes like the Onn
@@ -41,16 +42,26 @@ function PackageExists([string]$pkg) {
     return ($lines | Where-Object { $_ -match ('package:' + [regex]::Escape($pkg) + '\s*$') }).Count -gt 0
 }
 
-# Apps that can show YouTube content on Android TV boxes.
+# The protected fork package id (the ONLY YouTube-capable app that must stay enabled).
+$ForkId = 'io.gh.yossim.tizentube.cobalt'
+
+# Apps that can show YouTube content on Android TV boxes, checked explicitly.
 $YouTubeApps = @(
     'com.google.android.youtube.tv',
     'com.google.android.apps.youtube.tv',
     'com.google.android.youtube',
     'com.google.android.youtube.tvunplugged',
     'com.google.android.youtube.tvmusic',
+    'com.google.android.apps.youtube.tvkids',
+    'com.google.android.apps.youtube.kids',
+    'com.google.android.apps.youtube.music',
     'com.teamsmart.videomanager.tv',
     'com.teamsmart.videomanager.v2',
+    'com.teamsmart.videomanager.atv',
     'com.liskovsoft.smarttubetv.beta',
+    'com.liskovsoft.smarttubetv',
+    'org.schabi.newpipe',
+    'com.github.yokolet.ytdroid',
     'io.gh.reisxd.tizentube.cobalt',
     'com.android.chrome',
     'com.chrome.beta',
@@ -66,6 +77,46 @@ $YouTubeApps = @(
     'com.phlox.tvwebbrowser',
     'com.internet.tvwebbrowser'
 )
+# Future-proof: also lock any installed app whose id mentions youtube/smarttube/
+# newpipe/tizentube, EXCEPT the protected fork itself. This keeps catching new
+# or renamed YouTube-capable apps without changing the OS or the launcher.
+foreach ($line in (Invoke-Adb @('shell', 'pm', 'list', 'packages'))) {
+    if ($line -notmatch '^package:') { continue }
+    $id = $line -replace '^package:', ''
+    if ($id -eq $ForkId) { continue }
+if ($id -match 'youtube|smarttube|newpipe|tizentube') {
+    if ($YouTubeApps -notcontains $id) { $YouTubeApps += $id }
+}
+}
+
+# Cold-start the fork and confirm the guard actually ran, from the box's own
+# log. The app can hit a net::ERR_INTERNET_DISCONNECTED platform-error dialog
+# on a cold start even when the network is fine (observed in the field): we
+# dismiss it with an OK press and retry so the very first launch just works.
+function Invoke-StartupGuardCheck {
+    Write-Host '=== Cold-start guard check ==='
+    Invoke-Adb @('logcat', '-c') | Out-Null
+    Invoke-Adb @('shell', 'am', 'force-stop', $ForkId) | Out-Null
+    Start-Sleep -Seconds 3
+    Invoke-Adb @('shell', 'am', 'start', '-n', "$ForkId/dev.cobalt.app.MainActivity") | Out-Null
+    $confirmed = $false
+    for ($i = 0; $i -lt 6; $i++) {
+        Start-Sleep -Seconds 20
+        $lines = Invoke-Adb @('logcat', '-d') | Where-Object { $_ -match 'allowed-only|ERR_INTERNET_DISCONNECTED|filter active|boot ready|signed out' }
+        if ($lines -match '\[allowed-only\] filter active') {
+            $confirmed = $true
+            Write-Host 'GUARD OK: [allowed-only] filter active'
+            $lines | Where-Object { $_ -match 'allowed-only' } | Select-Object -Last 8 | ForEach-Object { Write-Host ("  " + $_) }
+            break
+        }
+        if ($lines -match 'ERR_INTERNET_DISCONNECTED') {
+            Write-Host ("Startup hit a network error (try " + ($i + 1) + "); pressing OK to retry...")
+            Invoke-Adb @('shell', 'input', 'keyevent', '23') | Out-Null
+        }
+    }
+    if (-not $confirmed) { Write-Host 'WARNING: guard was not confirmed during cold start; check the app and network.' }
+    return $confirmed
+}
 
 if ($Restore) {
     foreach ($pkg in $YouTubeApps) {
@@ -93,6 +144,15 @@ if ($VerifyOnly) {
     Write-Host '--- disabled ---'
     Invoke-Adb @('shell', 'pm', 'list', 'packages', '-d') | Where-Object { $_ -match 'youtube|tizentube|smarttube|browser' }
     Write-Host 'Done. If anything leaks into the enabled list, re-run this mode after the TV finishes Google account re-verification.'
+    exit 0
+}
+
+if ($VerifyApp) {
+    Write-Host '=== Verify app mode: re-assert lock-down, then cold-start guard check ==='
+    foreach ($pkg in $YouTubeApps) {
+        if (PackageExists $pkg) { Invoke-Adb @('shell', 'pm', 'disable-user', '--user', '0', $pkg) | Out-Null }
+    }
+    Invoke-StartupGuardCheck | Out-Null
     exit 0
 }
 
@@ -129,8 +189,8 @@ foreach ($pkg in $YouTubeApps) {
 }
 if ($disabled -eq 0) { Write-Host '(no other YouTube-capable apps found - this box is already clean)' }
 
-Write-Host '=== Launching the fork ==='
-Invoke-Adb @('shell', 'am', 'start', '-n', 'io.gh.yossim.tizentube.cobalt/dev.cobalt.app.MainActivity') | Write-Host
+Write-Host '=== Launching the fork and confirming the guard ==='
+Invoke-StartupGuardCheck | Out-Null
 
 Write-Host ''
 Write-Host 'Done. Sign in on the TV with the Google account whose Likes/subscriptions define the allowed catalog.'
