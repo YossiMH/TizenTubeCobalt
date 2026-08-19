@@ -344,3 +344,6 @@ third_party/rust/target/
 
 # Local agent temp work; must never be committed
 .temp/
+
+# Local codex scratch work; must never be committed (broader than .temp/).
+/.temp2/

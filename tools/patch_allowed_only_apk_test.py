@@ -113,6 +113,34 @@ def main() -> None:
         assert len(native) == len(patcher.UPSTREAM_USERSCRIPT_URL)
         assert native in so, 'native injection must point at the filter script'
         assert counts['upstream_script_redirect'] >= 1, counts
+
+        # When an upstream build DOES embed the Cobalt Evergreen update
+        # endpoints, the patcher must neutralize them (same-length redirect to
+        # a disabled host). The fixture below models that upstream shape.
+        in_apk2 = tmp / 'in-evergreen.apk'
+        out_apk2 = tmp / 'out-evergreen.apk'
+        with zipfile.ZipFile(in_apk2, 'w') as z:
+            evergreen_blob = (
+                b'x=' + patcher.EVERGREEN_UPDATE_URL_PROD + b';' +
+                patcher.EVERGREEN_UPDATE_URL_QA
+            )
+            z.writestr('classes.dex', make_minimal_dex())
+            z.writestr(
+                'lib/arm64-v8a/libchrobalt.so',
+                polyfill + patcher.UPSTREAM_USERSCRIPT_URL + evergreen_blob,
+            )
+        counts2, _, _, _ = patcher.patch_apk(
+            in_apk2, out_apk2, REPO_ROOT,
+            'https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@752b76abfc5b69033e44115b31db41318c9162a3/x.js',
+        )
+        assert counts2['evergreen_update_urls_disabled'] == 2, counts2
+        with zipfile.ZipFile(out_apk2) as z:
+            so2 = z.read('lib/arm64-v8a/libchrobalt.so')
+        assert patcher.EVERGREEN_UPDATE_URL_PROD not in so2
+        assert patcher.EVERGREEN_UPDATE_URL_QA not in so2
+        assert patcher.DISABLED_EVERGREEN_URL_PROD in so2
+        assert patcher.DISABLED_EVERGREEN_URL_QA in so2
+
     print('All APK patcher dex-integrity and loader-safety tests passed.')
 
 

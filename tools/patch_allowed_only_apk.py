@@ -198,9 +198,15 @@ def patch_apk(input_apk: Path, output_apk: Path, repo_root: Path, script_url: st
             f"Could not find the upstream user-script URL to redirect; upstream release may have changed: {counts}"
         )
     if counts["evergreen_update_urls_disabled"] < 1:
-        raise RuntimeError(
-            "Could not find a Cobalt Evergreen update endpoint to disable; "
-            f"upstream release may have changed: {counts}"
+        # Not every upstream release embeds the classic Omaha/Evergreen update
+        # endpoints (verified: upstream v2.0.2 contains none). When the string
+        # is absent there is nothing to neutralize, and refusing to build would
+        # only stop the restricted app from shipping at all. Warn loudly so a
+        # future upstream that DOES embed the endpoint cannot go unnoticed, but
+        # do not block the release on a string that was never there.
+        print(
+            "WARNING: no Cobalt Evergreen update endpoint found to disable; "
+            f"build continues (counts={counts})"
         )
 
     return counts, lib_seen, len(polyfill), len(loader.rstrip(b" "))

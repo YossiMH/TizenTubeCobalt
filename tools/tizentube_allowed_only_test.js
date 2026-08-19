@@ -133,5 +133,62 @@ assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/not_an_api')), f
   assert.strictEqual(stripPlayer.playabilityStatus.status, 'ERROR');
   assert.strictEqual(mod.state.stripped, 2, 'blocked player must be counted as stripped');
 
+  // Real YouTube TV search responses nest video results deep inside
+  // sectionListRenderer/itemSectionRenderer (the shape captured from the Onn
+  // box). Signed-in search must keep ONLY liked videos and subscribed-channel
+  // videos; signed-out/guest search must show nothing at all.
+  reset();
+  mod.state.loggedIn = true;
+  mod.state.liked.add('likedSearch1');
+  mod.state.subs.add('UCsearchSub');
+  const searchResp = { contents: { twoColumnSearchResultsRenderer: { primaryContents: { sectionListRenderer: { contents: [
+    { itemSectionRenderer: { contents: [
+      { videoRenderer: { videoId: 'likedSearch1', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCother' } } }] } } },
+      { videoRenderer: { videoId: 'badSearch1', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCbad' } } }] } } },
+      { videoRenderer: { videoId: 'subSearch2', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCsearchSub' } } }] } } },
+      { channelRenderer: { channelId: 'UCsearchSub' } }
+    ] } }
+  ] } } } } };
+  const fSearch = mod.filterTree(JSON.parse(JSON.stringify(searchResp)));
+  const ids = [];
+  (function walk(x) { if (x && typeof x === 'object') { if (typeof x.videoId === 'string') ids.push(x.videoId); for (const k in x) walk(x[k]); } })(fSearch);
+  assert.strictEqual(ids.sort().join(','), 'likedSearch1,subSearch2', 'signed-in search must keep only liked + subscribed results');
+
+  reset();
+  mod.state.loggedIn = false;
+  const gSearch = mod.filterTree(JSON.parse(JSON.stringify(searchResp)));
+  const gids = [];
+  (function walk(x) { if (x && typeof x === 'object') { if (typeof x.videoId === 'string') gids.push(x.videoId); for (const k in x) walk(x[k]); } })(gSearch);
+  assert.strictEqual(gids.length, 0, 'signed-out/guest search must show no videos');
+
+  // Guard/self-heal plumbing: the filter must expose a guard that re-wraps
+  // fetch/XHR if the page ever clobbers the interceptor, and it must never
+  // throw when run repeatedly (YouTube TV can replace window.fetch and the
+  // XHR prototype mid-session).
+  assert.strictEqual(typeof mod.guard, 'function', 'guard must be exported');
+
+  assert.strictEqual(mod.state.armFail, 0, 'guard must start with zero failures');
+  mod.install();
+  assert.strictEqual(mod.state.installed, true, 'install() must mark the filter installed');
+  assert.ok(mod.state.fetch0, 'install() must capture the original fetch');
+  // Running the guard repeatedly must be idempotent and never throw.
+  mod.guard();
+  mod.guard();
+  assert.strictEqual(typeof mod.guard(), 'undefined', 'guard must run without throwing');
+  // The guard must restore a clobbered fetch wrapper (page replaced window.fetch).
+  if (typeof globalThis.fetch === 'function') {
+    const saved = mod.state.fetch0;
+    try {
+      Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: saved });
+      mod.state.fetch0 = null;            // simulate wrapper loss
+      delete globalThis.fetch.__tt;       // simulate interceptor tag loss
+      mod.guard();
+      assert.ok(mod.state.fetch0, 'guard must re-install the fetch wrapper after clobbering');
+      assert.strictEqual(globalThis.fetch.__tt, 1, 'fresh wrapper must be tagged');
+    } finally {
+      mod.install();
+    }
+  }
+
   console.log('All TizenTube allowed-only unit tests passed.');
 })().catch((e) => { console.error(e); process.exit(1); });
