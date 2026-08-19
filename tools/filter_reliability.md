@@ -74,3 +74,4 @@ Run:
 - The restricted app DIAL/Cast surface (ports 8008/8009/8012) stayed live for
   phone pairing/remote; the filter passes /youtubei/v1/pairing/* through
   unfiltered (covered by tests).
+2026-08-19 lifecycle status (main 2f405335df2): shipped + tested the release verifier and setup guard; verified CDN pins byte-identical (sha 70fe1af9) and installed release SHA ad1df5c9 matching the durable record; stale native-slot builds are now rejected. ON-DEVICE HOLD: TV offline awaiting power-cycle; next step is verify/install release, cold-start logcat proof, re-assert lock-down. Observed cold-start ERR_INTERNET_DISCONNECTED stall even with validated network.
