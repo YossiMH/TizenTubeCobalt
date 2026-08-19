@@ -103,6 +103,16 @@ if (-not $ApkPath) {
 }
 if (-not (Test-Path $ApkPath)) { throw "APK not found: $ApkPath" }
 
+# Refuse to install anything but a verified guarded allowed-only build. This
+# stops a stale or unpatched copy of the app (e.g. one whose native slot still
+# points at the upstream user script) from silently becoming the only YouTube
+# experience on the box.
+if ($ApkPath) {
+    Write-Host '=== Verifying this is a guarded allowed-only build ==='
+    python (Join-Path $PSScriptRoot 'verify_allowed_only_apk.py') $ApkPath
+    if ($LASTEXITCODE -ne 0) { throw 'Refusing to install: build is not a verified guarded allowed-only release.' }
+}
+
 Write-Host '=== Installing fixed release APK ==='
 Invoke-Adb @('install', '-r', '-t', $ApkPath) | Write-Host
 
@@ -125,4 +135,3 @@ Invoke-Adb @('shell', 'am', 'start', '-n', 'io.gh.yossim.tizentube.cobalt/dev.co
 Write-Host ''
 Write-Host 'Done. Sign in on the TV with the Google account whose Likes/subscriptions define the allowed catalog.'
 Write-Host 'Then open the YouTube app on your phone, tap the cast/remote icon, and pair with this TV.'
-
