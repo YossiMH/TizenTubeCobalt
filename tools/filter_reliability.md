@@ -58,3 +58,19 @@ Run:
     python tools/tizentube_patcher_safety_test.py
     python tools/patch_allowed_only_apk_test.py
 
+
+
+## TV lock-down durability (verified 2026-08-18)
+
+- The box can silently RE-ENABLE stock YouTube TV (com.google.android.youtube.tv)
+  when its Google account goes through re-verification on the TV, or when Google
+  Play re-syncs preinstalled apps. This happened on the Onn 4K Pro in the field.
+- tools/onn_setup.ps1 now has a -VerifyOnly mode that re-asserts the lock-down
+  (disables every YouTube-capable app that is present) and prints the
+  enabled/disabled lists. Run it whenever YouTube access unexpectedly returns:
+      pwsh tools/onn_setup.ps1 -VerifyOnly
+  Verified live: after running it, the ONLY enabled YouTube-capable app is
+  io.gh.yossim.tizentube.cobalt.
+- The restricted app DIAL/Cast surface (ports 8008/8009/8012) stayed live for
+  phone pairing/remote; the filter passes /youtubei/v1/pairing/* through
+  unfiltered (covered by tests).

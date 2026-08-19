@@ -15,7 +15,8 @@ param(
     [string]$Serial = '192.168.1.172:5555',
     [string]$ApkPath = '',
     [string]$Adb = 'C:\Users\YossiMH\AppData\Local\Android\Sdk\platform-tools\adb.exe',
-    [switch]$Restore
+    [switch]$Restore,
+    [switch]$VerifyOnly
 )
 
 # Pick the app build that matches the box: ARM64 for modern boxes like the Onn
@@ -74,6 +75,24 @@ if ($Restore) {
         }
     }
     Write-Host 'All apps restored.'
+    exit 0
+}
+
+if ($VerifyOnly) {
+    Write-Host '=== Lock-down verify + re-assert ==='
+    foreach ($pkg in $YouTubeApps) {
+        if (PackageExists $pkg) {
+            Invoke-Adb @('shell', 'pm', 'disable-user', '--user', '0', $pkg) | Out-Null
+            Write-Host ("locked: $pkg")
+        } else {
+            Write-Host ("skip (not installed): $pkg")
+        }
+    }
+    Write-Host '--- enabled YouTube-capable apps (must be ONLY io.gh.yossim.tizentube.cobalt) ---'
+    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-e') | Where-Object { $_ -match 'youtube|tizentube|smarttube|browser' }
+    Write-Host '--- disabled ---'
+    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-d') | Where-Object { $_ -match 'youtube|tizentube|smarttube|browser' }
+    Write-Host 'Done. If anything leaks into the enabled list, re-run this mode after the TV finishes Google account re-verification.'
     exit 0
 }
 
