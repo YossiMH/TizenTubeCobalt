@@ -24,10 +24,17 @@ param(
 # 4K Pro, 32-bit ARM for older devices. The release ships both.
 function Get-MatchingApk {
     param([string]$DeviceAbi)
+    # Verified release builds live in .temp2 (current filter pin). The .temp
+    # dist copies are an older release and are rejected by the build gate, so
+    # never silently pick them.
+    $c = @()
     if ($DeviceAbi -like 'arm64*') {
-        return (Join-Path $PSScriptRoot '..\.temp\release-build\dist\TizenTube-Liked-Subs-arm64.apk')
+        $c += (Join-Path $PSScriptRoot '..\.temp2\TizenTube-Liked-Subs-arm64.apk')
+    } else {
+        $c += (Join-Path $PSScriptRoot '..\.temp2\TizenTube-Liked-Subs-arm.apk')
     }
-    return (Join-Path $PSScriptRoot '..\.temp\release-build\dist\TizenTube-Liked-Subs-arm.apk')
+    foreach ($p in $c) { if (Test-Path $p) { return $p } }
+    throw 'No verified release APK found under .temp2 (need TizenTube-Liked-Subs-arm64.apk or -arm.apk). Build the release first.'
 }
 
 $ErrorActionPreference = 'Stop'
@@ -158,6 +165,8 @@ if ($VerifyApp) {
 
 if (-not $ApkPath) {
     $DeviceAbi = (& $Adb -s $Serial shell getprop ro.product.cpu.abi 2>$null | Select-Object -First 1).Trim()
+    $primaryAbi = (& $Adb -s $Serial shell dumpsys package io.gh.yossim.tizentube.cobalt 2>$null | Select-String 'primaryCpuAbi' | Select-Object -First 1)
+    if ($primaryAbi -match 'primaryCpuAbi=([a-z0-9\-]+)') { $DeviceAbi = $Matches[1] }
     $ApkPath = Get-MatchingApk -DeviceAbi $DeviceAbi
     Write-Host "Device ABI: $DeviceAbi -> $(Split-Path $ApkPath -Leaf)"
 }
