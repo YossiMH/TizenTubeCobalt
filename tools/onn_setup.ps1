@@ -97,32 +97,79 @@ if ($id -match 'youtube|smarttube|newpipe|tizentube') {
 }
 
 # Cold-start the fork and confirm the guard actually ran, from the box's own
-# log. The app can hit a net::ERR_INTERNET_DISCONNECTED platform-error dialog
-# on a cold start even when the network is fine (observed in the field): we
-# dismiss it with an OK press and retry so the very first launch just works.
+# log. Android can leave an idle TV's app UID in Doze network blocking even
+# though Wi-Fi itself is healthy (observed live as effective=DOZE). A repeated
+# OK press cannot recover that condition. Each bounded recovery therefore wakes
+# the display, fully restarts the process, and waits for real runtime proof.
 function Invoke-StartupGuardCheck {
     Write-Host '=== Cold-start guard check ==='
+    $repoRoot = Split-Path -Parent $PSScriptRoot
+    $tempRoot = Join-Path $repoRoot '.temp'
+    New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
+    $evidencePath = Join-Path $tempRoot 'startup-recovery-evidence.log'
+    $recoveryState = 'pending'
+    Write-Output "STARTUP_RECOVERY_STATE=$recoveryState"
     Invoke-Adb @('logcat', '-c') | Out-Null
-    Invoke-Adb @('shell', 'am', 'force-stop', $ForkId) | Out-Null
-    Start-Sleep -Seconds 3
-    Invoke-Adb @('shell', 'am', 'start', '-n', "$ForkId/dev.cobalt.app.MainActivity") | Out-Null
-    $confirmed = $false
-    for ($i = 0; $i -lt 6; $i++) {
-        Start-Sleep -Seconds 20
-        $lines = Invoke-Adb @('logcat', '-d') | Where-Object { $_ -match 'allowed-only|ERR_INTERNET_DISCONNECTED|filter active|boot ready|signed out' }
-        if ($lines -match '\[allowed-only\] filter active') {
-            $confirmed = $true
-            Write-Host 'GUARD OK: [allowed-only] filter active'
-            $lines | Where-Object { $_ -match 'allowed-only' } | Select-Object -Last 8 | ForEach-Object { Write-Host ("  " + $_) }
-            break
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $offlineSeen = '0'
+        Invoke-Adb @('shell', 'am', 'force-stop', $ForkId) | Out-Null
+        Start-Sleep -Seconds 6
+        Invoke-Adb @('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP') | Out-Null
+        Start-Sleep -Seconds 2
+        Invoke-Adb @('shell', 'am', 'start', '-n', "$ForkId/dev.cobalt.app.MainActivity") | Out-Null
+        for ($poll = 0; $poll -lt 12; $poll++) {
+            Start-Sleep -Seconds 5
+            $lines = Invoke-Adb @('logcat', '-d', '-v', 'time') |
+                Where-Object { $_ -match '\[allowed-only\]|ERR_INTERNET_DISCONNECTED' }
+            $filterCount = @($lines | Where-Object { $_ -match '\[allowed-only\] filter active' }).Count
+            $bootReadyCount = @($lines | Where-Object { $_ -match '\[allowed-only\] boot ready' }).Count
+            if (@($lines | Where-Object { $_ -match 'ERR_INTERNET_DISCONNECTED' }).Count -gt 0) {
+                $offlineSeen = '1'
+            }
+            if ($filterCount -gt 0 -and $bootReadyCount -gt 0) {
+                $recoveryState = 'confirmed'
+                Set-Content -LiteralPath $evidencePath -Value $lines -Encoding utf8NoBOM
+                $recoveredPid = ((Invoke-Adb @('shell', 'pidof', $ForkId)) -join ',').Trim()
+                $enabledPackages = Invoke-Adb @('shell', 'pm', 'list', 'packages', '-e') |
+                    Where-Object { $_ -match '^package:' } |
+                    ForEach-Object { $_ -replace '^package:', '' } |
+                    Where-Object { $YouTubeApps -contains $_ -or $_ -match 'youtube|smarttube|newpipe|tizentube|browser' } |
+                    Sort-Object
+                Write-Output "STARTUP_RECOVERY_STATE=$recoveryState"
+                Write-Output "STARTUP_RECOVERY_ATTEMPT=$attempt"
+                Write-Output "STARTUP_RECOVERY_PID=$recoveredPid"
+                Write-Output 'STARTUP_RECOVERY_FILTER_ACTIVE=1'
+                Write-Output 'STARTUP_RECOVERY_BOOT_READY=1'
+                Write-Output "LOCKDOWN_ENABLED_PACKAGES=$($enabledPackages -join ',')"
+                Write-Output "STARTUP_RECOVERY_EVIDENCE=$evidencePath"
+                return
+            }
+            if ($offlineSeen -eq '1') { break }
         }
-        if ($lines -match 'ERR_INTERNET_DISCONNECTED') {
-            Write-Host ("Startup hit a network error (try " + ($i + 1) + "); pressing OK to retry...")
-            Invoke-Adb @('shell', 'input', 'keyevent', '23') | Out-Null
+        if ($attempt -lt 3) {
+            $recoveryState = 'retrying-offline'
+            Write-Output "STARTUP_RECOVERY_STATE=$recoveryState"
+            if ($offlineSeen -eq '1') {
+                Invoke-Adb @('shell', 'input', 'keyevent', '23') | Out-Null
+            }
         }
     }
-    if (-not $confirmed) { Write-Host 'WARNING: guard was not confirmed during cold start; check the app and network.' }
-    return $confirmed
+    $recoveryState = 'failed'
+    Set-Content -LiteralPath $evidencePath -Value (Invoke-Adb @('logcat', '-d', '-v', 'time')) -Encoding utf8NoBOM
+    $recoveredPid = ((Invoke-Adb @('shell', 'pidof', $ForkId)) -join ',').Trim()
+    $enabledPackages = Invoke-Adb @('shell', 'pm', 'list', 'packages', '-e') |
+        Where-Object { $_ -match '^package:' } |
+        ForEach-Object { $_ -replace '^package:', '' } |
+        Where-Object { $YouTubeApps -contains $_ -or $_ -match 'youtube|smarttube|newpipe|tizentube|browser' } |
+        Sort-Object
+    Write-Output "STARTUP_RECOVERY_STATE=$recoveryState"
+    Write-Output 'STARTUP_RECOVERY_ATTEMPT=3'
+    Write-Output "STARTUP_RECOVERY_PID=$recoveredPid"
+    Write-Output 'STARTUP_RECOVERY_FILTER_ACTIVE=0'
+    Write-Output 'STARTUP_RECOVERY_BOOT_READY=0'
+    Write-Output "LOCKDOWN_ENABLED_PACKAGES=$($enabledPackages -join ',')"
+    Write-Output "STARTUP_RECOVERY_EVIDENCE=$evidencePath"
+    throw 'Refusing setup: guarded startup did not reach boot-ready within three recovery attempts.'
 }
 
 if ($Restore) {
@@ -159,7 +206,8 @@ if ($VerifyApp) {
     foreach ($pkg in $YouTubeApps) {
         if (PackageExists $pkg) { Invoke-Adb @('shell', 'pm', 'disable-user', '--user', '0', $pkg) | Out-Null }
     }
-    Invoke-StartupGuardCheck | Out-Null
+    $startupGuardResult = Invoke-StartupGuardCheck
+    foreach ($line in $startupGuardResult) { Write-Output $line }
     exit 0
 }
 
@@ -199,7 +247,8 @@ foreach ($pkg in $YouTubeApps) {
 if ($disabled -eq 0) { Write-Host '(no other YouTube-capable apps found - this box is already clean)' }
 
 Write-Host '=== Launching the fork and confirming the guard ==='
-Invoke-StartupGuardCheck | Out-Null
+$startupGuardResult = Invoke-StartupGuardCheck
+Write-Host ($startupGuardResult -join [Environment]::NewLine)
 
 Write-Host ''
 Write-Host 'Done. Sign in on the TV with the Google account whose Likes/subscriptions define the allowed catalog.'

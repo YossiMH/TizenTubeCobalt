@@ -13,13 +13,13 @@ The restriction is applied at document start and filters YouTube discovery/playb
 
 ## Download the allowed-only build
 
-**Current release: [TizenTube Liked + Subscriptions v3](https://github.com/YossiMH/TizenTubeCobalt/releases/tag/allowed-only-v3)**
+**Current release: [TizenTube Liked + Subscriptions v3 (hardened rebuild)](https://github.com/YossiMH/TizenTubeCobalt/releases/tag/allowed-only-v3-rebuild)**
 
 Choose the APK for your device:
 
-- **ARM64 / `arm64-v8a` (most modern Android TV / Google TV devices):** [TizenTube-Liked-Subs-arm64.apk](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v3/TizenTube-Liked-Subs-arm64.apk)
-- **32-bit ARM / `armeabi-v7a` (older devices):** [TizenTube-Liked-Subs-arm.apk](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v3/TizenTube-Liked-Subs-arm.apk)
-- [SHA-256 checksums](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v3/SHA256SUMS.txt)
+- **ARM64 / `arm64-v8a` (most modern Android TV / Google TV devices):** [TizenTube-Liked-Subs-arm64.apk](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v3-rebuild/TizenTube-Liked-Subs-arm64.apk)
+- **32-bit ARM / `armeabi-v7a` (older devices):** [TizenTube-Liked-Subs-arm.apk](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v3-rebuild/TizenTube-Liked-Subs-arm.apk)
+- [SHA-256 checksums](https://github.com/YossiMH/TizenTubeCobalt/releases/download/allowed-only-v3-rebuild/SHA256SUMS.txt)
 
 The fork APK uses package ID `io.gh.yossim.tizentube.cobalt`, so it can be installed beside upstream TizenTube Cobalt rather than replacing it.
 
@@ -68,6 +68,15 @@ This fork is built from the upstream TizenTube Cobalt release, but its in-app sc
 ```powershell
 pwsh tools/onn_setup.ps1 -Serial 192.168.1.172:5555
 ```
+
+- The setup script refuses to install anything but the verified guarded
+  build, cold-starts the app, and confirms from the device log that the
+  guardian reached boot-ready. If startup hits a network-error screen, it uses
+  a bounded wake-display-and-restart recovery because Android TV can block an
+  idle app's network through Doze even while Wi-Fi remains healthy. Recovery
+  fails setup instead of warning-only success. Re-run it anytime with
+  `-VerifyApp` to re-assert the lock-down and re-check the guardian, e.g. after
+  the box's Google account re-verifies.
 
 - Sign in on the TV with the Google account whose Likes/subscriptions define the allowed catalog. Signed-out/guest mode shows nothing, by design.
 - Phone remote control: open the YouTube app on your phone, tap the cast/remote icon, and pair with this TV (standard YouTube TV pairing). Pairing passes through the filter untouched; only disallowed playback is blocked, so phone control of the TV works while the TV still refuses to play anything outside the allowed list.
