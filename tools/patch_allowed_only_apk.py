@@ -93,23 +93,20 @@ def pinned_cdn_url(script_url: str, sha_chars: int) -> str:
 
 
 def make_document_start_loader(script_url: str, target_size: int) -> bytes:
-    # Trusted-Types-safe and startup-resilient: the native injection has one
-    # chance, while this document-start resource retries until the filter's own
-    # installation marker proves that enforcement is active.
-    dom_url = pinned_cdn_url(script_url, 7).replace("https://", "//", 1)
+    # The native user-script path is Trusted-Types-exempt and installs the
+    # filter. Until its installation marker exists, hold every network request
+    # so YouTube's first browse response cannot render ahead of enforcement.
     loader = (
-        "u='" + dom_url + "',"
-        "c=window.trustedTypes?trustedTypes.createPolicy('t',{createScriptURL:x=>x}).createScriptURL:x=>x,"
-        'D=document.head,'
-        't=setInterval(()=>window.__ttAllowedOnly?clearInterval(t):'
-        "D.appendChild(D.createElement('script')).src=c(u),1e3)"
+        "w=new Promise(r=>{i=setInterval(_=>window.__ttAllowedOnly&&"
+        "(clearInterval(i),r()),50)}),"
+        "F=fetch,X=XMLHttpRequest.prototype.send,"
+        "fetch=(...a)=>w.then(_=>F(...a)),"
+        "XMLHttpRequest.prototype.send=function(){w.then(_=>X.apply(this,arguments))}"
     ).encode("utf-8")
     if len(loader) > target_size:
         raise ValueError(f"Document-start loader is {len(loader)} bytes, larger than {target_size}-byte embedded polyfill")
     if b"eval(" in loader or b"eval " in loader:
         raise ValueError("Loader must never use eval (YouTube TV Trusted Types refuses it)")
-    if b"createScriptURL" not in loader:
-        raise ValueError("Loader must use a Trusted Types policy for script.src")
     # JavaScript whitespace padding preserves the generated resource's fixed byte size.
     return loader + (b" " * (target_size - len(loader)))
 

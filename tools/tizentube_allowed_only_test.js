@@ -231,6 +231,39 @@ assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/not_an_api')), f
   // XHR prototype mid-session).
   assert.strictEqual(typeof mod.guard, 'function', 'guard must be exported');
 
+
+// --- DOM sweep: unauthorized tiles in initial server-rendered HTML ---
+// The network gate delays JS-initiated requests but cannot block the
+// navigation response itself. After boot arms, sweepDom() must remove
+// unauthorized ytlr-tile-renderer elements from the live document.
+reset();
+mod.state.loggedIn = true;
+mod.state.ready = true;
+mod.state.allowedNames.clear();
+assert.strictEqual(typeof mod.collectChannelNames, 'function', 'collectChannelNames must be exported');
+mod.collectChannelNames({ contents: [
+  { title: { runs: [{ text: 'Sesame Street' }] }, channelId: 'UCsesame' },
+  { title: { runs: [{ text: 'Adam Savage' }] }, browseEndpoint: { browseId: 'UCadam' } },
+  { title: { simpleText: 'Ed Sullivan' }, externalChannelId: 'UCed' },
+  { navigationEndpoint: { browseEndpoint: { browseId: 'UCsub' } }, title: { runs: [{ text: 'My Sub Channel' }] } },
+  { videoRenderer: { videoId: 'someVideo', ownerText: { runs: [{ text: 'Owner Name' }] }, channelId: 'UCowner' } }
+] });
+assert.ok(mod.state.allowedNames.has('sesame street'), 'must collect Sesame Street from title runs');
+assert.ok(mod.state.allowedNames.has('adam savage'), 'must collect Adam Savage from browse endpoint');
+assert.ok(mod.state.allowedNames.has('ed sullivan'), 'must collect Ed Sullivan from simpleText');
+assert.ok(mod.state.allowedNames.has('my sub channel'), 'must collect subscribed channel name');
+assert.ok(mod.state.allowedNames.has('owner name'), 'must collect owner name from video renderer');
+
+assert.strictEqual(typeof mod.tileShouldStay, 'function', 'tileShouldStay must be exported');
+assert.strictEqual(mod.tileShouldStay('Sesame Street - Elmo World', mod.state.allowedNames), true,
+  'a tile whose text contains an allowed channel name must stay');
+assert.strictEqual(mod.tileShouldStay('Random Video Not From Any Sub', mod.state.allowedNames), false,
+  'a tile with no matching allowed channel name must be removed');
+assert.strictEqual(mod.tileShouldStay('', mod.state.allowedNames), false,
+  'an empty-text tile with no match must be removed');
+
+assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported');
+
   assert.strictEqual(mod.state.armFail, 0, 'guard must start with zero failures');
   mod.install();
   assert.strictEqual(mod.state.installed, true, 'install() must mark the filter installed');

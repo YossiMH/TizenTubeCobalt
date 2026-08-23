@@ -65,27 +65,26 @@ def build_test_apk(tmp: Path) -> Path:
 
 
 def main() -> None:
-    # The document-start loader must never use eval: YouTube TV enforces Trusted
-    # Types CSP and refuses eval, so the filter would silently never install.
+    # The document-start gate must rely solely on the Trusted-Types-exempt
+    # native injection and hold network requests until enforcement is armed.
     polyfill = (REPO_ROOT / patcher.POLYFILL_PATH).read_bytes()
     loader = patcher.make_document_start_loader(
         'https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@752b76abfc5b69033e44115b31db41318c9162a3/x.js',
         len(polyfill),
     )
-    assert b'eval' not in loader, 'loader must not use eval (Trusted Types blocks it)'
-    assert b'createElement' in loader, 'loader must inject a script element'
-    assert b'appendChild' in loader, 'loader must append the script element'
-    # YouTube TV enforces Trusted Types: assigning a plain string to script.src is
-    # refused ("This document requires 'TrustedScriptURL' assignment"), so the
-    # loader must wrap the URL in a TrustedScriptURL produced by a policy.
-    assert b'trustedTypes' in loader, 'loader must use the Trusted Types factory'
-    assert b'window.trustedTypes?' in loader, 'loader must tolerate Trusted Types absence'
-    assert b'createScriptURL' in loader, 'loader must produce a TrustedScriptURL'
-    assert b'@752b76a/x.js' in loader, 'loader must pin the 7-char SHA of the filter commit'
-    assert b'setInterval' in loader, 'loader must retry when offline cold starts fail'
-    assert b'clearInterval' in loader, 'loader must stop retries after successful initialization'
-    assert b'window.__ttAllowedOnly' in loader, 'loader must wait for the filter initialization marker'
-    assert len(loader.rstrip(b' ')) <= len(polyfill), 'loader must fit the embedded polyfill slot'
+    assert b'eval' not in loader, 'gate must not use eval'
+    assert b'script.src' not in loader, 'gate must rely on Trusted-Types-exempt native injection'
+    assert b'createElement' not in loader, 'gate must not retry script injection'
+    assert b'appendChild' not in loader, 'gate must not retry script injection'
+    assert b'F=fetch,X=' in loader, 'gate must capture originals before wrapping them'
+    assert b'.apply(this,arguments)' in loader, 'gate must preserve receiver and arguments'
+    assert b'window.__ttAllowedOnly' in loader, 'gate must wait for the real marker'
+    assert b'new Promise' in loader, 'gate must expose one readiness barrier'
+    assert b'fetch=' in loader, 'gate must delay fetch until enforcement exists'
+    assert b'.send=' in loader, 'gate must delay XHR until enforcement exists'
+    assert b'setInterval' in loader, 'gate must poll for enforcement'
+    assert b'clearInterval' in loader, 'gate must stop polling once enforcement exists'
+    assert len(loader.rstrip(b' ')) <= len(polyfill), 'gate must fit the embedded polyfill slot'
 
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
