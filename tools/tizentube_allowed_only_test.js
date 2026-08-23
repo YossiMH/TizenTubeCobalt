@@ -369,6 +369,225 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
     }
   }
 
+  // --- Media boundary: unauthorized direct watch routes cannot reach playback ---
+  // Real prototype-backed host classes model the exact browser boundary
+  // (HTMLMediaElement src/load/play plus URL.createObjectURL) that Cobalt
+  // exposes, so the guard is proven at the same surface the app attacks.
+  await (async function () {
+    const failures = [];
+    const check = (label, fn) => { try { fn(); } catch (e) { failures.push(label + ' -> ' + e.message); } };
+    const checkAsync = async (label, fn) => { try { await fn(); } catch (e) { failures.push(label + ' -> ' + e.message); } };
+    const savedLocation = globalThis.location;
+    const savedMediaElement = globalThis.HTMLMediaElement;
+    const savedCreateObjectURL = URL.createObjectURL;
+    const savedConsoleLog = console.log;
+    class MediaSourceFixture {}
+    class HostMediaElement {
+      constructor() { this._src = ''; }
+      get src() { return this._src; }
+      set src(value) { this._src = String(value); }
+      load() {}
+      play() { return Promise.resolve('played'); }
+    }
+    const setWatchRoute = (href) => { globalThis.location = new URL(href); };
+    const resetSignedInReady = () => {
+      reset();
+      mod.state.loggedIn = true;
+      mod.state.ready = true;
+      mod.state.booting = false;
+      mod.state.errors.length = 0;
+    };
+    try {
+      let blobCounter = 0;
+      const baseCreateObjectURL = function createObjectURL(input) {
+        if (!(input instanceof Blob)) throw new TypeError('createObjectURL requires a Blob');
+        blobCounter += 1;
+        return 'blob:fixture-' + blobCounter;
+      };
+      URL.createObjectURL = baseCreateObjectURL;
+      const logs = [];
+      console.log = (...parts) => { logs.push(parts.map(String).join(' ')); };
+
+      if (typeof mod.routeVideoId !== 'function') {
+        failures.push('routeVideoId must be exported -> missing export');
+      } else {
+        const routes = [
+          ['https://www.youtube.com/watch?v=FZpaYeCQO00&t=9', 'FZpaYeCQO00', 'search form'],
+          ['https://www.youtube.com/watch/FZpaYeCQO00', 'FZpaYeCQO00', 'pathname form'],
+          ['https://www.youtube.com/tv#/watch?v=FZpaYeCQO00', 'FZpaYeCQO00', 'hash query form'],
+          ['https://www.youtube.com/tv#/watch/FZpaYeCQO00', 'FZpaYeCQO00', 'hash path form']
+        ];
+        for (const [href, expected, label] of routes) {
+          setWatchRoute(href);
+          check('routeVideoId resolves ' + label, () => assert.strictEqual(mod.routeVideoId(), expected));
+        }
+        setWatchRoute('https://www.youtube.com/');
+        check('routeVideoId returns null off watch routes', () => assert.strictEqual(mod.routeVideoId(), null));
+      }
+
+      if (typeof mod.mediaDecision !== 'function') {
+        failures.push('mediaDecision must be exported -> missing export');
+      } else {
+        check('mediaDecision reports pending while account lists are loading', () => {
+          resetSignedInReady();
+          mod.state.ready = false;
+          mod.state.booting = true;
+          assert.strictEqual(mod.mediaDecision('any'), 'pending');
+        });
+        check('mediaDecision reports closed for unauthorized signed-in-ready routes', () => {
+          resetSignedInReady();
+          assert.strictEqual(mod.mediaDecision('FZpaYeCQO00'), 'closed');
+        });
+        check('mediaDecision reports open only for current allowlist hits', () => {
+          resetSignedInReady();
+          mod.state.liked.add('gateOpenLiked');
+          mod.state.v2c.set('gateOpenSub', 'UCgateSub');
+          mod.state.subs.add('UCgateSub');
+          assert.strictEqual(mod.mediaDecision('gateOpenLiked'), 'open');
+          assert.strictEqual(mod.mediaDecision('gateOpenSub'), 'open');
+        });
+      }
+
+      check('state.mediaGate is the persisted enum, never a boolean pair', () => {
+        assert.strictEqual(typeof mod.state.mediaGate, 'string',
+          'mediaGate must exist as a string, got ' + typeof mod.state.mediaGate);
+        assert.ok(['pending', 'open', 'closed'].indexOf(mod.state.mediaGate) >= 0,
+          'mediaGate must be one of pending|open|closed, got ' + JSON.stringify(mod.state.mediaGate));
+        assert.strictEqual(mod.state.mediaBlocked, undefined, 'boolean mediaBlocked must not exist');
+        assert.strictEqual(mod.state.mediaAllowed, undefined, 'boolean mediaAllowed must not exist');
+      });
+
+      globalThis.HTMLMediaElement = HostMediaElement;
+      if (typeof mod.installMediaGuard !== 'function') {
+        failures.push('installMediaGuard must be exported and installable -> missing export');
+      }
+      {
+        if (typeof mod.installMediaGuard === 'function') mod.installMediaGuard();
+
+        resetSignedInReady();
+        setWatchRoute('https://www.youtube.com/watch?v=FZpaYeCQO00');
+        const blockedEl = new HostMediaElement();
+        blockedEl.src = 'about:blank';
+        check('closed route refuses MediaSource object URLs with REASON', () => {
+          let thrown = null;
+          try { URL.createObjectURL(new MediaSourceFixture()); } catch (e) { thrown = e; }
+          assert.ok(thrown, 'createObjectURL(MediaSource) must throw');
+          assert.strictEqual(thrown.message, mod.BLOCK_REASON,
+            'expected BLOCK_REASON, got ' + JSON.stringify(thrown && thrown.message));
+        });
+        check('closed route refuses blob src assignment and preserves prior src', () => {
+          blockedEl.src = 'blob:unauthorized-attempt';
+          assert.strictEqual(blockedEl.src, 'about:blank',
+            'prior src must survive a refused blob assignment, got ' + JSON.stringify(blockedEl.src));
+        });
+        check('closed route refuses load() with REASON', () => {
+          let thrown = null;
+          try { blockedEl.load(); } catch (e) { thrown = e; }
+          assert.ok(thrown, 'load() must throw on closed routes');
+          assert.strictEqual(thrown.message, mod.BLOCK_REASON,
+            'expected BLOCK_REASON, got ' + JSON.stringify(thrown && thrown.message));
+        });
+        await checkAsync('closed route rejects play() with REASON', async () => {
+          let error = null;
+          try { await blockedEl.play(); } catch (e) { error = e; }
+          assert.ok(error, 'play() must reject on closed routes');
+          assert.strictEqual(error.message, mod.BLOCK_REASON,
+            'expected BLOCK_REASON, got ' + JSON.stringify(error && error.message));
+        });
+        check('one concise blocked event names the refused route video id', () => {
+          assert.ok(logs.indexOf('[allowed-only] media blocked FZpaYeCQO00') >= 0,
+            'expected block event in ' + JSON.stringify(logs));
+        });
+
+        resetSignedInReady();
+        mod.state.liked.add('likedAuthPlay');
+        setWatchRoute('https://www.youtube.com/watch?v=likedAuthPlay');
+        const likedEl = new HostMediaElement();
+        await checkAsync('authorized liked video passes the full media lifecycle through', async () => {
+          const blobUrl = URL.createObjectURL(new Blob(['ok']));
+          assert.strictEqual(blobUrl.indexOf('blob:'), 0, 'liked blob creation must pass through');
+          likedEl.src = blobUrl;
+          assert.strictEqual(likedEl.src, blobUrl);
+          likedEl.load();
+          assert.strictEqual(await likedEl.play(), 'played');
+        });
+
+        resetSignedInReady();
+        mod.state.subs.add('UCauthPlaySub');
+        mod.state.v2c.set('subAuthPlay', 'UCauthPlaySub');
+        setWatchRoute('https://www.youtube.com/watch?v=subAuthPlay');
+        const subEl = new HostMediaElement();
+        await checkAsync('authorized subscribed video passes the full media lifecycle through', async () => {
+          const blobUrl = URL.createObjectURL(new Blob(['ok']));
+          subEl.src = blobUrl;
+          assert.strictEqual(subEl.src, blobUrl);
+          subEl.load();
+          assert.strictEqual(await subEl.play(), 'played');
+        });
+
+        check('explicit mediaGate covers every transition without reload', () => {
+          resetSignedInReady();
+          mod.state.ready = false;
+          mod.state.booting = true;
+          assert.strictEqual(mod.mediaDecision('transition'), 'pending');
+          assert.strictEqual(mod.state.mediaGate, 'pending');
+          mod.state.booting = false;
+          assert.strictEqual(mod.mediaDecision('transition'), 'closed');
+          assert.strictEqual(mod.state.mediaGate, 'closed');
+          mod.state.loggedIn = true;
+          mod.state.ready = true;
+          mod.state.liked.add('transitionOpen');
+          assert.strictEqual(mod.mediaDecision('transitionOpen'), 'open');
+          assert.strictEqual(mod.state.mediaGate, 'open');
+        });
+
+        check('installMediaGuard is idempotent with tagged single wrappers', () => {
+          const playDesc = Object.getOwnPropertyDescriptor(HostMediaElement.prototype, 'play');
+          assert.strictEqual(playDesc.value.__ttMedia, 1, 'wrapped play must carry the media tag');
+          const srcDesc = Object.getOwnPropertyDescriptor(HostMediaElement.prototype, 'src');
+          assert.strictEqual(srcDesc.set.__ttMedia, 1, 'wrapped src setter must carry the media tag');
+          assert.strictEqual(URL.createObjectURL.__ttMedia, 1, 'wrapped createObjectURL must carry the media tag');
+          mod.installMediaGuard();
+          mod.installMediaGuard();
+          assert.strictEqual(Object.getOwnPropertyDescriptor(HostMediaElement.prototype, 'play').value, playDesc.value,
+            'repeat installs must not stack play wrappers');
+          assert.strictEqual(URL.createObjectURL.__ttMedia, 1, 'repeat installs must keep one createObjectURL wrapper');
+        });
+
+        check('guard self-heal rewraps clobbered media surfaces exactly once', () => {
+          Object.defineProperty(HostMediaElement.prototype, 'play', {
+            configurable: true, writable: true,
+            value: function () { return Promise.resolve('played'); }
+          });
+          Object.defineProperty(HostMediaElement.prototype, 'load', {
+            configurable: true, writable: true, value: function () {}
+          });
+          Object.defineProperty(HostMediaElement.prototype, 'src', {
+            configurable: true,
+            get() { return this._src; },
+            set(value) { this._src = String(value); }
+          });
+          URL.createObjectURL = baseCreateObjectURL;
+          mod.guard();
+          const healedPlay = Object.getOwnPropertyDescriptor(HostMediaElement.prototype, 'play').value;
+          assert.strictEqual(healedPlay.__ttMedia, 1, 'self-heal must rewrap play');
+          assert.strictEqual(URL.createObjectURL.__ttMedia, 1, 'self-heal must rewrap createObjectURL');
+          mod.installMediaGuard();
+          assert.strictEqual(Object.getOwnPropertyDescriptor(HostMediaElement.prototype, 'play').value, healedPlay,
+            'self-healed wrappers must stay single-layered');
+        });
+      }
+    } finally {
+      globalThis.location = savedLocation;
+      if (savedMediaElement === undefined) delete globalThis.HTMLMediaElement;
+      else globalThis.HTMLMediaElement = savedMediaElement;
+      URL.createObjectURL = savedCreateObjectURL;
+      console.log = savedConsoleLog;
+      reset();
+    }
+    if (failures.length) throw new Error('media boundary failures:\n' + failures.join('\n'));
+  })();
+
   if (mod.state.statusWatcher) {
     clearInterval(mod.state.statusWatcher);
     mod.state.statusWatcher = null;

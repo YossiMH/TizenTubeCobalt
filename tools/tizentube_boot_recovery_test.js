@@ -333,6 +333,143 @@ async function testSignInTransitionRebuildsAllowlist() {
     await closeServer(healthy.srv);
   }
 }
+
+async function testMediaGateTransitionsAcrossBootRetryGuestAndRebuild() {
+  const savedLocation = globalThis.location;
+  const savedMediaElement = globalThis.HTMLMediaElement;
+  const savedCreateObjectURL = URL.createObjectURL;
+  class HostMediaElement {
+    constructor() { this._src = ''; }
+    get src() { return this._src; }
+    set src(value) { this._src = String(value); }
+    load() {}
+    play() { return Promise.resolve('played'); }
+  }
+  const failures = [];
+  const check = (label, fn) => { try { fn(); } catch (e) { failures.push(label + ' -> ' + e.message); } };
+  const checkAsync = async (label, fn) => { try { await fn(); } catch (e) { failures.push(label + ' -> ' + e.message); } };
+  const stateAtStart = mod.state;
+  try {
+    let blobCounter = 0;
+    URL.createObjectURL = function createObjectURL(input) {
+      if (!(input instanceof Blob)) throw new TypeError('createObjectURL requires a Blob');
+      blobCounter += 1;
+      return 'blob:fixture-' + blobCounter;
+    };
+    globalThis.HTMLMediaElement = HostMediaElement;
+    if (typeof mod.installMediaGuard !== 'function') {
+      failures.push('installMediaGuard must be exported -> missing export');
+    }
+    if (typeof mod.installMediaGuard === 'function') mod.installMediaGuard();
+
+    // Pending: a slow boot holds every watch route fail-closed while the
+    // allowlist is still loading.
+    reset();
+    const { srv: slowSrv, port: slowPort } = await startServer((req, res) => {
+      setTimeout(() => {
+        res.statusCode = 500;
+        res.end('boom');
+      }, 40);
+    });
+    try {
+      globalThis.location = new URL('https://www.youtube.com/watch?v=retryProbe');
+      const retryingBoot = mod.bootWithRetry({
+        apiBase: 'http://127.0.0.1:' + slowPort,
+        maxAttempts: 2,
+        baseDelayMs: 5,
+      });
+      check('boot-in-flight route reports pending', () => {
+        assert.strictEqual(mod.state.booting, true);
+        assert.strictEqual(mod.mediaDecision('retryProbe'), 'pending');
+        assert.strictEqual(mod.state.mediaGate, 'pending');
+      });
+      await checkAsync('pending boot rejects playback without touching native play', async () => {
+        const pendingEl = new HostMediaElement();
+        let error = null;
+        try { await pendingEl.play(); } catch (e) { error = e; }
+        assert.ok(error, 'play must reject while pending');
+        assert.strictEqual(error.message, mod.BLOCK_REASON,
+          'expected BLOCK_REASON, got ' + JSON.stringify(error && error.message));
+      });
+      const exhausted = await retryingBoot;
+      check('exhausted boot retry lands closed without reload', () => {
+        assert.strictEqual(exhausted.ok, false);
+        assert.strictEqual(mod.state.ready, false);
+        assert.strictEqual(mod.state.booting, false);
+        assert.strictEqual(mod.mediaDecision('retryProbe'), 'closed');
+        assert.strictEqual(mod.state.mediaGate, 'closed');
+      });
+    } finally {
+      await closeServer(slowSrv);
+    }
+
+    // Genuine guest: terminal 401 proof keeps every route closed even though
+    // ready flips on for fail-closed enforcement.
+    reset();
+    mod.state.loggedIn = false;
+    const { srv: guestSrv, port: guestPort } = await startServer((req, res) => {
+      res.statusCode = 401;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ error: { message: 'Login Required' } }));
+    });
+    try {
+      globalThis.location = new URL('https://www.youtube.com/watch?v=guestVideo');
+      const guest = await mod.bootWithRetry({
+        apiBase: 'http://127.0.0.1:' + guestPort,
+        maxAttempts: 1,
+        baseDelayMs: 5,
+      });
+      check('genuine guest stays closed at the media boundary', () => {
+        assert.strictEqual(guest.guest, true);
+        assert.strictEqual(mod.state.loggedIn, false);
+        assert.strictEqual(mod.state.ready, true);
+        assert.strictEqual(mod.mediaDecision('guestVideo'), 'closed');
+        assert.strictEqual(mod.state.mediaGate, 'closed');
+      });
+    } finally {
+      await closeServer(guestSrv);
+    }
+
+    // Successful authenticated rebuild flips the same live module to open for
+    // authorized IDs with no page reload in between.
+    reset();
+    const { srv: healthySrv, port: healthyPort } = await startServer(okHandler);
+    try {
+      const rebuilt = await mod.bootWithRetry({
+        apiBase: 'http://127.0.0.1:' + healthyPort,
+        maxAttempts: 2,
+        baseDelayMs: 5,
+      });
+      assert.strictEqual(rebuilt.ok, true);
+      assert.ok(mod.state.liked.has('L1'));
+      setWatchLocationForRebuild();
+      await checkAsync('rebuilt authorization opens liked playback immediately', async () => {
+        assert.strictEqual(mod.mediaDecision('L1'), 'open');
+        assert.strictEqual(mod.state.mediaGate, 'open');
+        const openEl = new HostMediaElement();
+        const blobUrl = URL.createObjectURL(new Blob(['ok']));
+        openEl.src = blobUrl;
+        assert.strictEqual(openEl.src, blobUrl);
+        openEl.load();
+        assert.strictEqual(await openEl.play(), 'played');
+      });
+      check('the rebuilt gate reuses one live module state with no reload', () => {
+        assert.strictEqual(mod.state, stateAtStart, 'no reload may replace the module instance');
+      });
+    } finally {
+      await closeServer(healthySrv);
+    }
+  } finally {
+    globalThis.location = savedLocation;
+    if (savedMediaElement === undefined) delete globalThis.HTMLMediaElement;
+    else globalThis.HTMLMediaElement = savedMediaElement;
+    URL.createObjectURL = savedCreateObjectURL;
+  }
+  function setWatchLocationForRebuild() {
+    globalThis.location = new URL('https://www.youtube.com/watch?v=L1');
+  }
+  if (failures.length) throw new Error('media gate transition failures:\n' + failures.join('\n'));
+}
 (async function main() {
   await testRetryDelaySchedule();
   await testHealthyZeroAllowlistReachesReady();
@@ -344,6 +481,7 @@ async function testSignInTransitionRebuildsAllowlist() {
   await testProvisionalSignedOutRecoversWithRealAccountProof();
   await testTrueGuestFailsClosedAfterGenuineUnauthenticatedProof();
   await testSignInTransitionRebuildsAllowlist();
+  await testMediaGateTransitionsAcrossBootRetryGuestAndRebuild();
   console.log('All TizenTube boot recovery tests passed.');
 })().catch((e) => {
   console.error(e);
