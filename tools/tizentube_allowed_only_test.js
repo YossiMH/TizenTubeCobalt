@@ -264,6 +264,48 @@ assert.strictEqual(mod.tileShouldStay('', mod.state.allowedNames), false,
 
 assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported');
 
+{
+  const savedDocument = globalThis.document;
+  const tiles = [
+    { getAttribute: () => null, innerText: 'Sesame Street - Elmo World' },
+    { getAttribute: () => null, innerText: 'Random Video Not From Any Sub', removed: false,
+      parentNode: { removeChild(node) { node.removed = true; } } }
+  ];
+  const documentStub = {
+    querySelectorAll(selector) {
+      if (selector !== 'ytlr-tile-renderer') throw new Error(`unexpected selector ${selector}`);
+      return tiles;
+    }
+  };
+  try {
+    globalThis.document = documentStub;
+    const savedNames = [...mod.state.allowedNames];
+    mod.state.allowedNames.clear();
+    mod.state.stripped = 0;
+
+    // Network filtering has already accepted these live tiles. Until name
+    // extraction proves otherwise, an empty extraction set is not evidence
+    // that every tile is unauthorized.
+    assert.strictEqual(mod.sweepDom(), 0,
+      'an empty extracted-name set must preserve network-gated tiles');
+    assert.strictEqual(tiles.length, 2, 'bootstrap sweep cannot blank the TV UI');
+    assert.strictEqual(mod.state.stripped, 0, 'preserved tiles are not filter removals');
+
+    for (const name of savedNames) mod.state.allowedNames.add(name);
+    assert.strictEqual(mod.sweepDom(), 1,
+      'a known allowlist name must authorize its matching tile');
+    assert.strictEqual(tiles[0].innerText, 'Sesame Street - Elmo World',
+      'the authorized tile must remain attached');
+    assert.strictEqual(tiles[1].removed, true,
+      'the unauthorized tile must be removed when names are known');
+    assert.strictEqual(mod.state.stripped, 1,
+      'DOM sweep removals must count as stripped content');
+  } finally {
+    globalThis.document = savedDocument;
+    mod.state.allowedNames.clear();
+  }
+}
+
   assert.strictEqual(mod.state.armFail, 0, 'guard must start with zero failures');
   mod.install();
   assert.strictEqual(mod.state.installed, true, 'install() must mark the filter installed');
