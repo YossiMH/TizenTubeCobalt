@@ -93,17 +93,16 @@ def pinned_cdn_url(script_url: str, sha_chars: int) -> str:
 
 
 def make_document_start_loader(script_url: str, target_size: int) -> bytes:
-    # Trusted-Types-safe: YouTube TV's CSP refuses eval() and refuses assigning a
-    # plain string to script.src ("This document requires 'TrustedScriptURL'
-    # assignment"). The loader therefore creates a Trusted Types policy that
-    # wraps the URL, and falls back to a plain assignment on pages without
-    # Trusted Types. It must fit the original polyfill's fixed byte size.
-    dom_url = pinned_cdn_url(script_url, 7)
+    # Trusted-Types-safe and startup-resilient: the native injection has one
+    # chance, while this document-start resource retries until the filter's own
+    # installation marker proves that enforcement is active.
+    dom_url = pinned_cdn_url(script_url, 7).replace("https://", "//", 1)
     loader = (
-        'if(/(^|\\.)youtube\\.com$/.test(location.hostname)){'
-        "u='" + dom_url + "',s=document.createElement('script'),"
-        's.src=trustedTypes?trustedTypes.createPolicy("t",{createScriptURL:x=>x}).createScriptURL(u):u,'
-        'document.documentElement.appendChild(s)}'
+        "u='" + dom_url + "',"
+        "c=window.trustedTypes?trustedTypes.createPolicy('t',{createScriptURL:x=>x}).createScriptURL:x=>x,"
+        'D=document.head,'
+        't=setInterval(()=>window.__ttAllowedOnly?clearInterval(t):'
+        "D.appendChild(D.createElement('script')).src=c(u),1e3)"
     ).encode("utf-8")
     if len(loader) > target_size:
         raise ValueError(f"Document-start loader is {len(loader)} bytes, larger than {target_size}-byte embedded polyfill")

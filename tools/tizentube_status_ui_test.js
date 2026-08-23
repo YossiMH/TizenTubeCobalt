@@ -14,8 +14,10 @@ function reset() {
 }
 
 reset();
-assert.strictEqual(mod.statusText(), 'Restricted YouTube - Starting...');
+assert.strictEqual(mod.statusText(), 'Restricted YouTube - Protecting you: list unavailable, retrying', 'an unloaded allowlist must never look like a guest terminal state');
 S.loggedIn = false;
+assert.strictEqual(mod.statusText(), 'Restricted YouTube - Protecting you: list unavailable, retrying', 'provisional signed-out state must keep probing');
+S.ready = true;
 assert.strictEqual(mod.statusText(), 'Restricted YouTube - Signed out: all videos blocked');
 S.loggedIn = true;
 S.booting = true;

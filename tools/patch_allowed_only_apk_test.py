@@ -79,8 +79,12 @@ def main() -> None:
     # refused ("This document requires 'TrustedScriptURL' assignment"), so the
     # loader must wrap the URL in a TrustedScriptURL produced by a policy.
     assert b'trustedTypes' in loader, 'loader must use the Trusted Types factory'
+    assert b'window.trustedTypes?' in loader, 'loader must tolerate Trusted Types absence'
     assert b'createScriptURL' in loader, 'loader must produce a TrustedScriptURL'
     assert b'@752b76a/x.js' in loader, 'loader must pin the 7-char SHA of the filter commit'
+    assert b'setInterval' in loader, 'loader must retry when offline cold starts fail'
+    assert b'clearInterval' in loader, 'loader must stop retries after successful initialization'
+    assert b'window.__ttAllowedOnly' in loader, 'loader must wait for the filter initialization marker'
     assert len(loader.rstrip(b' ')) <= len(polyfill), 'loader must fit the embedded polyfill slot'
 
     with tempfile.TemporaryDirectory() as td:

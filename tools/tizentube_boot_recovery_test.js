@@ -166,11 +166,14 @@ async function testPartialFailureRetriesUntilLikedFeedLoads() {
     await closeServer(srv);
   }
 }
-async function testGuestModeFailsClosedWithoutAnyNetwork() {
+async function testProvisionalSignedOutRecoversWithRealAccountProof() {
   reset();
   mod.state.loggedIn = false;
   let requests = 0;
-  const countingHandler = (req, res) => { requests++; res.end('{}'); };
+  const countingHandler = (req, res) => {
+    requests++;
+    okHandler(req, res);
+  };
   const { srv, port } = await startServer(countingHandler);
   try {
     const result = await mod.bootWithRetry({
@@ -178,51 +181,98 @@ async function testGuestModeFailsClosedWithoutAnyNetwork() {
       maxAttempts: 2,
       baseDelayMs: 5,
     });
-    assert.strictEqual(result.ok, true, 'guest boot must succeed instantly (fail closed)');
-    assert.strictEqual(result.guest, true, 'guest boot must report guest mode');
-    assert.strictEqual(requests, 0, 'guest mode must not fetch liked/subscription data');
-    assert.strictEqual(mod.state.liked.size, 0, 'guest must not collect a liked allowlist');
-    assert.strictEqual(mod.state.subs.size, 0, 'guest must not collect a subscription allowlist');
-    assert.strictEqual(mod.state.ready, true, 'guest filter must be ready');
+    assert.strictEqual(result.ok, true, 'successful account data must recover from an early false flag');
+    assert.strictEqual(result.guest, undefined, 'real account proof must not report guest mode');
+    assert.ok(requests > 0, 'provisional signed-out state must probe the real account');
+    assert.strictEqual(mod.state.loggedIn, true, 'successful account data must authenticate the session');
+    assert.strictEqual(mod.state.ready, true, 'recovered account data must enable enforcement');
+    assert.ok(mod.state.liked.has('L1'), 'liked videos must load after recovery');
+    assert.ok(mod.state.subs.has('UCsub'), 'subscriptions must load after recovery');
+    assert.ok(mod.state.subs.has('UCguide'), 'guide subscriptions must load after recovery');
+
+    const recoveredFeed = mod.filterTree({ contents: [
+      { videoRenderer: { videoId: 'L1', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCother' } } }] } } },
+      { videoRenderer: { videoId: 'badRecovered', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCbad' } } }] } } }
+    ] });
+    assert.deepStrictEqual(recoveredFeed.contents.map((x) => x.videoRenderer.videoId), ['L1']);
+  } finally {
+    await closeServer(srv);
+  }
+}
+
+async function testTrueGuestFailsClosedAfterGenuineUnauthenticatedProof() {
+  reset();
+  mod.state.loggedIn = false;
+  const { srv, port } = await startServer((req, res) => {
+    res.statusCode = 401;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ error: { message: 'Login Required' } }));
+  });
+  try {
+    const result = await mod.bootWithRetry({
+      apiBase: 'http://127.0.0.1:' + port,
+      maxAttempts: 2,
+      baseDelayMs: 5,
+    });
+    assert.strictEqual(result.ok, false, 'genuine unauthenticated account APIs must not pretend to succeed');
+    assert.strictEqual(result.guest, true, 'HTTP 401 is terminal guest proof');
+    assert.strictEqual(mod.state.loggedIn, false, 'guest mode must remain signed out');
+    assert.strictEqual(mod.state.ready, true, 'guest fail-closed enforcement must be active');
+    assert.strictEqual(mod.state.liked.size, 0, 'guest must never collect liked videos');
+    assert.strictEqual(mod.state.subs.size, 0, 'guest must never collect subscriptions');
+
+    const guestFeed = mod.filterTree({ contents: [
+      { videoRenderer: { videoId: 'guestVideo', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCguest' } } }] } } }
+    ] });
+    assert.strictEqual(guestFeed.contents.length, 0, 'guest discovery must show zero videos');
+    const guestPlayer = mod.blockPlayerResponse({ videoDetails: { videoId: 'guestVideo', channelId: 'UCguest' }, streamingData: { formats: [1] } });
+    assert.strictEqual(guestPlayer.playabilityStatus.status, 'ERROR', 'guest playback must be blocked');
+    assert.strictEqual(guestPlayer.streamingData, undefined, 'guest playback must expose no streams');
   } finally {
     await closeServer(srv);
   }
 }
 async function testSignInTransitionRebuildsAllowlist() {
   reset();
-  let loggedIn = false;
-  globalThis.ytcfg = {
-    get: (k) =>
-      k === 'LOGGED_IN'
-        ? loggedIn
-        : k === 'INNERTUBE_CONTEXT'
-          ? { client: { clientName: 'test' } }
-          : null,
-  };
+  mod.state.loggedIn = false;
+  const { srv, port } = await startServer((req, res) => {
+    res.statusCode = 401;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ error: { message: 'Login Required' } }));
+  });
   try {
-    // Signed out: guest short-circuit, nothing fetched.
-    const guest = await mod.bootWithRetry({ maxAttempts: 2, baseDelayMs: 5 });
-    assert.strictEqual(guest.guest, true, 'signed out must fail closed');
-
-    // The user signs in on the TV without reloading: the next API boot must
-    // rebuild the allowlist from the account instead of staying blocked.
-    loggedIn = true;
-    const { srv, port } = await startServer(okHandler);
-    try {
-      const result = await mod.bootWithRetry({
-        apiBase: 'http://127.0.0.1:' + port,
-        maxAttempts: 2,
-        baseDelayMs: 5,
-      });
-      assert.strictEqual(result.ok, true, 'after sign-in the allowlist must load');
-      assert.strictEqual(result.guest, undefined, 'after sign-in this is no longer guest mode');
-      assert.ok(mod.state.liked.has('L1'), 'liked videos must be collected after sign-in');
-      assert.ok(mod.state.subs.has('UCsub'), 'subscriptions must be collected after sign-in');
-    } finally {
-      await closeServer(srv);
-    }
+    const failedBoot = await mod.bootWithRetry({
+      apiBase: 'http://127.0.0.1:' + port,
+      maxAttempts: 2,
+      baseDelayMs: 5,
+    });
+    assert.strictEqual(failedBoot.ok, false, 'the signed-out phase must fail closed');
+    assert.strictEqual(failedBoot.guest, true, 'genuine HTTP unauthentication must establish guest mode');
+    assert.strictEqual(mod.state.loggedIn, false, 'guest mode must preserve the account boundary');
+    assert.strictEqual(mod.state.ready, true, 'guest mode must enforce an empty allowlist');
+    assert.strictEqual(mod.state.liked.size, 0, 'guest mode must not retain liked videos');
+    assert.strictEqual(mod.state.subs.size, 0, 'guest mode must not retain subscriptions');
   } finally {
-    delete globalThis.ytcfg;
+    await closeServer(srv);
+  }
+
+  reset();
+  const healthy = await startServer(okHandler);
+  try {
+    const recoveredBoot = await mod.bootWithRetry({
+      apiBase: 'http://127.0.0.1:' + healthy.port,
+      maxAttempts: 2,
+      baseDelayMs: 5,
+    });
+    assert.strictEqual(recoveredBoot.ok, true, 'a subsequent authenticated boot must succeed');
+    assert.strictEqual(recoveredBoot.guest, undefined, 'real account data must clear the guest result');
+    assert.strictEqual(mod.state.loggedIn, true, 'real account data must mark sign-in');
+    assert.strictEqual(mod.state.ready, true, 'recovery must enable enforcement');
+    assert.ok(mod.state.liked.has('L1'), 'sign-in must rebuild liked videos');
+    assert.ok(mod.state.subs.has('UCsub'), 'sign-in must rebuild subscriptions');
+    assert.ok(mod.state.subs.has('UCguide'), 'sign-in must rebuild guide subscriptions');
+  } finally {
+    await closeServer(healthy.srv);
   }
 }
 (async function main() {
@@ -231,7 +281,8 @@ async function testSignInTransitionRebuildsAllowlist() {
   await testTransientFailureRecoversWithRetry();
   await testPersistentFailureExhaustsBudgetAndReportsErrors();
   await testPartialFailureRetriesUntilLikedFeedLoads();
-  await testGuestModeFailsClosedWithoutAnyNetwork();
+  await testProvisionalSignedOutRecoversWithRealAccountProof();
+  await testTrueGuestFailsClosedAfterGenuineUnauthenticatedProof();
   await testSignInTransitionRebuildsAllowlist();
   console.log('All TizenTube boot recovery tests passed.');
 })().catch((e) => {

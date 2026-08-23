@@ -30,7 +30,7 @@ def verify_apk(path,sha):
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument('apk',type=Path)
-    ap.add_argument('--sha',default='29aea15dedf')
+    ap.add_argument('--sha',required=True,help='current release source SHA')
     a=ap.parse_args()
     dg,out=verify_apk(a.apk,a.sha.encode('ascii'))
     print('sha256 '+dg)

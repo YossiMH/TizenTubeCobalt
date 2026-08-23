@@ -6,7 +6,7 @@ P=Path(__file__).with_name('verify_allowed_only_apk.py')
 spec=importlib.util.spec_from_file_location('va',P)
 V=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(V)
-SHA='29aea15dedf'.encode('ascii')
+SHA=b'current0sha'
 def make_apk(lib):
     d=Path(tempfile.mkdtemp())/'fake.apk'
     with zipfile.ZipFile(d,'w') as z:

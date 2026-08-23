@@ -6,6 +6,8 @@ function reset() {
   mod.state.subs.clear();
   mod.state.v2c.clear();
   mod.state.loggedIn = null;
+  mod.state.ready = true;
+  mod.state.stripped = 0;
 }
 
 reset();
@@ -94,15 +96,11 @@ assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/play
 assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/not_an_api')), false, 'non-API pages must pass through');
 
 (async function () {
-  // Guest/signed-out mode must fail closed: no account, no allowlist, nothing plays.
+  // Guest/signed-out enforcement is fail-closed; terminal guest status itself
+  // requires genuine account-API proof and is covered by the live HTTP suite.
   reset();
   mod.state.loggedIn = false;
-  const guestBoot = await mod.bootWithRetry({ maxAttempts: 2, baseDelayMs: 1 });
-  assert.strictEqual(guestBoot.ok, true, 'guest boot must succeed instantly (fail closed)');
-  assert.strictEqual(guestBoot.guest, true, 'guest boot must report guest mode');
-  assert.strictEqual(mod.state.ready, true, 'guest filter must be ready');
-  assert.strictEqual(mod.state.liked.size, 0, 'guest must not collect a liked allowlist');
-  assert.strictEqual(mod.state.subs.size, 0, 'guest must not collect a subscription allowlist');
+  mod.state.ready = true;
   const guestFeed = mod.filterTree({ contents: [
     { videoRenderer: { videoId: 'any1', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCany' } } }] } } }
   ] });
@@ -110,6 +108,22 @@ assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/not_an_api')), f
   const guestPlayer = mod.blockPlayerResponse({ videoDetails: { videoId: 'any2', channelId: 'UCany' }, streamingData: { formats: [1] } });
   assert.strictEqual(guestPlayer.playabilityStatus.status, 'ERROR', 'guest player must be blocked');
   assert.strictEqual(guestPlayer.streamingData, undefined, 'guest player must have no streams');
+
+  // Until account data is loaded, discovery cannot trust cached or hydrated
+  // tiles. A not-ready filter is therefore indistinguishable from an empty
+  // allowlist at every visible surface.
+  reset();
+  mod.state.loggedIn = true;
+  mod.state.ready = false;
+  mod.state.liked.add('cachedLiked');
+  mod.state.subs.add('UCcachedSub');
+  const loadingFeed = mod.filterTree({ contents: [
+    { videoRenderer: { videoId: 'cachedLiked', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCcachedSub' } } }] } } },
+    { gridVideoRenderer: { videoId: 'uncached' } }
+  ] });
+  assert.strictEqual(loadingFeed.contents.length, 0, 'not-ready discovery must strip every video');
+  const loadingPlayer = mod.blockPlayerResponse({ videoDetails: { videoId: 'cachedLiked', channelId: 'UCcachedSub' }, streamingData: { formats: [1] } });
+  assert.strictEqual(loadingPlayer.playabilityStatus.status, 'ERROR', 'not-ready playback must be blocked');
 
   // A second load of the script (e.g. when both the native redirect and the DOM
   // loader inject it) must reuse the same module instead of double-installing.
@@ -190,5 +204,10 @@ assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/not_an_api')), f
     }
   }
 
+  if (mod.state.statusWatcher) {
+    clearInterval(mod.state.statusWatcher);
+    mod.state.statusWatcher = null;
+  }
   console.log('All TizenTube allowed-only unit tests passed.');
+  process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
