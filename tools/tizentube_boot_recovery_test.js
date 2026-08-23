@@ -31,6 +31,7 @@ function closeServer(srv) {
 const likedPayload = { contents: [{ playlistVideoRenderer: { videoId: 'L1' } }] };
 const channelsPayload = { contents: [{ channelRenderer: { navigationEndpoint: { browseEndpoint: { browseId: 'UCsub' } } } }] };
 const guidePayload = { items: [{ guideSubscriptionsSectionRenderer: { items: [{ guideEntryRenderer: { navigationEndpoint: { browseEndpoint: { browseId: 'UCguide' } } } }] } }] };
+const emptyPayload = {};
 
 // Reads the JSON body and answers per-endpoint like a real YouTube API surface.
 function okHandler(req, res) {
@@ -64,6 +65,22 @@ function flakyHandler(failuresBeforeSuccess, handler) {
       return;
     }
     handler(req, res);
+  };
+}
+
+function endpointFailureHandler(failingPath) {
+  return (req, res) => {
+    if ((req.url || '').includes('/' + failingPath)) {
+      res.statusCode = 500;
+      res.end('boom');
+      return;
+    }
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify(emptyPayload));
+    });
   };
 }
 
@@ -121,6 +138,47 @@ async function testRetryDelaySchedule() {
   const capped = mod.retryDelaySchedule(8, 1000, 10000);
   assert.deepStrictEqual(capped, [1000, 2000, 4000, 8000, 10000, 10000, 10000]);
   assert.ok(capped.every((d) => d <= 10000), 'delays must never exceed the cap');
+}
+
+async function testHealthyZeroAllowlistReachesReady() {
+  reset();
+  const { srv, port } = await startServer((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(emptyPayload));
+  });
+  try {
+    const result = await mod.bootWithRetry({
+      apiBase: 'http://127.0.0.1:' + port,
+      maxAttempts: 2,
+      baseDelayMs: 5,
+    });
+    assert.strictEqual(result.ok, true, 'healthy API responses are authoritative even when both lists are empty');
+    assert.strictEqual(mod.state.loggedIn, true, 'successful account APIs prove the session is signed in');
+    assert.strictEqual(mod.state.ready, true, 'a genuine zero allowlist is ready enforcement');
+    assert.strictEqual(mod.state.liked.size, 0, 'the account has zero liked videos');
+    assert.strictEqual(mod.state.subs.size, 0, 'the account has zero subscriptions');
+    assert.strictEqual(mod.state.errors.length, 0, 'genuine zero must not be recorded as an error');
+  } finally {
+    await closeServer(srv);
+  }
+}
+
+async function testPartialEmptyEndpointFailureStillRetries() {
+  reset();
+  const { srv, port } = await startServer(endpointFailureHandler('guide'));
+  try {
+    const result = await mod.bootWithRetry({
+      apiBase: 'http://127.0.0.1:' + port,
+      maxAttempts: 3,
+      baseDelayMs: 5,
+    });
+    assert.strictEqual(result.ok, false, 'one failed relevant endpoint leaves readiness unproven');
+    assert.strictEqual(mod.state.ready, false, 'partial account proof must remain not ready');
+    assert.strictEqual(mod.state.retries, 3, 'partial failure must consume the retry budget');
+    assert.ok(mod.state.errors.some((message) => message.includes('guide')), 'the failed endpoint must be recorded');
+  } finally {
+    await closeServer(srv);
+  }
 }
 
 
@@ -277,6 +335,8 @@ async function testSignInTransitionRebuildsAllowlist() {
 }
 (async function main() {
   await testRetryDelaySchedule();
+  await testHealthyZeroAllowlistReachesReady();
+  await testPartialEmptyEndpointFailureStillRetries();
   await testBootSucceedsOnFirstTry();
   await testTransientFailureRecoversWithRetry();
   await testPersistentFailureExhaustsBudgetAndReportsErrors();

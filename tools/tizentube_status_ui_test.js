@@ -24,6 +24,7 @@ S.booting = true;
 assert.strictEqual(mod.statusText(), 'Restricted YouTube - Loading your liked videos and subscriptions...');
 S.booting = false;
 S.ready = true;
+assert.strictEqual(mod.statusText(), 'Restricted YouTube - Ready: 0 liked, 0 subscribed', 'a healthy authenticated zero account must report honest readiness');
 S.liked.add('liked-1');
 S.liked.add('liked-2');
 S.subs.add('UCsub');

@@ -238,7 +238,7 @@ assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/not_an_api')), f
 // unauthorized ytlr-tile-renderer elements from the live document.
 reset();
 mod.state.loggedIn = true;
-mod.state.ready = true;
+mod.state.ready = false;
 mod.state.allowedNames.clear();
 assert.strictEqual(typeof mod.collectChannelNames, 'function', 'collectChannelNames must be exported');
 mod.collectChannelNames({ contents: [
@@ -283,15 +283,16 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
     mod.state.allowedNames.clear();
     mod.state.stripped = 0;
 
-    // Network filtering has already accepted these live tiles. Until name
-    // extraction proves otherwise, an empty extraction set is not evidence
-    // that every tile is unauthorized.
+    // Network filtering has already accepted these live tiles. Before account
+    // readiness is proven, an empty extraction set is not evidence that every
+    // tile is unauthorized.
     assert.strictEqual(mod.sweepDom(), 0,
       'an empty extracted-name set must preserve network-gated tiles');
     assert.strictEqual(tiles.length, 2, 'bootstrap sweep cannot blank the TV UI');
     assert.strictEqual(mod.state.stripped, 0, 'preserved tiles are not filter removals');
 
     for (const name of savedNames) mod.state.allowedNames.add(name);
+    mod.state.ready = true;
     assert.strictEqual(mod.sweepDom(), 1,
       'a known allowlist name must authorize its matching tile');
     assert.strictEqual(tiles[0].innerText, 'Sesame Street - Elmo World',
@@ -305,6 +306,45 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
     mod.state.allowedNames.clear();
   }
 }
+
+  async function assertReadyZeroSweepRemovesAllTiles(loggedIn) {
+    const savedDocument = globalThis.document;
+    const tiles = [
+      { getAttribute: () => null, innerText: 'Unauthorized Video One', removed: false,
+        parentNode: { removeChild(node) { node.removed = true; } } },
+      { getAttribute: () => null, innerText: '', removed: false,
+        parentNode: { removeChild(node) { node.removed = true; } } },
+      { getAttribute: () => 'button', innerText: 'Keep Controls', removed: false,
+        parentNode: { removeChild(node) { node.removed = true; } } }
+    ];
+    globalThis.document = {
+      querySelectorAll(selector) {
+        if (selector !== 'ytlr-tile-renderer') throw new Error('unexpected selector ' + selector);
+        return tiles;
+      }
+    };
+    try {
+      reset();
+      mod.state.loggedIn = loggedIn;
+      mod.state.ready = true;
+      mod.state.errors.length = 0;
+      mod.state.booting = false;
+      mod.state.allowedNames.clear();
+      mod.state.stripped = 0;
+
+      const removed = mod.sweepDom();
+      assert.strictEqual(removed, 2, 'ready authority permits an empty allowlist to remove content tiles');
+      assert.strictEqual(tiles[0].removed, true, 'signed-in zero authority removes a named tile');
+      assert.strictEqual(tiles[1].removed, true, 'ready authority removes an unnamed tile');
+      assert.strictEqual(tiles[2].removed, false, 'ready authority preserves button controls');
+      assert.strictEqual(mod.state.stripped, 2, 'each DOM removal must count exactly once');
+    } finally {
+      globalThis.document = savedDocument;
+    }
+  }
+
+  await assertReadyZeroSweepRemovesAllTiles(true);
+  await assertReadyZeroSweepRemovesAllTiles(false);
 
   assert.strictEqual(mod.state.armFail, 0, 'guard must start with zero failures');
   mod.install();
