@@ -37,6 +37,30 @@ mod.collectLikedVideoIds({items:[
 ]});
 assert.deepStrictEqual([...mod.state.liked].sort(),['a','b']);
 
+// Modern YouTube TV feeds use tileRenderer instead of the legacy video/grid
+// renderers. The real signed-in TV response proved this shape reaches the app,
+// while the original extractor returned null and left unauthorized tiles live.
+reset();
+mod.state.loggedIn = true;
+mod.state.ready = true;
+mod.state.liked.add('tileLiked');
+mod.state.subs.add('UCtileSub');
+const tileFeed = mod.filterTree(JSON.parse(JSON.stringify({ contents: [
+  { tileRenderer: { style: 'TILE_STYLE_YTLR_ROUND', contentType: 'TILE_CONTENT_TYPE_VIDEO', contentId: 'tileLiked', onSelectCommand: { clickTrackingParams: 'video', watchEndpoint: { videoId: 'tileLiked' }, browseEndpoint: { browseId: 'UCownerLiked' } } } },
+  { tileRenderer: { style: 'TILE_STYLE_YTLR_ROUND', contentType: 'TILE_CONTENT_TYPE_VIDEO', contentId: 'badTileVideo', onSelectCommand: { watchEndpoint: { videoId: 'badTileVideo' }, browseEndpoint: { browseId: 'UCother' } } } },
+  { tileRenderer: { style: 'TILE_STYLE_YTLR_ROUND', contentType: 'TILE_CONTENT_TYPE_CHANNEL', contentId: 'UCtileSub', onSelectCommand: { browseEndpoint: { browseId: 'UCtileSub' } } } },
+  { tileRenderer: { style: 'TILE_STYLE_YTLR_ROUND', contentType: 'TILE_CONTENT_TYPE_CHANNEL', contentId: 'UCnotSubscribed', onSelectCommand: { browseEndpoint: { browseId: 'UCnotSubscribed' } } } }
+] })));
+assert.strictEqual(tileFeed.contents.length, 2, 'modern feed must keep exactly the liked-video and subscribed-channel tiles');
+assert.strictEqual(mod.firstVideoId(tileFeed.contents[0]), 'tileLiked', 'allowed modern video tile must expose its video ID');
+assert.strictEqual(mod.state.stripped, 2, 'unauthorized modern video/channel tiles must be counted as stripped');
+
+reset();
+mod.collectLikedVideoIds({ items: [
+  { tileRenderer: { contentType: 'TILE_CONTENT_TYPE_VIDEO', contentId: 'likedTileA', onSelectCommand: { watchEndpoint: { videoId: 'likedTileA' } } } },
+  { tileRenderer: { contentType: 'TILE_CONTENT_TYPE_CHANNEL', contentId: 'UCignored', onSelectCommand: { browseEndpoint: { browseId: 'UCignored' } } } }
+] });
+assert.deepStrictEqual([...mod.state.liked], ['likedTileA'], 'likes collection must harvest modern video tiles without treating channel tiles as videos');
 reset();
 mod.collectAllChannelIds({contents:[
   {channelRenderer:{navigationEndpoint:{browseEndpoint:{browseId:'UCone'}}}},
