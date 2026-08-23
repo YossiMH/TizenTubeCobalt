@@ -13,6 +13,32 @@ function reset() {
 reset();
 mod.state.liked.add('liked1');
 mod.state.subs.add('UCsub');
+// YouTube TV can report LOGGED_IN=false while sending a valid OAuth
+// Authorization header. Captured credential evidence must win over that
+// misleading config flag, and a later cfg() poll must not clear the allowlist.
+{
+  const savedYtcfg = globalThis.ytcfg;
+  try {
+    globalThis.ytcfg = { get(key) { return key === 'LOGGED_IN' ? false : undefined; } };
+    mod.state.lastLoggedIn = true;
+    mod.state.ctx = null;
+    mod.state.key = null;
+    mod.state.hdr = { authorization: 'Bearer real-account-token' };
+    mod.configure();
+    assert.strictEqual(mod.state.loggedIn, true, 'an Authorization header proves the TV session is signed in');
+    assert.strictEqual(mod.statusText(), 'Restricted YouTube - Ready: 1 liked, 1 subscribed', 'a misleading LOGGED_IN=false poll cannot invalidate an authenticated allowlist');
+
+    mod.state.ready = true;
+    mod.state.booting = false;
+    mod.state.errors.length = 0;
+    mod.configure();
+    assert.strictEqual(mod.state.loggedIn, true, 'a repeated misleading LOGGED_IN=false poll cannot demote authenticated state');
+    assert.strictEqual(mod.state.liked.size, 1, 'repeated authentication polling must preserve loaded liked videos');
+    assert.strictEqual(mod.state.subs.size, 1, 'repeated authentication polling must preserve loaded subscriptions');
+  } finally {
+    globalThis.ytcfg = savedYtcfg;
+  }
+}
 
 const feed = {contents:[
   {videoRenderer:{videoId:'liked1',ownerText:{runs:[{navigationEndpoint:{browseEndpoint:{browseId:'UCother'}}}]}}},
