@@ -576,6 +576,56 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           assert.strictEqual(Object.getOwnPropertyDescriptor(HostMediaElement.prototype, 'play').value, healedPlay,
             'self-healed wrappers must stay single-layered');
         });
+
+        // Pending authorization must fail closed on every synchronous media
+        // setup surface, with pristine counting originals proving the
+        // underlying host APIs are never reached.
+        let creatorCalls = 0;
+        const countingCreateObjectURL = function createObjectURL(input) {
+          creatorCalls += 1;
+          if (!(input instanceof Blob)) throw new TypeError('createObjectURL requires a Blob');
+          return 'blob:fixture-' + creatorCalls;
+        };
+        URL.createObjectURL = countingCreateObjectURL;
+        let nativeLoadCalls = 0;
+        Object.defineProperty(HostMediaElement.prototype, 'load', {
+          configurable: true, writable: true,
+          value: function () { nativeLoadCalls += 1; }
+        });
+        mod.installMediaGuard();
+        resetSignedInReady();
+        mod.state.ready = false;
+        mod.state.booting = true;
+        setWatchRoute('https://www.youtube.com/watch?v=pendingLiked');
+        check('pending decision is explicit while account lists load', () => {
+          assert.strictEqual(mod.mediaDecision('pendingLiked'), 'pending');
+        });
+        check('pending route refuses MediaSource object URLs without invoking the creator', () => {
+          let thrown = null;
+          try { URL.createObjectURL(new MediaSourceFixture()); } catch (e) { thrown = e; }
+          assert.ok(thrown, 'pending createObjectURL(MediaSource) must throw');
+          assert.strictEqual(thrown.message, mod.BLOCK_REASON,
+            'expected BLOCK_REASON while pending, got ' + JSON.stringify(thrown && thrown.message));
+          assert.strictEqual(creatorCalls, 0,
+            'the underlying creator must never run while pending, ran ' + creatorCalls + ' time(s)');
+        });
+        check('pending route refuses blob src assignment and preserves prior source', () => {
+          const pendingSrcEl = new HostMediaElement();
+          pendingSrcEl.src = 'about:blank';
+          pendingSrcEl.src = 'blob:pending-attempt';
+          assert.strictEqual(pendingSrcEl.src, 'about:blank',
+            'prior src must survive a pending blob refusal, got ' + JSON.stringify(pendingSrcEl.src));
+        });
+        check('pending route refuses load() without invoking the original method', () => {
+          const pendingLoadEl = new HostMediaElement();
+          let thrown = null;
+          try { pendingLoadEl.load(); } catch (e) { thrown = e; }
+          assert.ok(thrown, 'pending load() must throw');
+          assert.strictEqual(thrown.message, mod.BLOCK_REASON,
+            'expected BLOCK_REASON while pending, got ' + JSON.stringify(thrown && thrown.message));
+          assert.strictEqual(nativeLoadCalls, 0,
+            'the original load must never run while pending, ran ' + nativeLoadCalls + ' time(s)');
+        });
       }
     } finally {
       globalThis.location = savedLocation;
