@@ -24,6 +24,86 @@ const playlistPage = {
   ],
 };
 
+const capturedPlaylistAggregationPage = {
+  contents: {
+    tvBrowseRenderer: {
+      content: {
+        tvSurfaceContentRenderer: {
+          content: {
+            sectionListRenderer: {
+              contents: [{
+                shelfRenderer: {
+                  content: {
+                    horizontalListRenderer: {
+                      items: [
+                        {
+                          tileRenderer: {
+                            contentType: 'TILE_CONTENT_TYPE_PLAYLIST',
+                            contentId: 'PLcaptured-owned',
+                            onSelectCommand: {
+                              browseEndpoint: { browseId: 'VLPLcaptured-owned' },
+                            },
+                          },
+                        },
+                        {
+                          tileRenderer: {
+                            contentType: 'TILE_CONTENT_TYPE_PLAYLIST',
+                            contentId: 'FLcaptured-owned',
+                            onSelectCommand: {
+                              browseEndpoint: { browseId: 'VLFLcaptured-owned' },
+                            },
+                          },
+                        },
+                        {
+                          tileRenderer: {
+                            contentType: 'TILE_CONTENT_TYPE_PLAYLIST',
+                            contentId: 'RDcaptured-owned',
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              }],
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+const capturedPlaylistVideoListPage = {
+  contents: {
+    tvBrowseRenderer: {
+      content: {
+        tvSurfaceContentRenderer: {
+          content: {
+            twoColumnRenderer: {
+              rightColumn: {
+                playlistVideoListRenderer: {
+                  playlistId: 'PLcaptured-owned',
+                  contents: [{ tileRenderer: {
+                    contentType: 'TILE_CONTENT_TYPE_VIDEO',
+                    contentId: 'playlist-captured-tile-video',
+                    onSelectCommand: { watchEndpoint: {
+                      videoId: 'playlist-captured-tile-video',
+                      playlistId: 'PLcaptured-owned',
+                    } },
+                  } }],
+                  continuations: [{
+                    nextContinuationData: { continuation: 'playlist-captured-next' },
+                  }],
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
 const musicLibraryPage = {
   contents: [
     { musicResponsiveListItemRenderer: { playlistItemData: { videoId: 'music-direct-1' } } },
@@ -47,6 +127,28 @@ const albumLibraryPage = {
       { musicResponsiveListItemRenderer: { playlistItemData: { videoId: 'music-album-1' } } },
     ],
   },
+};
+
+const publicYourLovePage = {
+  musicShelfRenderer: {
+    title: { runs: [{ text: 'Your Love' }] },
+    contents: [{ musicResponsiveListItemRenderer: {
+      playlistItemData: { videoId: 'music-public-your-love' },
+    } }],
+  },
+};
+
+const accountLibrarySource = {
+  ownership: 'account',
+  provenance: 'account-library',
+  endpoint: 'FElibrary',
+};
+
+const accountCollectionSource = {
+  ownership: 'account',
+  provenance: 'account-collection',
+  endpoint: 'FElibrary',
+  collection: 'artist-album',
 };
 
 const purchasePage = {
@@ -78,10 +180,23 @@ const tests = {
       'a video in an account-owned custom playlist must be allowed');
     assert.strictEqual(mod.allowed('unrelated-playlist-video'), false,
       'a video absent from account-owned playlists must remain blocked');
+    const playlistIds = mod.collectPlaylistIds(capturedPlaylistAggregationPage);
+    assert.deepStrictEqual([...playlistIds].sort(), [
+      'VLFLcaptured-owned',
+      'VLPLcaptured-owned',
+      'VLRDcaptured-owned',
+    ], 'captured playlist aggregation tiles must yield VL browse IDs for PL, FL, and RD');
+    const capturedMemberships = mod.collectPlaylistVideoIds(capturedPlaylistVideoListPage, new Set());
+    assert.deepStrictEqual([...capturedMemberships], ['playlist-captured-tile-video'],
+      'captured playlistVideoListRenderer tile entries must contribute video membership');
+    assert.deepStrictEqual(mod.continuationTokens(capturedPlaylistVideoListPage), ['playlist-captured-next'],
+      'captured playlist video lists must expose nextContinuationData tokens');
   },
   'music-library-membership': () => {
     reset();
-    const memberships = mod.collectMusicLibraryVideoIds(musicLibraryPage);
+    assert.deepStrictEqual([...mod.collectMusicLibraryVideoIds(musicLibraryPage, new Set())], [],
+      'music responses without an explicit account-library source must not authorize videos');
+    const memberships = mod.collectMusicLibraryVideoIds(musicLibraryPage, new Set(), accountLibrarySource);
     assert.deepStrictEqual([...memberships].sort(), ['music-direct-1', 'music-direct-2']);
     assert.strictEqual(mod.allowed('music-direct-1'), true,
       'a video directly represented in the owned Music library must be allowed');
@@ -90,7 +205,8 @@ const tests = {
   },
   'music-artist-album-expansion': () => {
     reset();
-    const memberships = mod.collectMusicCollectionVideoIds([artistLibraryPage, albumLibraryPage]);
+    const memberships = mod.collectMusicCollectionVideoIds(
+      [artistLibraryPage, albumLibraryPage], new Set(), accountCollectionSource);
     assert.deepStrictEqual([...memberships].sort(), ['music-album-1', 'music-artist-1']);
     assert.strictEqual(mod.allowed('music-artist-1'), true,
       'a video in an owned artist collection must be allowed');
@@ -98,6 +214,12 @@ const tests = {
       'a video in an owned album collection must be allowed');
     assert.strictEqual(mod.allowed('music-public-artist-video'), false,
       'a video from a public artist page must remain blocked');
+    const publicMemberships = mod.collectMusicCollectionVideoIds(
+      [publicYourLovePage], new Set());
+    assert.deepStrictEqual([...publicMemberships], [],
+      'a public artist track titled Your Love must not be mistaken for an owned collection');
+    assert.strictEqual(mod.allowed('music-public-your-love'), false,
+      'a public artist track must remain blocked without account-library provenance');
     const collectionCards = mod.collectMusicCollectionBrowseIds({
       musicShelfRenderer: {
         title: { runs: [{ text: 'Saved artists' }] },
@@ -105,7 +227,7 @@ const tests = {
           navigationEndpoint: { browseEndpoint: { browseId: 'UCsaved-artist' } },
         } }],
       },
-    });
+    }, new Set(), accountCollectionSource);
     assert.deepStrictEqual([...collectionCards], ['UCsaved-artist'],
       'owned Music artist and album cards must seed authenticated collection expansion');
   },
