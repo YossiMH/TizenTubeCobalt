@@ -485,7 +485,14 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           assert.strictEqual(blockedEl.src, 'about:blank',
             'prior src must survive a mixed-case blob refusal, got ' + JSON.stringify(blockedEl.src));
         });
+        check('closed route refuses whitespace-wrapped mixed-case blob DOMStrings', () => {
+          blockedEl.src = 'about:blank';
+          blockedEl.src = ' \tBlOb:whitespace-wrapped-unauthorized-attempt\n ';
+          assert.strictEqual(blockedEl.src, 'about:blank',
+            'prior src must survive a whitespace-wrapped blob refusal, got ' + JSON.stringify(blockedEl.src));
+        });
         check('closed route refuses DOMString-coercible blob src values and preserves prior src', () => {
+          blockedEl.src = 'about:blank';
           const coercedBlob = { toString() { return 'bLoB:coercible-unauthorized-attempt'; } };
           blockedEl.src = coercedBlob;
           assert.strictEqual(blockedEl.src, 'about:blank',
