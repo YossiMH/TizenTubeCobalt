@@ -491,6 +491,14 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           assert.strictEqual(blockedEl.src, 'about:blank',
             'prior src must survive a whitespace-wrapped blob refusal, got ' + JSON.stringify(blockedEl.src));
         });
+        check('closed route refuses the full C0 and ASCII-whitespace blob boundary', () => {
+          blockedEl.src = 'about:blank';
+          const c0AndAsciiWhitespace = String.fromCharCode(...Array.from(
+            { length: 0x21 }, (_, codePoint) => codePoint));
+          blockedEl.src = c0AndAsciiWhitespace + 'BlOb:c0-boundary-unauthorized-attempt' + c0AndAsciiWhitespace;
+          assert.strictEqual(blockedEl.src, 'about:blank',
+            'prior src must survive a full C0/ASCII-whitespace blob refusal, got ' + JSON.stringify(blockedEl.src));
+        });
         check('closed route refuses DOMString-coercible blob src values and preserves prior src', () => {
           blockedEl.src = 'about:blank';
           const coercedBlob = { toString() { return 'bLoB:coercible-unauthorized-attempt'; } };
