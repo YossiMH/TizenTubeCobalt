@@ -480,6 +480,17 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           assert.strictEqual(blockedEl.src, 'about:blank',
             'prior src must survive a refused blob assignment, got ' + JSON.stringify(blockedEl.src));
         });
+        check('closed route refuses mixed-case blob DOMStrings and preserves prior src', () => {
+          blockedEl.src = 'BlOb:mixed-case-unauthorized-attempt';
+          assert.strictEqual(blockedEl.src, 'about:blank',
+            'prior src must survive a mixed-case blob refusal, got ' + JSON.stringify(blockedEl.src));
+        });
+        check('closed route refuses DOMString-coercible blob src values and preserves prior src', () => {
+          const coercedBlob = { toString() { return 'bLoB:coercible-unauthorized-attempt'; } };
+          blockedEl.src = coercedBlob;
+          assert.strictEqual(blockedEl.src, 'about:blank',
+            'prior src must survive a coerced blob refusal, got ' + JSON.stringify(blockedEl.src));
+        });
         check('closed route refuses load() with REASON', () => {
           let thrown = null;
           try { blockedEl.load(); } catch (e) { thrown = e; }
