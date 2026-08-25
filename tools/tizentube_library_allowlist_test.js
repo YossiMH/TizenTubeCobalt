@@ -171,7 +171,77 @@ const unknownPlaylistSource = {
   contents: [{ playlistVideoRenderer: { videoId: 'unknown-source-video' } }],
 };
 
+const accountLibraryResponses = {
+  'FElibrary|FEplaylist_aggregation': {
+    contents: [{ tileRenderer: {
+      contentType: 'TILE_CONTENT_TYPE_PLAYLIST',
+      contentId: 'PLowned-integration',
+      onSelectCommand: { browseEndpoint: { browseId: 'VLPLowned-integration' } },
+    } }],
+  },
+  'VLPLowned-integration': {
+    status: 'ok',
+    contents: [{ playlistVideoRenderer: { videoId: 'playlist-integration-1' } }],
+  },
+  'FEmusic_library|FEmusic_last_played': {
+    status: 'ok',
+    musicShelfRenderer: { contents: [{ musicTwoRowItemRenderer: {
+      navigationEndpoint: { browseEndpoint: { browseId: 'VLPLowned-music-collection' } },
+    } }] },
+  },
+  'VLPLowned-music-collection': {
+    status: 'ok',
+    contents: [{ musicResponsiveListItemRenderer: {
+      playlistItemData: { videoId: 'music-integration-1' },
+    } }],
+  },
+  'FEstorefront|ogUCKAQ%3D': {
+    status: 'ok',
+    contents: [{ videoRenderer: { videoId: 'storefront-unpurchased' } }],
+  },
+};
+
 const tests = {
+  'account-library-source-requests': async () => {
+    reset();
+    const http = require('http');
+    const requests = [];
+    const server = http.createServer((request, response) => {
+      let body = '';
+      request.setEncoding('utf8');
+      request.on('data', chunk => { body += chunk; });
+      request.on('end', () => {
+        const payload = JSON.parse(body);
+        const key = payload.browseId + '|' + encodeURIComponent(payload.params || '');
+        requests.push(key);
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify(accountLibraryResponses[key]));
+      });
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (input, init) => originalFetch(input, init);
+    try {
+      const port = server.address().port;
+      await mod.accountLibraries({ apiBase: 'http://127.0.0.1:' + port });
+      assert.deepStrictEqual(requests.sort(), [
+        'FElibrary|FEplaylist_aggregation',
+        'FEmusic_library|FEmusic_last_played',
+        'FEstorefront|ogUCKAQ%3D',
+        'VLPLowned-integration|',
+        'VLPLowned-music-collection|',
+      ], 'account library traversal must use proven source descriptors');
+      assert.strictEqual(mod.allowed('playlist-integration-1'), true,
+        'an owned aggregation playlist must authorize its videos');
+      assert.strictEqual(mod.allowed('music-integration-1'), true,
+        'an owned Music collection must authorize its videos through the forwarded descriptor');
+      assert.strictEqual(mod.allowed('storefront-unpurchased'), false,
+        'unmarked storefront content must remain blocked');
+    } finally {
+      globalThis.fetch = originalFetch;
+      server.close();
+    }
+  },
   'playlist-membership': () => {
     reset();
     const memberships = mod.collectPlaylistVideoIds(playlistPage);
@@ -294,18 +364,20 @@ if (selectedName && !selectedTests[selectedName]) {
 }
 
 const failures = [];
-for (const [name, test] of Object.entries(selectedTests)) {
-  try {
-    test();
-    console.log('PASS ' + name);
-  } catch (error) {
-    failures.push(name + ' -> ' + error.message);
-    console.error('FAIL ' + name + ' -> ' + error.message);
+void (async () => {
+  for (const [name, test] of Object.entries(selectedTests)) {
+    try {
+      await test();
+      console.log('PASS ' + name);
+    } catch (error) {
+      failures.push(name + ' -> ' + error.message);
+      console.error('FAIL ' + name + ' -> ' + error.message);
+    }
   }
-}
-if (failures.length) {
-  console.error('Library allowlist baseline failures:\n' + failures.join('\n'));
-  process.exitCode = 1;
-} else {
-  console.log('All TizenTube library allowlist tests passed.');
-}
+  if (failures.length) {
+    console.error('Library allowlist baseline failures:\n' + failures.join('\n'));
+    process.exitCode = 1;
+  } else {
+    console.log('All TizenTube library allowlist tests passed.');
+  }
+})();
