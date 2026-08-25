@@ -179,7 +179,7 @@ const accountLibraryResponses = {
       onSelectCommand: { browseEndpoint: { browseId: 'VLPLowned-integration' } },
     } }],
   },
-  'VLPLowned-integration': {
+  'VLPLowned-integration|': {
     status: 'ok',
     contents: [{ playlistVideoRenderer: { videoId: 'playlist-integration-1' } }],
   },
@@ -189,7 +189,7 @@ const accountLibraryResponses = {
       navigationEndpoint: { browseEndpoint: { browseId: 'VLPLowned-music-collection' } },
     } }] },
   },
-  'VLPLowned-music-collection': {
+  'VLPLowned-music-collection|': {
     status: 'ok',
     contents: [{ musicResponsiveListItemRenderer: {
       playlistItemData: { videoId: 'music-integration-1' },
