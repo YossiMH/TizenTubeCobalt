@@ -202,6 +202,12 @@ const accountLibraryResponses = {
 };
 
 const tests = {
+  'orphan-accountvideos-not-authorized': () => {
+    reset();
+    mod.state.accountVideos.add('orphan-video');
+    assert.strictEqual(mod.allowed('orphan-video'), false,
+      'an ID present only in the non-authoritative accountVideos cache must stay blocked');
+  },
   'account-library-source-requests': async () => {
     reset();
     const http = require('http');
@@ -266,7 +272,7 @@ const tests = {
     reset();
     assert.deepStrictEqual([...mod.collectMusicLibraryVideoIds(musicLibraryPage, new Set())], [],
       'music responses without an explicit account-library source must not authorize videos');
-    const memberships = mod.collectMusicLibraryVideoIds(musicLibraryPage, new Set(), accountLibrarySource);
+    const memberships = mod.collectMusicLibraryVideoIds(musicLibraryPage, mod.state.music, accountLibrarySource);
     assert.deepStrictEqual([...memberships].sort(), ['music-direct-1', 'music-direct-2']);
     assert.strictEqual(mod.allowed('music-direct-1'), true,
       'a video directly represented in the owned Music library must be allowed');
@@ -276,7 +282,7 @@ const tests = {
   'music-artist-album-expansion': () => {
     reset();
     const memberships = mod.collectMusicCollectionVideoIds(
-      [artistLibraryPage, albumLibraryPage], new Set(), accountCollectionSource);
+      [artistLibraryPage, albumLibraryPage], mod.state.music, accountCollectionSource);
     assert.deepStrictEqual([...memberships].sort(), ['music-album-1', 'music-artist-1']);
     assert.strictEqual(mod.allowed('music-artist-1'), true,
       'a video in an owned artist collection must be allowed');
