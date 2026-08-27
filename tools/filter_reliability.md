@@ -11,9 +11,9 @@ how to rebuild/verify a release. Read this before changing x.js or the patcher.
      66-byte slot to a pinned cdn.jsdelivr.net GitHub URL for our `x.js`. This
      path is CSP-exempt and is the path that ACTUALLY enforces (proved on-device:
      console shows `[allowed-only] filter active` sourced from the pinned URL).
-  2. **Document-start loader** — replaces the embedded
+  2. **Document-start gate** — replaces the embedded
      `html_media_element_extension_on_java_bridge.js` polyfill (288-byte slot)
-     with a small Trusted-Types-safe loader that appends a <script> to the page.
+     with a Trusted-Types-safe gate that holds fetch/XHR until native user-script injection installs the enforcement marker.
 - A pilot that pointed the loader at a bundled asset (`file:///android_asset/x.js`,
   plus adding assets/x.js to the APK) was rejected by Cobalt:
   \`Not allowed to load local resource: file:///android_asset/x.js\`. So the

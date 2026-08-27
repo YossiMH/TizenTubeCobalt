@@ -4,7 +4,8 @@ import argparse,hashlib,sys,zipfile
 from pathlib import Path
 GH=b'cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@'
 UP=b'cdn.jsdelivr.net/npm/@foxreis/tizentube/dist/userScript.js'
-LM=b'createScriptURL'
+LM=b'window.__ttAllowedOnly'
+LG=b'F=fetch,X=XMLHttpRequest.prototype.send'
 LB=b'TizenSub+'
 OLD=b'io.gh.reisxd.tizentube.cobalt'
 NEW=b'io.gh.yossim.tizentube.cobalt'
@@ -24,8 +25,7 @@ def verify_apk(path,sha):
         if UP in lib: out.append('native slot points at upstream user script (unpatched build)')
         if GH not in lib: out.append('fork CDN pin missing from native library')
         if GH+sha[:9]+XJS not in lib: out.append('native slot pin does not match current release')
-        if GH+sha[:7]+XJS not in lib: out.append('loader slot pin does not match current release')
-        if LM not in lib: out.append('document-start Trusted-Types loader missing')
+        if LM not in lib or LG not in lib: out.append('document-start enforcement gate missing')
     return dg,out
 def main():
     ap=argparse.ArgumentParser()

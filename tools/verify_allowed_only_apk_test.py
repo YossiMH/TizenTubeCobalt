@@ -13,10 +13,10 @@ def make_apk(lib):
         z.writestr('classes.dex',V.NEW+b' '+V.LB,compress_type=zipfile.ZIP_STORED)
         z.writestr('lib/arm64-v8a/libchrobalt.so',lib,compress_type=zipfile.ZIP_STORED)
     return d
-good_lib=V.GH+SHA[:9]+V.XJS+b' '+V.GH+SHA[:7]+V.XJS+b' '+V.LM+b' '
+good_lib=V.GH+SHA[:9]+V.XJS+b' '+V.LM+b' '+V.LG+b' '
 upstream_lib=V.UP
-oldpin_lib=V.GH+b'263904d06'+V.XJS+b' '+V.GH+b'263904d0'+V.XJS+b' '+V.LM+b' '
-noloader_lib=V.GH+SHA[:9]+V.XJS+b' '+V.GH+SHA[:7]+V.XJS+b' '
+oldpin_lib=V.GH+b'263904d06'+V.XJS+b' '+V.LM+b' '+V.LG+b' '
+noloader_lib=V.GH+SHA[:9]+V.XJS+b' '
 def problems_of(lib):
     apk=make_apk(lib)
     _,out=V.verify_apk(apk,SHA)
@@ -27,5 +27,5 @@ assert any('upstream user script' in x for x in up),up
 old=problems_of(oldpin_lib)
 assert any('native slot pin does not match' in x for x in old),old
 nl=problems_of(noloader_lib)
-assert any('loader missing' in x for x in nl),nl
+assert any('enforcement gate missing' in x for x in nl),nl
 print('all allowed-only APK release-verifier tests passed.')
