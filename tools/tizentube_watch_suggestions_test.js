@@ -236,6 +236,33 @@ void (async () => {
       'signed-out watch suggestions must remain fail-closed even when stale names survive');
   });
 
+  await withEnvironment(createHistory('https://www.youtube.com/watch?v=current'), async ({ root }) => {
+    resetFilterState();
+    S.liked.clear();
+    S.subs.clear();
+    S.v2c.clear();
+    S.allowedNames.add('trusted-looking text');
+
+    const poisoned = new TestNode('ytlr-watch-next-renderer', 'Trusted-Looking Text');
+    poisoned.setAttribute('href', '/watch?v=blockedNext123');
+    poisoned.attach(root);
+    assert.strictEqual(mod.elementVideoId(poisoned), 'blockedNext123',
+      'watch-card video ids must be read from ordinary watch hrefs');
+    assert.strictEqual(mod.onRouteChanged(), 1,
+      'a known blocked watch-card id must override permissive text fallback');
+    assert.strictEqual(poisoned.parentNode, null,
+      'a random automatic-next card must be removed even when its text matches an allowed channel name');
+
+    S.liked.add('likedNext123');
+    const allowed = new TestNode('ytlr-watch-next-renderer', 'Anything');
+    allowed.setAttribute('href', '/watch?v=likedNext123');
+    allowed.attach(root);
+    assert.strictEqual(mod.onRouteChanged(), 0,
+      'an explicitly allowed watch-card id must survive the sweep');
+    assert.strictEqual(allowed.parentNode, root,
+      'liked automatic-next cards remain available');
+  });
+
   console.log('All TizenTube watch suggestion tests passed.');
 })().catch(error => {
   console.error(error);

@@ -37,14 +37,22 @@ assert.strictEqual(mod.statusText(), 'Restricted YouTube - Protecting you: list 
 S.subs.clear();
 
 const appended = [];
+const styles = [];
 const body = {
   appendChild(el) {
     appended.push(el);
     el.parentNode = body;
   },
 };
+const head = {
+  appendChild(el) {
+    styles.push(el);
+    el.parentNode = head;
+  },
+};
 global.document = {
   body,
+  head,
   createElement() {
     return {
       style: {},
@@ -57,13 +65,17 @@ S.statusEl = null;
 const rendered = mod.renderStatus();
 assert.strictEqual(rendered, 'Restricted YouTube - Protecting you: list unavailable, retrying');
 assert.strictEqual(appended.length, 1, 'status should be attached exactly once');
+assert.strictEqual(styles.length, 1, 'CSP-safe status styling should be attached once in the document head');
+assert.strictEqual(styles[0].id, 'tt-allowed-only-style');
+assert.ok(styles[0].textContent.includes('position:fixed'));
+assert.ok(styles[0].textContent.includes('pointer-events:none'));
 assert.strictEqual(appended[0].id, 'tt-allowed-only-status');
 assert.strictEqual(appended[0].role, 'status');
 assert.strictEqual(appended[0].textContent, rendered);
-assert.ok(appended[0].style.cssText.includes('position:fixed'));
-assert.ok(appended[0].style.cssText.includes('pointer-events:none'));
+assert.strictEqual(appended[0].style.cssText, undefined, 'status must not rely on CSP-blocked inline style');
 mod.renderStatus();
 assert.strictEqual(appended.length, 1, 'rerender must reuse the same status element');
+assert.strictEqual(styles.length, 1, 'rerender must reuse the same style element');
 
 delete global.document;
 console.log('All TizenTube visible status tests passed.');

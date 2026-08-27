@@ -58,10 +58,11 @@ assert.ok(playerSub.streamingData);
 reset();
 mod.collectLikedVideoIds({items:[
   {playlistVideoRenderer:{videoId:'a'}},
-  {videoRenderer:{videoId:'b'}},
+  {videoRenderer:{videoId:'not-liked-recommendation'}},
   {compactVideoRenderer:{videoId:'not-liked-sidebar'}}
 ]});
-assert.deepStrictEqual([...mod.state.liked].sort(),['a','b']);
+assert.deepStrictEqual([...mod.state.liked],['a'],
+  'liked harvesting must require explicit liked-playlist provenance and ignore generic recommendations');
 
 // Modern YouTube TV feeds use tileRenderer instead of the legacy video/grid
 // renderers. The real signed-in TV response proved this shape reaches the app,
@@ -82,17 +83,57 @@ assert.strictEqual(mod.firstVideoId(tileFeed.contents[0]), 'tileLiked', 'allowed
 assert.strictEqual(mod.state.stripped, 2, 'unauthorized modern video/channel tiles must be counted as stripped');
 
 reset();
-mod.collectLikedVideoIds({ items: [
+mod.collectLikedVideoIds({ playlistVideoListRenderer: { contents: [
   { tileRenderer: { contentType: 'TILE_CONTENT_TYPE_VIDEO', contentId: 'likedTileA', onSelectCommand: { watchEndpoint: { videoId: 'likedTileA' } } } },
   { tileRenderer: { contentType: 'TILE_CONTENT_TYPE_CHANNEL', contentId: 'UCignored', onSelectCommand: { browseEndpoint: { browseId: 'UCignored' } } } }
-] });
-assert.deepStrictEqual([...mod.state.liked], ['likedTileA'], 'likes collection must harvest modern video tiles without treating channel tiles as videos');
+] } });
+assert.deepStrictEqual([...mod.state.liked], ['likedTileA'], 'likes collection must harvest modern video tiles from the liked playlist without treating channel tiles as videos');
 reset();
 mod.collectAllChannelIds({contents:[
   {channelRenderer:{navigationEndpoint:{browseEndpoint:{browseId:'UCone'}}}},
   {gridChannelRenderer:{channelId:'UCtwo'}}
 ]});
 assert.deepStrictEqual([...mod.state.subs].sort(),['UCone','UCtwo']);
+
+reset();
+mod.state.loggedIn = true;
+mod.state.ready = true;
+mod.state.subs.add('UCstrictSub');
+const poisonedPlayer = mod.blockPlayerResponse({
+  videoDetails: { videoId: 'poisoned-player' },
+  secondaryResults: {
+    channelRenderer: { channelId: 'UCstrictSub' }
+  },
+  streamingData: { formats: [1] }
+});
+assert.strictEqual(poisonedPlayer.playabilityStatus.status, 'ERROR',
+  'an unrelated subscribed channel nested elsewhere in a player payload must not authorize the current video');
+assert.strictEqual(poisonedPlayer.streamingData, undefined,
+  'a player without direct owner-channel provenance must lose streaming data');
+
+const poisonedFeed = mod.filterTree({ contents: [
+  { videoRenderer: {
+      videoId: 'poisoned-feed',
+      ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCactualOwner' } } }] },
+      metadata: { channelRenderer: { channelId: 'UCstrictSub' } }
+  } }
+]});
+assert.strictEqual(poisonedFeed.contents.length, 0,
+  'an unrelated subscribed channel nested in a video renderer must not authorize that video');
+assert.strictEqual(mod.videoOwnerChannelId({
+  videoId: 'owned-video',
+  ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCactualOwner' } } }] },
+  metadata: { channelRenderer: { channelId: 'UCstrictSub' } }
+}), 'UCactualOwner', 'strict owner provenance must prefer the byline tied to the video');
+
+reset();
+mod.collectAllChannelIds({ contents: [
+  { channelRenderer: { navigationEndpoint: { browseEndpoint: { browseId: 'UCrealSub' } } } },
+  { videoRenderer: { videoId: 'recommended-video', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCnotASub' } } }] } } },
+  { metadata: { channelId: 'UCpoisonMetadata' } }
+]});
+assert.deepStrictEqual([...mod.state.subs], ['UCrealSub'],
+  'subscription harvesting must ignore channel ids from video recommendations and generic metadata');
 
 reset();
 mod.collectGuideSubscriptionIds({guideSubscriptionsSectionRenderer:{items:[

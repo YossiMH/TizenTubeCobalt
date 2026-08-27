@@ -35,7 +35,13 @@ void (async () => {
     [25, 30, 'intro'],
   ], 'only valid enabled automatic-skip segments may survive parsing');
 
+  S.sponsorCache = new Map([['cached-video', [{ start: 1, end: 2 }]]]);
+  S.sponsorSegments = new Map([['cached-video', [{ start: 1, end: 2 }]]]);
   assert.strictEqual(mod.setSponsorCategory('intro', 'off'), 'off');
+  assert.strictEqual(S.sponsorCache.size, 0,
+    'changing SponsorBlock categories must invalidate cached API results');
+  assert.strictEqual(S.sponsorSegments.size, 0,
+    'changing SponsorBlock categories must invalidate active parsed segments');
   const parsedWithoutIntro = mod.parseSponsorSegments([
     { segment: [10, 20], category: 'sponsor', actionType: 'skip' },
     { segment: [25, 30], category: 'intro', actionType: 'skip' },

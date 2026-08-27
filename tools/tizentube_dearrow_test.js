@@ -28,6 +28,15 @@ void (async () => {
   }), 'High vote title', 'highest-voted valid title must be selected');
   assert.strictEqual(mod.selectDeArrowTitle({ titles: [] }), null,
     'missing branding must fall back without inventing a title');
+  assert.strictEqual(mod.selectDeArrowTitle({
+    titles: [{ title: 'Untrusted negative title', votes: -1 }]
+  }), null, 'unlocked negative-vote DeArrow titles must be ignored');
+  assert.strictEqual(mod.selectDeArrowTitle({
+    titles: [{ title: 'Locked negative title', votes: -10, locked: true }]
+  }), 'Locked negative title', 'locked DeArrow titles remain authoritative even with negative votes');
+  assert.strictEqual(mod.selectDeArrowThumbnail({
+    thumbnails: [{ timestamp: 4.5, votes: -2 }]
+  }), null, 'unlocked negative-vote DeArrow thumbnails must be ignored');
 
   const thumb = mod.selectDeArrowThumbnail({
     thumbnails: [

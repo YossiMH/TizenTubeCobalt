@@ -148,6 +148,41 @@ void (async () => {
     mod.setFeature('adblock', 'on');
   });
 
+  {
+    const savedFetch = globalThis.fetch;
+    const savedDocument = globalThis.document;
+    let nativeFetchCalls = 0;
+    globalThis.fetch = async function () {
+      nativeFetchCalls++;
+      return new Response('ok', { status: 200 });
+    };
+    if (savedDocument === undefined) delete globalThis.document;
+    S.installed = false;
+    S.fetch0 = null;
+    if (S.statusWatcher) clearInterval(S.statusWatcher);
+    S.statusWatcher = null;
+    try {
+      mod.install();
+      const blocked = await globalThis.fetch('https://googleads.g.doubleclick.net/pagead/id');
+      assert.strictEqual(blocked.status, 204,
+        'the installed fetch interceptor must synthesize a no-content response for ad endpoints');
+      assert.strictEqual(nativeFetchCalls, 0,
+        'blocked ad requests must never reach the native network fetch');
+      const ordinary = await globalThis.fetch('https://example.com/content');
+      assert.strictEqual(ordinary.status, 200);
+      assert.strictEqual(nativeFetchCalls, 1,
+        'ordinary non-ad traffic must continue through the native fetch');
+    } finally {
+      if (S.statusWatcher) clearInterval(S.statusWatcher);
+      S.statusWatcher = null;
+      S.installed = false;
+      S.fetch0 = null;
+      globalThis.fetch = savedFetch;
+      if (savedDocument === undefined) delete globalThis.document;
+      else globalThis.document = savedDocument;
+    }
+  }
+
   console.log('All TizenTube ad blocker tests passed.');
 })().catch(error => {
   console.error(error);
