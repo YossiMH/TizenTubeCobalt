@@ -1,13 +1,13 @@
-# TizenTube Cobalt — Liked + Subscriptions Only
+# TizenTube Cobalt — Account-Library Allowlist
 
 <p align="center">
     <img width="700px" src=".github/assets/TizenTube_Cobalt-Official_Banner.png">
     <br>
 </p>
 
-This fork of **TizenTube Cobalt** keeps the original TizenTube experience while adding an account-based allowlist: **a video is available only when you have liked that video or you are subscribed to its channel** on the signed-in YouTube account.
+This fork of **TizenTube Cobalt** keeps the TizenTube experience while adding a fail-closed account allowlist: **a video is available only when the signed-in YouTube account supplies trustworthy account-library proof for it**. That includes liked videos, videos from subscribed channels, videos in account-owned playlists, supported YouTube Music library/artist-album collections, and explicitly owned purchased titles.
 
-The restriction is applied at document start and filters YouTube discovery/playback responses used by search results, home/recommendation shelves, related suggestions, queues/autoplay, and player responses. The allowlist is rebuilt from the signed-in account's Liked videos and subscriptions, so likes/subscriptions made on other devices are picked up from the same account.
+The restriction is applied at document start and filters YouTube discovery/playback responses used by search results, home/recommendation shelves, related and post-playback suggestions, queues/autoplay, and player responses. The allowlist is rebuilt from signed-in account data, so supported library changes made on other devices are picked up from the same account. Signed-out/guest mode remains fail-closed.
 
 > This is an independent fork. The upstream project is [reisxd/TizenTubeCobalt](https://github.com/reisxd/TizenTubeCobalt).
 
@@ -31,33 +31,54 @@ One-time note: the first release (v1) was signed with a one-time key that no lon
 
 ## What "allowed only" means
 
-A video passes the filter when **either** condition is true:
+A video passes the filter only when one of these trusted account relationships is proven:
 
-1. Its video ID is present in the signed-in account's **Liked videos** list, or
+1. Its video ID is present in the signed-in account's **Liked videos** list.
 2. Its channel ID is present in the signed-in account's **subscriptions**.
+3. Its video ID was discovered inside an **account-owned playlist**.
+4. Its video ID was discovered through the supported **YouTube Music account-library / artist-album collection** paths.
+5. It is explicitly marked as **purchased/owned** by the signed-in account on the trusted purchase-library path.
 
-Everything else is removed from video-bearing discovery responses. A disallowed direct/player response has its streaming data removed and is returned as unavailable instead of being allowed to play.
+Everything else is removed from video-bearing discovery responses. A disallowed direct/player response has its streaming data removed and is returned as unavailable instead of being allowed to play. Account-library extraction is provenance-sensitive: an orphan video ID or a lookalike response is not enough to authorize playback.
 
-The filter covers the YouTube internal API surfaces used for browse/home feeds, search, next/related/autoplay, player responses, reels, and queue responses. Non-video UI such as search text suggestions is not intentionally removed.
+The filter covers the YouTube internal API surfaces used for browse/home feeds, search, next/related/autoplay, player responses, reels, and queue responses, plus a DOM safety sweep for post-playback suggestions that can be inserted after the API response. Non-video UI such as search text suggestions is not intentionally removed.
 
-**Signed out or guest mode is fully blocked.** The allowed list comes only from the signed-in account's Likes and subscriptions, so when no account is signed in (including the app's guest option) every video is removed from the home/search/related surfaces and every player response is returned as unavailable. Sign in with the Google account whose Likes/subscriptions define the allowed catalog; nothing is watchable until then.
+**Signed out or guest mode is fully blocked.** The allowed list comes only from trustworthy signed-in account data, so when no account is signed in every video is removed from home/search/related/post-playback surfaces and every player response is returned as unavailable. Nothing is watchable until the account relationship needed by the allowlist is proven.
 
 ## Verification included in this fork
 
-- Unit tests cover liked videos, subscribed-channel videos, disallowed videos, player blocking, subscription extraction, liked-video extraction, continuation handling, signed-out (guest) fail-closed behavior, and loader double-load protection.
+- Permanent JavaScript tests cover liked/subscribed and account-library authorization, disallowed/player blocking, post-playback suggestion filtering, guest fail-closed behavior, Ad Blocker payload sanitization, SponsorBlock segment handling, DeArrow title/thumbnail behavior, playback-speed controls, boot recovery, visible status, and loader double-load protection.
+- APK patcher tests verify dex integrity, Trusted-Types-safe document-start loading, same-length native CDN pinning, disabled Evergreen update endpoints, and release verification.
 - The release builder verifies the exact upstream APK hashes before patching.
-- The produced APKs are zip-aligned, signed, checked for the fork package ID/label, and checked to contain the document-start loader pinned to the exact source commit used for the release.
-- The release contains both ARM and ARM64 APKs plus SHA-256 checksums.
+- Produced APKs are zip-aligned, signed with the persistent update key, checked for the fork package ID/label, and checked to contain the document-start loader pinned to the exact source commit used for the build.
 
-Run the JavaScript filter tests locally with:
+Run the focused JavaScript suites locally with:
 
-```bash
+~~~bash
+node tools/tizentube_watch_suggestions_test.js
+node tools/tizentube_feature_settings_test.js
+node tools/tizentube_adblock_test.js
+node tools/tizentube_sponsorblock_test.js
+node tools/tizentube_dearrow_test.js
+node tools/tizentube_speed_control_test.js
 node tools/tizentube_allowed_only_test.js
-```
+node tools/tizentube_library_allowlist_test.js
+node tools/tizentube_boot_recovery_test.js
+node tools/tizentube_status_ui_test.js
+~~~
 
-## Upstream TizenTube features
+## TizenTube features
 
-This fork is built from the upstream TizenTube Cobalt release, but its in-app script slot loads this fork's allowed-only filter instead of the upstream mod script, because that slot is the only injection path that survives YouTube's on-device security policy. The fork's purpose is the liked/subscribed-only restriction; the upstream runtime script's extras (ad blocking, sponsor skip, speed controls) do not run in this fork.
+The APK's single document-start script slot loads one combined fork runtime. The allow-only/media guard and TizenTube extras therefore do not compete by wrapping the same network APIs twice.
+
+The combined runtime restores these controls while keeping allow-only enforcement non-disableable:
+
+- **Ad Blocker** — enabled by default; strips YouTube ad placement/player-ad fields and ad-only cards.
+- **SponsorBlock** — enabled by default; automatically skips the supported SponsorBlock categories, with per-category on/off controls.
+- **DeArrow** — enabled by default; applies community titles and thumbnails to matching allowed videos when branding is available.
+- **Playback speed** — 0.25× through 5× in 0.25× steps, plus the upstream 1.0001× stutter workaround.
+
+To open the controls with an ordinary TV remote, enter **YouTube TV Settings**. TizenSub+ automatically opens its TizenTube Settings overlay there. Use Up/Down and Select to change toggles, Left/Right on playback speed, and Back to return to YouTube Settings. Colored-key shortcuts remain optional rather than required.
 
 ## TV setup and phone remote control
 
