@@ -744,6 +744,54 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
     clearInterval(mod.state.statusWatcher);
     mod.state.statusWatcher = null;
   }
-  console.log('All TizenTube allowed-only unit tests passed.');
+
+reset();
+mod.state.loggedIn = true;
+mod.state.ready = true;
+mod.state.subs.add('UCcanonicalSub');
+const canonicalChannelPage = {
+  responseContext: { serviceTrackingParams: [{ params: [{ key: 'browse_id', value: 'UCcanonicalSub' }] }] },
+  contents: { tvBrowseRenderer: { content: { tvSurfaceContentRenderer: {
+    header: { channelHeaderRenderer: { buttons: [{ subscribeButtonRenderer: { channelId: 'UCcanonicalSub' } }] } },
+    content: { sectionListRenderer: { contents: [
+      { shelfRenderer: {
+        headerRenderer: { shelfHeaderRenderer: { title: { runs: [{ text: 'Videos' }] } } },
+        endpoint: { browseEndpoint: { browseId: 'UCcanonicalSub', params: 'canonical-video-tab' } },
+        content: { horizontalListRenderer: { items: [
+          { tileRenderer: { contentType: 'TILE_CONTENT_TYPE_VIDEO', contentId: 'canonical-upload', onSelectCommand: { watchEndpoint: { videoId: 'canonical-upload' } } } }
+        ] } }
+      } },
+      { shelfRenderer: {
+        headerRenderer: { shelfHeaderRenderer: { title: { runs: [{ text: 'Featured' }] } } },
+        content: { horizontalListRenderer: { items: [
+          { tileRenderer: { contentType: 'TILE_CONTENT_TYPE_VIDEO', contentId: 'foreign-feature', onSelectCommand: { watchEndpoint: { videoId: 'foreign-feature' } } } }
+        ] } }
+      } }
+    ] } }
+  } } } }
+};
+assert.strictEqual(mod.responseChannelId(canonicalChannelPage), 'UCcanonicalSub',
+  'channel-page provenance requires matching response-context and channel-header ids');
+assert.strictEqual(mod.rememberChannelPageVideos(canonicalChannelPage), 1,
+  'only the canonical Videos shelf may seed subscribed-channel video ownership');
+assert.strictEqual(mod.allowed('canonical-upload'), true,
+  'a canonical Videos-shelf upload from a subscribed channel must be allowed');
+assert.strictEqual(mod.allowed('foreign-feature'), false,
+  'a merely featured video on a subscribed channel page must not be authorized');
+const filteredCanonicalPage = mod.filterTree(JSON.parse(JSON.stringify(canonicalChannelPage)));
+assert.ok(JSON.stringify(filteredCanonicalPage).includes('canonical-upload'),
+  'the canonical Videos shelf must survive filtering');
+assert.ok(!JSON.stringify(filteredCanonicalPage).includes('foreign-feature'),
+  'non-canonical featured videos must still be stripped');
+
+const mismatchedChannelPage = JSON.parse(JSON.stringify(canonicalChannelPage));
+mismatchedChannelPage.responseContext.serviceTrackingParams[0].params[0].value = 'UCotherChannel';
+mod.state.v2c.delete('canonical-upload');
+assert.strictEqual(mod.responseChannelId(mismatchedChannelPage), null,
+  'mismatched page/header channel ids must fail closed');
+assert.strictEqual(mod.rememberChannelPageVideos(mismatchedChannelPage), 0,
+  'mismatched channel provenance must not seed video ownership');
+
+console.log('All TizenTube allowed-only unit tests passed.');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
