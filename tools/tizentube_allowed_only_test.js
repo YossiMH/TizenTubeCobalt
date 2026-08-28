@@ -136,6 +136,41 @@ assert.deepStrictEqual([...mod.state.subs], ['UCrealSub'],
   'subscription harvesting must ignore channel ids from video recommendations and generic metadata');
 
 reset();
+mod.state.loggedIn = true;
+mod.state.ready = true;
+mod.state.subs.add('UCmenuOwner');
+const menuOwned = mod.filterTree({ contents: [
+  { tileRenderer: {
+      contentType: 'TILE_CONTENT_TYPE_VIDEO',
+      contentId: 'menu-owned-video',
+      onSelectCommand: { watchEndpoint: { videoId: 'menu-owned-video' } },
+      onLongPressCommand: { showMenuCommand: { menu: { menuRenderer: { items: [
+        { menuNavigationItemRenderer: {
+            text: { runs: [{ text: 'Go to channel' }] },
+            navigationEndpoint: { browseEndpoint: { browseId: 'UCmenuOwner' } }
+        } }
+      ] } } } }
+  } }
+]});
+assert.strictEqual(menuOwned.contents.length, 1,
+  'a video tile may use its own long-press channel navigation as owner provenance');
+assert.strictEqual(mod.videoOwnerChannelId(menuOwned.contents[0]), 'UCmenuOwner',
+  'the exact video tile long-press menu must expose its owner channel');
+
+const menuPoison = mod.filterTree({ contents: [
+  { tileRenderer: {
+      contentType: 'TILE_CONTENT_TYPE_VIDEO',
+      contentId: 'menu-poison-video',
+      onSelectCommand: { watchEndpoint: { videoId: 'menu-poison-video' } },
+      metadata: { menuRenderer: { items: [
+        { menuNavigationItemRenderer: { navigationEndpoint: { browseEndpoint: { browseId: 'UCmenuOwner' } } } }
+      ] } }
+  } }
+]});
+assert.strictEqual(menuPoison.contents.length, 0,
+  'a subscribed channel id outside the video tile long-press menu must not authorize the video');
+
+reset();
 mod.collectGuideSubscriptionIds({guideSubscriptionsSectionRenderer:{items:[
   {guideEntryRenderer:{navigationEndpoint:{browseEndpoint:{browseId:'UCsubA'}}}}
 ]},otherSection:{browseEndpoint:{browseId:'UCnotSub'}}});
