@@ -377,6 +377,33 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
       'the unauthorized tile must be removed when names are known');
     assert.strictEqual(mod.state.stripped, 1,
       'DOM sweep removals must count as stripped content');
+
+    // A network-authorized canonical subscribed video must survive the legacy
+    // generic tile sweep even when the channel name is absent from its visible text.
+    const idTile = {
+      getAttribute(name) {
+        if (name === 'role') return null;
+        if (name === 'data-video-id') return 'canonical-dom-video';
+        return null;
+      },
+      querySelectorAll() { return []; },
+      innerText: 'Canonical upload title only',
+      removed: false,
+      parentNode: { removeChild(node) { node.removed = true; } }
+    };
+    mod.state.subs.add('UCcanonicalDom');
+    mod.state.v2c.set('canonical-dom-video', 'UCcanonicalDom');
+    globalThis.document = {
+      querySelectorAll(selector) {
+        if (selector !== 'ytlr-tile-renderer') throw new Error(`unexpected selector ${selector}`);
+        return [idTile];
+      }
+    };
+    mod.state.stripped = 0;
+    assert.strictEqual(mod.sweepDom(), 0,
+      'generic DOM sweep must preserve a tile whose video ID is explicitly allowed');
+    assert.strictEqual(idTile.removed, false,
+      'authorized canonical tile remains attached even without a visible channel name');
   } finally {
     globalThis.document = savedDocument;
     mod.state.allowedNames.clear();
