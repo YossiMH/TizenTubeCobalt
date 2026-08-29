@@ -81,6 +81,9 @@ $YouTubeApps = @(
     'com.sec.android.app.sbrowser',
     'com.brave.browser',
     'com.puffin.free',
+    # AnExplorer includes a BrowserActivity that accepts arbitrary http/https URLs.
+    # Component-only disable is blocked on this Onn, so disable the package; other file managers remain.
+    'dev.dworks.apps.anexplorer',
     'com.phlox.tvwebbrowser',
     'com.internet.tvwebbrowser'
 )
@@ -194,9 +197,9 @@ if ($VerifyOnly) {
         }
     }
     Write-Host '--- enabled YouTube-capable apps (must be ONLY io.gh.yossim.tizentube.cobalt) ---'
-    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-e') | Where-Object { $_ -match 'youtube|tizentube|smarttube|browser' }
+    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-e') | Where-Object { $id = $_ -replace '^package:', ''; $YouTubeApps -contains $id -or $id -match 'youtube|tizentube|smarttube|newpipe|browser' }
     Write-Host '--- disabled ---'
-    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-d') | Where-Object { $_ -match 'youtube|tizentube|smarttube|browser' }
+    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-d') | Where-Object { $id = $_ -replace '^package:', ''; $YouTubeApps -contains $id -or $id -match 'youtube|tizentube|smarttube|newpipe|browser' }
     Write-Host 'Done. If anything leaks into the enabled list, re-run this mode after the TV finishes Google account re-verification.'
     exit 0
 }

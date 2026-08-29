@@ -41,7 +41,7 @@ A video passes the filter only when one of these trusted account relationships i
 
 Everything else is removed from video-bearing discovery responses. A disallowed direct/player response has its streaming data removed and is returned as unavailable instead of being allowed to play. Account-library extraction is provenance-sensitive: an orphan video ID or a lookalike response is not enough to authorize playback.
 
-The filter covers the YouTube internal API surfaces used for browse/home feeds, search, next/related/autoplay, player responses, reels, and queue responses, plus a DOM safety sweep for post-playback suggestions that can be inserted after the API response. Non-video UI such as search text suggestions is not intentionally removed.
+The filter covers the YouTube internal API surfaces used for browse/home feeds, search, next/related/autoplay, player responses, reels, notification inbox items, and queue responses, plus a DOM safety sweep for post-playback suggestions that can be inserted after the API response. Non-video UI such as search text suggestions is not intentionally removed.
 
 **Signed out or guest mode is fully blocked.** The allowed list comes only from trustworthy signed-in account data, so when no account is signed in every video is removed from home/search/related/post-playback surfaces and every player response is returned as unavailable. Nothing is watchable until the account relationship needed by the allowlist is proven.
 
@@ -84,7 +84,7 @@ To open the controls with an ordinary TV remote, enter **YouTube TV Settings**. 
 
 - Install the APK from the download section above (ARM64 for modern boxes like the Onn 4K; ARM for older devices).
 - On the box, one-time step: enable Developer options (Settings > About > tap Build 7 times), enable USB/network debugging, and allow this PC when it asks.
-- Optional: run the included setup script to remove every other YouTube-capable app on the box (stock YouTube, browsers, SmartTube) without changing the OS or launcher. It picks the right app build automatically (ARM64 for modern boxes like the Onn 4K Pro, 32-bit ARM for older devices):
+- Optional: run the included setup script to remove every other YouTube-capable app on the box (stock YouTube, browsers including AnExplorer's embedded browser, SmartTube) without changing the OS or launcher. It picks the right app build automatically (ARM64 for modern boxes like the Onn 4K Pro, 32-bit ARM for older devices):
 
 ```powershell
 pwsh tools/onn_setup.ps1 -Serial 192.168.1.172:5555

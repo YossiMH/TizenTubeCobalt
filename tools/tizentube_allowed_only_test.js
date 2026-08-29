@@ -217,7 +217,11 @@ assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/pair
 assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/pairing/get_pairing_code')), false, 'pairing code polling must pass through');
 assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/queue/add')), true, 'cast queue must be filtered');
 assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/get_mobile_playback')), true, 'mobile playback must be filtered');
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/notification/get_notification_menu')), true, 'notification video surfaces must be filtered');
 assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/browse')), true, 'browse must be filtered');
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/search')), true, 'search must be filtered');
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/next')), true, 'next/related/autoplay must be filtered');
+assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/reel/reel_item_watch')), true, 'Shorts/reel surfaces must be filtered');
 assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/youtubei/v1/player')), true, 'player must be filtered');
 assert.strictEqual(mod.filtapi(new URL('https://www.youtube.com/not_an_api')), false, 'non-API pages must pass through');
 
