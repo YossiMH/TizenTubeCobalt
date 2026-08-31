@@ -3,8 +3,9 @@
 #
 # What this does (all reversible, none of it changes the OS or the launcher):
 #   1. Installs the fixed release APK (persistent-key signed, dex-valid).
-#   2. Disables every other YouTube-capable app on the box so this fork is
-#      the ONLY way to watch YouTube there (no stock YouTube, no browsers).
+#   2. Disables dedicated unrestricted YouTube clients on the box.
+#      General-purpose browsers and file explorers remain usable by design; TizenSub+
+#      does not claim to enforce its allowlist inside those separate apps.
 #   3. Launches the fork.
 #
 # Phone remote control still works: the phone YouTube app pairs with this
@@ -49,10 +50,12 @@ function PackageExists([string]$pkg) {
     return ($lines | Where-Object { $_ -match ('package:' + [regex]::Escape($pkg) + '\s*$') }).Count -gt 0
 }
 
-# The protected fork package id (the ONLY YouTube-capable app that must stay enabled).
+# The protected fork package id (the only dedicated YouTube client that must stay enabled).
 $ForkId = 'io.gh.yossim.tizentube.cobalt'
 
-# Apps that can show YouTube content on Android TV boxes, checked explicitly.
+# Dedicated YouTube clients are locked explicitly. General-purpose browsers and file
+# explorers are deliberately preserved; they are user-required tools, not treated as
+# dedicated YouTube clients even though they can technically navigate to youtube.com.
 $YouTubeApps = @(
     'com.google.android.youtube.tv',
     'com.google.android.apps.youtube.tv',
@@ -69,23 +72,17 @@ $YouTubeApps = @(
     'com.liskovsoft.smarttubetv',
     'org.schabi.newpipe',
     'com.github.yokolet.ytdroid',
-    'io.gh.reisxd.tizentube.cobalt',
-    'com.android.chrome',
-    'com.chrome.beta',
-    'org.chromium.chrome',
-    'com.opera.browser',
-    'com.opera.tv.browser',
-    'com.microsoft.emmx',
-    'org.mozilla.firefox',
-    'com.duckduckgo.mobile.android',
-    'com.sec.android.app.sbrowser',
-    'com.brave.browser',
-    'com.puffin.free',
-    # AnExplorer includes a BrowserActivity that accepts arbitrary http/https URLs.
-    # Component-only disable is blocked on this Onn, so disable the package; other file managers remain.
-    'dev.dworks.apps.anexplorer',
-    'com.phlox.tvwebbrowser',
-    'com.internet.tvwebbrowser'
+    'io.gh.reisxd.tizentube.cobalt'
+)
+
+$GeneralPurposeApps = @(
+    'com.android.chrome', 'com.chrome.beta', 'org.chromium.chrome',
+    'com.opera.browser', 'com.opera.tv.browser', 'com.microsoft.emmx',
+    'org.mozilla.firefox', 'com.duckduckgo.mobile.android',
+    'com.sec.android.app.sbrowser', 'com.brave.browser', 'com.puffin.free',
+    'dev.dworks.apps.anexplorer', 'com.phlox.tvwebbrowser', 'com.internet.tvbrowser',
+    'com.internet.tvwebbrowser', 'com.lonelycatgames.Xplore',
+    'com.cxinventor.file.explorer', 'com.alphainventor.filemanager'
 )
 # Future-proof: also lock any installed app whose id mentions youtube/smarttube/
 # newpipe/tizentube, EXCEPT the protected fork itself. This keeps catching new
@@ -136,7 +133,7 @@ function Invoke-StartupGuardCheck {
                 $enabledPackages = Invoke-Adb @('shell', 'pm', 'list', 'packages', '-e') |
                     Where-Object { $_ -match '^package:' } |
                     ForEach-Object { $_ -replace '^package:', '' } |
-                    Where-Object { $YouTubeApps -contains $_ -or $_ -match 'youtube|smarttube|newpipe|tizentube|browser' } |
+                    Where-Object { $YouTubeApps -contains $_ -or $_ -match 'youtube|smarttube|newpipe|tizentube' } |
                     Sort-Object
                 Write-Output "STARTUP_RECOVERY_STATE=$recoveryState"
                 Write-Output "STARTUP_RECOVERY_ATTEMPT=$attempt"
@@ -163,7 +160,7 @@ function Invoke-StartupGuardCheck {
     $enabledPackages = Invoke-Adb @('shell', 'pm', 'list', 'packages', '-e') |
         Where-Object { $_ -match '^package:' } |
         ForEach-Object { $_ -replace '^package:', '' } |
-        Where-Object { $YouTubeApps -contains $_ -or $_ -match 'youtube|smarttube|newpipe|tizentube|browser' } |
+        Where-Object { $YouTubeApps -contains $_ -or $_ -match 'youtube|smarttube|newpipe|tizentube' } |
         Sort-Object
     Write-Output "STARTUP_RECOVERY_STATE=$recoveryState"
     Write-Output 'STARTUP_RECOVERY_ATTEMPT=3'
@@ -196,10 +193,12 @@ if ($VerifyOnly) {
             Write-Host ("skip (not installed): $pkg")
         }
     }
-    Write-Host '--- enabled YouTube-capable apps (must be ONLY io.gh.yossim.tizentube.cobalt) ---'
-    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-e') | Where-Object { $id = $_ -replace '^package:', ''; $YouTubeApps -contains $id -or $id -match 'youtube|tizentube|smarttube|newpipe|browser' }
-    Write-Host '--- disabled ---'
-    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-d') | Where-Object { $id = $_ -replace '^package:', ''; $YouTubeApps -contains $id -or $id -match 'youtube|tizentube|smarttube|newpipe|browser' }
+    Write-Host '--- enabled dedicated YouTube clients (must be ONLY io.gh.yossim.tizentube.cobalt) ---'
+    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-e') | Where-Object { $id = $_ -replace '^package:', ''; $YouTubeApps -contains $id -or $id -match 'youtube|tizentube|smarttube|newpipe' }
+    Write-Host '--- preserved general-purpose browsers/file explorers ---'
+    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-e') | Where-Object { $id = $_ -replace '^package:', ''; $GeneralPurposeApps -contains $id }
+    Write-Host '--- disabled dedicated YouTube clients ---'
+    Invoke-Adb @('shell', 'pm', 'list', 'packages', '-d') | Where-Object { $id = $_ -replace '^package:', ''; $YouTubeApps -contains $id -or $id -match 'youtube|tizentube|smarttube|newpipe' }
     Write-Host 'Done. If anything leaks into the enabled list, re-run this mode after the TV finishes Google account re-verification.'
     exit 0
 }
@@ -236,7 +235,7 @@ if ($ApkPath) {
 Write-Host '=== Installing fixed release APK ==='
 Invoke-Adb @('install', '-r', '-t', $ApkPath) | Write-Host
 
-Write-Host '=== Disabling other YouTube-capable apps ==='
+Write-Host '=== Disabling other dedicated YouTube clients ==='
 $disabled = 0
 foreach ($pkg in $YouTubeApps) {
     if (PackageExists $pkg) {
@@ -247,7 +246,7 @@ foreach ($pkg in $YouTubeApps) {
         Write-Host "skip (not installed): $pkg"
     }
 }
-if ($disabled -eq 0) { Write-Host '(no other YouTube-capable apps found - this box is already clean)' }
+if ($disabled -eq 0) { Write-Host '(no other dedicated YouTube clients found - this box is already clean)' }
 
 Write-Host '=== Launching the fork and confirming the guard ==='
 $startupGuardResult = Invoke-StartupGuardCheck

@@ -84,7 +84,7 @@ To open the controls with an ordinary TV remote, enter **YouTube TV Settings**. 
 
 - Install the APK from the download section above (ARM64 for modern boxes like the Onn 4K; ARM for older devices).
 - On the box, one-time step: enable Developer options (Settings > About > tap Build 7 times), enable USB/network debugging, and allow this PC when it asks.
-- Optional: run the included setup script to remove every other YouTube-capable app on the box (stock YouTube, browsers including AnExplorer's embedded browser, SmartTube) without changing the OS or launcher. It picks the right app build automatically (ARM64 for modern boxes like the Onn 4K Pro, 32-bit ARM for older devices):
+- Optional: run the included setup script to disable dedicated unrestricted YouTube clients on the box (stock YouTube, SmartTube, upstream TizenTube, and similar clients) without changing the OS or launcher. General-purpose browsers and file explorers, including AnExplorer, are deliberately preserved as usable tools and are not part of the dedicated-client lockdown. Because those apps can browse arbitrary web sites, TizenSub+ cannot enforce its allowlist inside them; child containment therefore requires profile/app-access controls rather than disabling the tools for everyone. It picks the right app build automatically (ARM64 for modern boxes like the Onn 4K Pro, 32-bit ARM for older devices):
 
 ```powershell
 pwsh tools/onn_setup.ps1 -Serial 192.168.1.172:5555

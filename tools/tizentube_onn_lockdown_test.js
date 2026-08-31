@@ -1,8 +1,11 @@
 const assert=require('assert'),fs=require('fs'),path=require('path');
 const s=fs.readFileSync(path.join(__dirname,'onn_setup.ps1'),'utf8');
-assert.ok(s.includes("'dev.dworks.apps.anexplorer'"),'AnExplorer browser bypass must be locked');
-assert.ok(s.includes("'com.phlox.tvwebbrowser'"));
-assert.ok(s.includes("'com.internet.tvwebbrowser'"));
-assert.ok(s.includes("'com.liskovsoft.smarttubetv.beta'"));
+const lockdown=s.slice(s.indexOf('$YouTubeApps = @('),s.indexOf('$GeneralPurposeApps = @('));
+assert.ok(!lockdown.includes("'dev.dworks.apps.anexplorer'"),'AnExplorer must remain usable');
+assert.ok(!lockdown.includes("'com.phlox.tvwebbrowser'"),'general browser must remain usable');
+assert.ok(!lockdown.includes("'com.internet.tvbrowser'"),'general browser must remain usable');
+assert.ok(s.includes("$GeneralPurposeApps = @("),'general-purpose browser/file-manager policy must be explicit');
+assert.ok(s.includes("'dev.dworks.apps.anexplorer'"),'AnExplorer should remain visible in audit reporting');
+assert.ok(s.includes("'com.liskovsoft.smarttubetv.beta'"),'dedicated unrestricted YouTube clients must stay locked');
 assert.ok(s.includes("$ForkId = 'io.gh.yossim.tizentube.cobalt'"));
 console.log('All TizenTube Onn lockdown tests passed.');
