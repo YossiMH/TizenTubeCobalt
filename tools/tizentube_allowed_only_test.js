@@ -553,6 +553,16 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           assert.strictEqual(mod.mediaDecision('gateOpenLiked'), 'open');
           assert.strictEqual(mod.mediaDecision('gateOpenSub'), 'open');
         });
+        check('player response remembers verified subscribed owner for direct playback', function() {
+          resetSignedInReady();
+          mod.state.subs.add('UCdirectSub');
+          const response = {videoDetails: {videoId: 'directSubVideo', channelId: 'UCdirectSub'}, streamingData: {formats: [{itag: 18}]}};
+          const filtered = mod.blockPlayerResponse(response);
+          assert.strictEqual(filtered, response);
+          assert.strictEqual(mod.state.v2c.get('directSubVideo'), 'UCdirectSub');
+          assert.strictEqual(mod.mediaDecision('directSubVideo'), 'open');
+          assert.ok(filtered.streamingData, 'subscribed direct response must retain streaming data');
+        });
       }
 
       check('state.mediaGate is the persisted enum, never a boolean pair', () => {
