@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dev.yossi.onnkeyguard">
+<uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
+<permission android:name="dev.yossi.onnkeyguard.permission.MORNING_PLAY" android:protectionLevel="signature" />
+<application android:allowBackup="false" android:label="Onn Key Guard" android:theme="@android:style/Theme.NoDisplay">
+<service android:name=".KeyGuardService" android:label="Onn Key Guard" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
+<intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+<meta-data android:name="android.accessibilityservice" android:resource="@xml/keyguard_service" />
+</service>
+<receiver android:name=".MorningPlaybackReceiver" android:exported="true" android:permission="dev.yossi.onnkeyguard.permission.MORNING_PLAY" />
+</application></manifest>
