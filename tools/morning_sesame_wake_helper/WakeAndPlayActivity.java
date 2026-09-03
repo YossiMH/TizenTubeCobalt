@@ -14,7 +14,9 @@ import android.view.WindowManager;
 public final class WakeAndPlayActivity extends Activity {
     private static final String TAG = "MorningSesame";
     private static final String DEFAULT_TARGET = "io.gh.yossim.tizentube.cobalt";
-    private static final long STARTUP_WAKE_MS = 120_000L;
+    private static final long STARTUP_WAKE_MS = 105_000L;
+    private static final long VERIFY_HANDOFF_MS = 65_000L;
+    private static final long PLAY_HANDOFF_MS = 75_000L;
     private PowerManager.WakeLock wakeLock;
 
     @Override
@@ -49,29 +51,43 @@ public final class WakeAndPlayActivity extends Activity {
             return;
         }
 
-        Log.i(TAG, "Woke display; handing URL to " + target + ": " + url);
+        Log.i(TAG, "Woke display; warming TizenSub+ before video handoff: " + url);
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             try {
-                Intent play = new Intent(Intent.ACTION_VIEW, url);
-                play.setPackage(target);
-                play.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(play);
-                Log.i(TAG, "TizenSub+ launch requested");
+                Intent warm = getPackageManager().getLaunchIntentForPackage(target);
+                if (warm == null) {
+                    throw new IllegalStateException("No launch intent for " + target);
+                }
+                warm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(warm);
+                Log.i(TAG, "TizenSub+ warm-up requested");
             } catch (Exception e) {
-                Log.e(TAG, "TizenSub+ launch failed", e);
+                Log.e(TAG, "TizenSub+ warm-up failed", e);
                 releaseWakeLock();
                 finish();
                 return;
             }
 
-            // Keep the display awake while a cold TizenSub+ start loads the signed-in
-            // allowlist and verifies the requested video's owner. The wake lock has
-            // its own hard timeout as a second safety bound.
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            Handler handler = new Handler(Looper.getMainLooper());
+            handler.postDelayed(() -> handoffVideo(target, url, "verification"), VERIFY_HANDOFF_MS);
+            handler.postDelayed(() -> handoffVideo(target, url, "playback"), PLAY_HANDOFF_MS);
+            handler.postDelayed(() -> {
                 releaseWakeLock();
                 finish();
             }, STARTUP_WAKE_MS - 2_000L);
         }, 1500L);
+    }
+
+    private void handoffVideo(String target, Uri url, String phase) {
+        try {
+            Intent play = new Intent(Intent.ACTION_VIEW, url);
+            play.setPackage(target);
+            play.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(play);
+            Log.i(TAG, "TizenSub+ " + phase + " handoff requested");
+        } catch (Exception e) {
+            Log.e(TAG, "TizenSub+ " + phase + " handoff failed", e);
+        }
     }
 
     private void releaseWakeLock() {
