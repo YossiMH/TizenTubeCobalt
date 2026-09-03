@@ -1,6 +1,7 @@
 package dev.yossi.morningsesame;
 
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -170,9 +171,7 @@ public final class WakeAndPlayActivity extends Activity {
         Intent intent = new Intent(this, WakeAndPlayActivity.class)
                 .setAction(action)
                 .putExtra(EXTRA_VIDEO, videoId);
-        PendingIntent pi = PendingIntent.getActivity(
-                this, requestCode, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pi = alarmActivityPendingIntent(this, requestCode, intent);
         setExact(am, System.currentTimeMillis() + delayMs, pi);
     }
 
@@ -310,11 +309,24 @@ public final class WakeAndPlayActivity extends Activity {
     private static void scheduleRunAt(Context context, long whenMillis) {
         AlarmManager am = (AlarmManager) context.getSystemService(ALARM_SERVICE);
         Intent intent = new Intent(context, WakeAndPlayActivity.class).setAction(ACTION_RUN);
-        PendingIntent pi = PendingIntent.getActivity(
-                context, REQ_RUN, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pi = alarmActivityPendingIntent(context, REQ_RUN, intent);
         am.cancel(pi);
         setExact(am, whenMillis, pi);
+    }
+
+    private static PendingIntent alarmActivityPendingIntent(
+            Context context, int requestCode, Intent intent) {
+        Bundle options = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ActivityOptions activityOptions = ActivityOptions.makeBasic();
+            activityOptions.setPendingIntentCreatorBackgroundActivityStartMode(
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+            options = activityOptions.toBundle();
+        }
+        return PendingIntent.getActivity(
+                context, requestCode, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE,
+                options);
     }
 
     private static void setExact(AlarmManager am, long whenMillis, PendingIntent pi) {
