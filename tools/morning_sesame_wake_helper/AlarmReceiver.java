@@ -22,13 +22,16 @@ public final class AlarmReceiver extends BroadcastReceiver {
             return;
         }
 
+        String videoId = intent.getStringExtra(WakeAndPlayActivity.EXTRA_VIDEO);
+        if (WakeAndPlayActivity.ACTION_VERIFY.equals(action)
+                || WakeAndPlayActivity.ACTION_PLAY.equals(action)) {
+            routePlayback(context, action, videoId);
+            return;
+        }
+
         Intent launch = new Intent(context, WakeAndPlayActivity.class)
                 .setAction(action)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        String videoId = intent.getStringExtra(WakeAndPlayActivity.EXTRA_VIDEO);
-        if (videoId != null) {
-            launch.putExtra(WakeAndPlayActivity.EXTRA_VIDEO, videoId);
-        }
 
         Bundle creatorOptions = null;
         Bundle senderOptions = null;
@@ -53,6 +56,32 @@ public final class AlarmReceiver extends BroadcastReceiver {
             Log.i(TAG, "Alarm receiver launched " + action);
         } catch (PendingIntent.CanceledException e) {
             Log.e(TAG, "Alarm receiver launch failed for " + action, e);
+        }
+    }
+
+    private static void routePlayback(Context context, String action, String videoId) {
+        if (videoId == null || !videoId.matches("[A-Za-z0-9_-]{11}")) {
+            Log.w(TAG, "Alarm receiver ignored invalid playback id for " + action);
+            return;
+        }
+        Intent handoff = new Intent("dev.yossi.onnkeyguard.MORNING_PLAY")
+                .setClassName("dev.yossi.onnkeyguard",
+                        "dev.yossi.onnkeyguard.MorningPlaybackReceiver")
+                .putExtra("video_id", videoId);
+        context.sendBroadcast(handoff);
+        Log.i(TAG, "Alarm receiver routed " + action + " for " + videoId);
+        if (WakeAndPlayActivity.ACTION_PLAY.equals(action)) {
+            java.util.Set<String> played = new java.util.HashSet<>(
+                    context.getSharedPreferences("morning_sesame", Context.MODE_PRIVATE)
+                            .getStringSet("played_ids", new java.util.HashSet<>()));
+            played.add(videoId);
+            if (played.size() > 250) {
+                played.clear();
+                played.add(videoId);
+            }
+            context.getSharedPreferences("morning_sesame", Context.MODE_PRIVATE)
+                    .edit().putStringSet("played_ids", played).remove("pending_video").apply();
+            Log.i(TAG, "Recorded played video " + videoId);
         }
     }
 
