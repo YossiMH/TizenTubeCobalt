@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 public final class WakeAndPlayActivity extends Activity {
     private static final String TAG = "MorningSesame";
     private static final String TARGET_PACKAGE = "io.gh.yossim.tizentube.cobalt";
+    private static final String TARGET_ACTIVITY = "dev.cobalt.app.MainActivity";
     private static final String CHANNEL_URL = "https://www.youtube.com/@SesameStreetClassics/videos";
     private static final String PREFS = "morning_sesame";
     private static final String KEY_PLAYED = "played_ids";
@@ -147,10 +148,8 @@ public final class WakeAndPlayActivity extends Activity {
         prefs().edit().putString(KEY_PENDING, videoId).apply();
 
         try {
-            Intent warm = getPackageManager().getLaunchIntentForPackage(TARGET_PACKAGE);
-            if (warm == null) {
-                throw new IllegalStateException("No launch intent for " + TARGET_PACKAGE);
-            }
+            Intent warm = new Intent(Intent.ACTION_MAIN);
+            warm.setClassName(TARGET_PACKAGE, TARGET_ACTIVITY);
             warm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(warm);
             Log.i(TAG, "TizenSub+ warm-up requested for " + videoId);
