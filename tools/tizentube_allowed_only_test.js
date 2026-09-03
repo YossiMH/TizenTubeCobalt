@@ -643,6 +643,22 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
         });
 
         resetSignedInReady();
+        setWatchRoute('https://www.youtube.com/tv#/');
+        const setupEl = new HostMediaElement();
+        check('empty player route allows media setup without allowing playback', () => {
+          const blobUrl = URL.createObjectURL(new Blob(['setup']));
+          setupEl.src = blobUrl;
+          assert.strictEqual(setupEl.src, blobUrl);
+          setupEl.load();
+        });
+        await checkAsync('empty player route still refuses play()', async () => {
+          let error = null;
+          try { await setupEl.play(); } catch (e) { error = e; }
+          assert.ok(error, 'play() must still be refused without an authorized video route');
+          assert.strictEqual(error.message, mod.BLOCK_REASON);
+        });
+
+        resetSignedInReady();
         mod.state.liked.add('likedAuthPlay');
         setWatchRoute('https://www.youtube.com/watch?v=likedAuthPlay');
         const likedEl = new HostMediaElement();
