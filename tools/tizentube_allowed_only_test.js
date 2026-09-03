@@ -563,6 +563,56 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           assert.strictEqual(mod.mediaDecision('directSubVideo'), 'open');
           assert.ok(filtered.streamingData, 'subscribed direct response must retain streaming data');
         });
+
+        await checkAsync('direct route resolver verifies owner before authorizing playback', async () => {
+          resetSignedInReady();
+          mod.state.subs.add('UCresolvedSub');
+          mod.state.ctx = { client: { clientName: 'TVHTML5', clientVersion: '1' } };
+          mod.state.key = 'fixture-key';
+          mod.state.hdr = { authorization: 'Bearer fixture' };
+          const savedFetch0 = mod.state.fetch0;
+          mod.state.fetch0 = async function(url, init) {
+            assert.ok(String(url).indexOf('/youtubei/v1/player') >= 0, 'resolver must call the player endpoint');
+            const body = JSON.parse(init.body);
+            assert.strictEqual(body.videoId, 'resolvedDirect');
+            return {
+              ok: true,
+              status: 200,
+              async json() {
+                return { videoDetails: { videoId: 'resolvedDirect', channelId: 'UCresolvedSub' }, streamingData: { formats: [{ itag: 18 }] } };
+              }
+            };
+          };
+          try {
+            assert.strictEqual(await mod.verifyDirectVideo('resolvedDirect'), true);
+            assert.strictEqual(mod.state.v2c.get('resolvedDirect'), 'UCresolvedSub');
+            assert.strictEqual(mod.allowed('resolvedDirect'), true);
+          } finally {
+            mod.state.fetch0 = savedFetch0;
+          }
+        });
+
+        await checkAsync('direct route resolver keeps an unsubscribed owner blocked', async () => {
+          resetSignedInReady();
+          mod.state.ctx = { client: { clientName: 'TVHTML5', clientVersion: '1' } };
+          mod.state.key = 'fixture-key';
+          const savedFetch0 = mod.state.fetch0;
+          mod.state.fetch0 = async function() {
+            return {
+              ok: true,
+              status: 200,
+              async json() {
+                return { videoDetails: { videoId: 'blockedDirect', channelId: 'UCnotSubscribed' }, streamingData: { formats: [{ itag: 18 }] } };
+              }
+            };
+          };
+          try {
+            assert.strictEqual(await mod.verifyDirectVideo('blockedDirect'), false);
+            assert.strictEqual(mod.allowed('blockedDirect'), false);
+          } finally {
+            mod.state.fetch0 = savedFetch0;
+          }
+        });
       }
 
       check('state.mediaGate is the persisted enum, never a boolean pair', () => {
