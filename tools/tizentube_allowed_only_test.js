@@ -898,6 +898,30 @@ assert.strictEqual(mod.responseChannelId(mismatchedChannelPage), null,
 assert.strictEqual(mod.rememberChannelPageVideos(mismatchedChannelPage), 0,
   'mismatched channel provenance must not seed video ownership');
 
+
+const morningProgressFixture = {
+  contents: { sectionListRenderer: { contents: [
+    { tileRenderer: {
+      contentType: 'TILE_CONTENT_TYPE_VIDEO',
+      contentId: 'progress-one',
+      onSelectCommand: { watchEndpoint: { videoId: 'progress-one' } },
+      header: { tileHeaderRenderer: { thumbnailOverlays: [
+        { thumbnailOverlayResumePlaybackRenderer: { percentDurationWatched: 73 } }
+      ] } }
+    } },
+    { tileRenderer: {
+      contentType: 'TILE_CONTENT_TYPE_VIDEO',
+      contentId: 'progress-two',
+      onSelectCommand: { watchEndpoint: { videoId: 'progress-two' } },
+      header: { tileHeaderRenderer: { thumbnailOverlays: [] } }
+    } }
+  ] } }
+};
+assert.deepStrictEqual(mod.collectMorningProgress(morningProgressFixture, {}), {
+  'progress-one': 73,
+  'progress-two': 0
+}, 'morning progress collector must preserve resume percentage and treat no resume overlay as unplayed');
+
 console.log('All TizenTube allowed-only unit tests passed.');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

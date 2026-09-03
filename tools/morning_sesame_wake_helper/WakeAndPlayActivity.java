@@ -39,6 +39,7 @@ public final class WakeAndPlayActivity extends Activity {
     private static final String PREFS = "morning_sesame";
     private static final String KEY_PLAYED = "played_ids";
     private static final String KEY_PENDING = "pending_video";
+    private static final String KEY_CANDIDATES = "candidate_list";
     private static final int MIN_SECONDS = 30 * 60;
 
     public static final String ACTION_SETUP = "dev.yossi.morningsesame.SETUP";
@@ -122,8 +123,8 @@ public final class WakeAndPlayActivity extends Activity {
         wakeScreen(WAKE_TIMEOUT_MS);
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
-                Candidate chosen = chooseVideo();
-                if (chosen == null) {
+                Map<String, Integer> candidates = fetchCandidates();
+                if (candidates.isEmpty()) {
                     Log.e(TAG, "No qualifying >30 minute Sesame Street Classics video found");
                     runOnUiThread(() -> {
                         releaseWakeLock();
@@ -131,8 +132,12 @@ public final class WakeAndPlayActivity extends Activity {
                     });
                     return;
                 }
-                Log.i(TAG, "Selected " + chosen.videoId + " " + chosen.durationSeconds + "s");
-                runOnUiThread(() -> beginWithVideo(chosen.videoId));
+                prefs().edit()
+                    .putString(KEY_CANDIDATES, serializeCandidates(candidates))
+                    .remove(KEY_PENDING)
+                    .apply();
+                Log.i(TAG, "Prepared " + candidates.size() + " qualifying videos for account-progress selection");
+                runOnUiThread(this::beginDeferredSelection);
             } catch (Exception e) {
                 Log.e(TAG, "Video selection failed", e);
                 runOnUiThread(() -> {
@@ -141,6 +146,24 @@ public final class WakeAndPlayActivity extends Activity {
                 });
             }
         });
+    }
+
+    private void beginDeferredSelection() {
+        wakeScreen(WAKE_TIMEOUT_MS);
+        try {
+            Intent warm = new Intent(Intent.ACTION_MAIN);
+            warm.setClassName(TARGET_PACKAGE, TARGET_ACTIVITY);
+            warm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(warm);
+            Log.i(TAG, "TizenSub+ warm-up requested before account-progress selection");
+        } catch (Exception e) {
+            Log.e(TAG, "TizenSub+ warm-up failed", e);
+            releaseWakeLock();
+            finish();
+            return;
+        }
+        schedulePhase(ACTION_VERIFY, REQ_VERIFY, VERIFY_DELAY_MS, null);
+        Log.i(TAG, "Scheduled account-progress selection and verification");
     }
 
     private void beginWithVideo(String videoId) {
@@ -167,9 +190,10 @@ public final class WakeAndPlayActivity extends Activity {
 
     private void schedulePhase(String action, int requestCode, long delayMs, String videoId) {
         AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
-        Intent intent = new Intent(this, AlarmReceiver.class)
-                .setAction(action)
-                .putExtra(EXTRA_VIDEO, videoId);
+        Intent intent = new Intent(this, AlarmReceiver.class).setAction(action);
+        if (videoId != null && videoId.matches("[A-Za-z0-9_-]{11}")) {
+            intent.putExtra(EXTRA_VIDEO, videoId);
+        }
         PendingIntent pi = PendingIntent.getBroadcast(
                 this, requestCode, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -189,7 +213,7 @@ public final class WakeAndPlayActivity extends Activity {
         }
     }
 
-    private Candidate chooseVideo() throws Exception {
+    private Map<String, Integer> fetchCandidates() throws Exception {
         String html = decodeHexEscapes(fetch(CHANNEL_URL));
         Matcher matcher = VIDEO_ENTRY.matcher(html);
         Map<String, Integer> ordered = new LinkedHashMap<>();
@@ -200,16 +224,16 @@ public final class WakeAndPlayActivity extends Activity {
                 ordered.put(videoId, duration);
             }
         }
-        if (ordered.isEmpty()) return null;
+        return ordered;
+    }
 
-        Set<String> played = new HashSet<>(prefs().getStringSet(KEY_PLAYED, new HashSet<>()));
-        Candidate newest = null;
-        for (Map.Entry<String, Integer> entry : ordered.entrySet()) {
-            Candidate candidate = new Candidate(entry.getKey(), entry.getValue());
-            if (newest == null) newest = candidate;
-            if (!played.contains(candidate.videoId)) return candidate;
+    private static String serializeCandidates(Map<String, Integer> candidates) {
+        StringBuilder out = new StringBuilder();
+        for (Map.Entry<String, Integer> entry : candidates.entrySet()) {
+            if (out.length() > 0) out.append(';');
+            out.append(entry.getKey()).append(',').append(entry.getValue());
         }
-        return newest;
+        return out.toString();
     }
 
     private static String decodeHexEscapes(String input) {
