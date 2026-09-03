@@ -14,6 +14,7 @@ import android.view.WindowManager;
 public final class WakeAndPlayActivity extends Activity {
     private static final String TAG = "MorningSesame";
     private static final String DEFAULT_TARGET = "io.gh.yossim.tizentube.cobalt";
+    private static final long STARTUP_WAKE_MS = 120_000L;
     private PowerManager.WakeLock wakeLock;
 
     @Override
@@ -34,7 +35,7 @@ public final class WakeAndPlayActivity extends Activity {
                             | PowerManager.ACQUIRE_CAUSES_WAKEUP
                             | PowerManager.ON_AFTER_RELEASE,
                     "MorningSesame:Wake");
-            wakeLock.acquire(30_000L);
+            wakeLock.acquire(STARTUP_WAKE_MS);
         }
 
         final Uri url = getIntent().getData();
@@ -58,10 +59,18 @@ public final class WakeAndPlayActivity extends Activity {
                 Log.i(TAG, "TizenSub+ launch requested");
             } catch (Exception e) {
                 Log.e(TAG, "TizenSub+ launch failed", e);
-            } finally {
                 releaseWakeLock();
                 finish();
+                return;
             }
+
+            // Keep the display awake while a cold TizenSub+ start loads the signed-in
+            // allowlist and verifies the requested video's owner. The wake lock has
+            // its own hard timeout as a second safety bound.
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                releaseWakeLock();
+                finish();
+            }, STARTUP_WAKE_MS - 2_000L);
         }, 1500L);
     }
 

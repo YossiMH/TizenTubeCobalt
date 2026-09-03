@@ -10,6 +10,6 @@
             android:name=".WakeAndPlayActivity"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:noHistory="true" />
+            android:noHistory="false" />
     </application>
 </manifest>
