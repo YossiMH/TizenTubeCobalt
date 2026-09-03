@@ -490,11 +490,11 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
     const savedConsoleLog = console.log;
     class MediaSourceFixture {}
     class HostMediaElement {
-      constructor() { this._src = ''; }
+      constructor() { this._src = ''; this._plays = 0; }
       get src() { return this._src; }
       set src(value) { this._src = String(value); }
       load() {}
-      play() { return Promise.resolve('played'); }
+      play() { this._plays += 1; return Promise.resolve('played'); }
     }
     const setWatchRoute = (href) => { globalThis.location = new URL(href); };
     const resetSignedInReady = () => {
@@ -701,11 +701,10 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           assert.strictEqual(setupEl.src, blobUrl);
           setupEl.load();
         });
-        await checkAsync('empty player route still refuses play()', async () => {
-          let error = null;
-          try { await setupEl.play(); } catch (e) { error = e; }
-          assert.ok(error, 'play() must still be refused without an authorized video route');
-          assert.strictEqual(error.message, mod.BLOCK_REASON);
+        await checkAsync('empty player route acknowledges play() without native playback', async () => {
+          const result = await setupEl.play();
+          assert.strictEqual(result, undefined, 'empty-route play() should be a no-op');
+          assert.strictEqual(setupEl._plays, 0, 'native playback must not start without a verified video route');
         });
 
         resetSignedInReady();
