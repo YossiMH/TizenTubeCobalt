@@ -1,7 +1,6 @@
 package dev.yossi.morningsesame;
 
 import android.app.Activity;
-import android.app.ActivityOptions;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -45,7 +44,7 @@ public final class WakeAndPlayActivity extends Activity {
     public static final String ACTION_RUN = "dev.yossi.morningsesame.RUN";
     public static final String ACTION_VERIFY = "dev.yossi.morningsesame.VERIFY";
     public static final String ACTION_PLAY = "dev.yossi.morningsesame.PLAY";
-    private static final String EXTRA_VIDEO = "video_id";
+    static final String EXTRA_VIDEO = "video_id";
     private static final String EXTRA_TEST_DELAY = "test_delay_ms";
 
     private static final int REQ_RUN = 700;
@@ -168,10 +167,12 @@ public final class WakeAndPlayActivity extends Activity {
 
     private void schedulePhase(String action, int requestCode, long delayMs, String videoId) {
         AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
-        Intent intent = new Intent(this, WakeAndPlayActivity.class)
+        Intent intent = new Intent(this, AlarmReceiver.class)
                 .setAction(action)
                 .putExtra(EXTRA_VIDEO, videoId);
-        PendingIntent pi = alarmActivityPendingIntent(this, requestCode, intent);
+        PendingIntent pi = PendingIntent.getBroadcast(
+                this, requestCode, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         setExact(am, System.currentTimeMillis() + delayMs, pi);
     }
 
@@ -308,25 +309,12 @@ public final class WakeAndPlayActivity extends Activity {
 
     private static void scheduleRunAt(Context context, long whenMillis) {
         AlarmManager am = (AlarmManager) context.getSystemService(ALARM_SERVICE);
-        Intent intent = new Intent(context, WakeAndPlayActivity.class).setAction(ACTION_RUN);
-        PendingIntent pi = alarmActivityPendingIntent(context, REQ_RUN, intent);
+        Intent intent = new Intent(context, AlarmReceiver.class).setAction(ACTION_RUN);
+        PendingIntent pi = PendingIntent.getBroadcast(
+                context, REQ_RUN, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         am.cancel(pi);
         setExact(am, whenMillis, pi);
-    }
-
-    private static PendingIntent alarmActivityPendingIntent(
-            Context context, int requestCode, Intent intent) {
-        Bundle options = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            ActivityOptions activityOptions = ActivityOptions.makeBasic();
-            activityOptions.setPendingIntentCreatorBackgroundActivityStartMode(
-                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
-            options = activityOptions.toBundle();
-        }
-        return PendingIntent.getActivity(
-                context, requestCode, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE,
-                options);
     }
 
     private static void setExact(AlarmManager am, long whenMillis, PendingIntent pi) {
