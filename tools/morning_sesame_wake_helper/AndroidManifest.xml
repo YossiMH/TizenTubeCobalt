@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="dev.yossi.morningsesame"
-    android:versionCode="2"
-    android:versionName="2.0">
+    android:versionCode="3"
+    android:versionName="3.0">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -10,6 +10,7 @@
     <uses-permission android:name="dev.yossi.onnkeyguard.permission.MORNING_PLAY" />
     <application
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:label="Morning Sesame"
         android:theme="@android:style/Theme.Translucent.NoTitleBar">
         <activity
