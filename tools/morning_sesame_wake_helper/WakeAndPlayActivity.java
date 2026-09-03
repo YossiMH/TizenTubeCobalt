@@ -54,9 +54,10 @@ public final class WakeAndPlayActivity extends Activity {
     private static final long PLAY_DELAY_MS = 75_000L;
     private static final long WAKE_TIMEOUT_MS = 130_000L;
 
-    private static final Pattern VIDEO_BADGE = Pattern.compile(
-            "thumbnailBadgeViewModel.*?text.:.([0-9:]+).*?"
-                    + "animationActivationTargetId.:.([A-Za-z0-9_-]{11})",
+    private static final Pattern VIDEO_ENTRY = Pattern.compile(
+            "\"videoWithContextRenderer\".*?\"lengthText\".*?"
+                    + "\"text\":\"([0-9:]+)\".*?"
+                    + "\"videoId\":\"([A-Za-z0-9_-]{11})\"",
             Pattern.DOTALL);
 
     private static PowerManager.WakeLock wakeLock;
@@ -190,8 +191,8 @@ public final class WakeAndPlayActivity extends Activity {
     }
 
     private Candidate chooseVideo() throws Exception {
-        String html = fetch(CHANNEL_URL);
-        Matcher matcher = VIDEO_BADGE.matcher(html);
+        String html = decodeHexEscapes(fetch(CHANNEL_URL));
+        Matcher matcher = VIDEO_ENTRY.matcher(html);
         Map<String, Integer> ordered = new LinkedHashMap<>();
         while (matcher.find() && ordered.size() < 60) {
             int duration = parseDuration(matcher.group(1));
@@ -210,6 +211,25 @@ public final class WakeAndPlayActivity extends Activity {
             if (!played.contains(candidate.videoId)) return candidate;
         }
         return newest;
+    }
+
+    private static String decodeHexEscapes(String input) {
+        StringBuilder output = new StringBuilder(input.length());
+        for (int i = 0; i < input.length(); i++) {
+            char current = input.charAt(i);
+            if (current == '\\' && i + 3 < input.length()
+                    && input.charAt(i + 1) == 'x') {
+                int high = Character.digit(input.charAt(i + 2), 16);
+                int low = Character.digit(input.charAt(i + 3), 16);
+                if (high >= 0 && low >= 0) {
+                    output.append((char) ((high << 4) | low));
+                    i += 3;
+                    continue;
+                }
+            }
+            output.append(current);
+        }
+        return output.toString();
     }
 
     private static int parseDuration(String text) {
