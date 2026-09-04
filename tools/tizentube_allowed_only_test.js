@@ -923,6 +923,35 @@ assert.deepStrictEqual(mod.collectMorningProgress(morningProgressFixture, {}), {
 }, 'morning progress collector must preserve resume percentage and treat no resume overlay as unplayed');
 
 
+
+// Empty filtered shelves must disappear from the data response so surviving
+// allowed shelves are not pushed below one or more blank TV rows.
+reset();
+mod.state.loggedIn = true;
+mod.state.ready = true;
+mod.state.liked.add('visible-liked');
+const shelfFixture = { contents: [
+  { shelfRenderer: {
+      headerRenderer: { shelfHeaderRenderer: { title: { simpleText: 'Empty after filtering' } } },
+      content: { horizontalListRenderer: { items: [
+        { tileRenderer: { contentType: 'TILE_CONTENT_TYPE_VIDEO', contentId: 'blocked-row-video',
+            onSelectCommand: { watchEndpoint: { videoId: 'blocked-row-video' } } } }
+      ] } }
+  } },
+  { shelfRenderer: {
+      headerRenderer: { shelfHeaderRenderer: { title: { simpleText: 'Allowed row' } } },
+      content: { horizontalListRenderer: { items: [
+        { tileRenderer: { contentType: 'TILE_CONTENT_TYPE_VIDEO', contentId: 'visible-liked',
+            onSelectCommand: { watchEndpoint: { videoId: 'visible-liked' } } } }
+      ] } }
+  } }
+] };
+const compactedShelves = mod.filterTree(JSON.parse(JSON.stringify(shelfFixture)));
+assert.strictEqual(compactedShelves.contents.length, 1,
+  'a shelf whose complete tile list was filtered out must be removed from the response');
+assert.strictEqual(compactedShelves.contents[0].shelfRenderer.headerRenderer.shelfHeaderRenderer.title.simpleText, 'Allowed row',
+  'the surviving allowed shelf must retain its place without blank shelves ahead of it');
+
 // Startup responsiveness regression: the critical authorization path must
 // finish before optional libraries / Morning Sesame progress enrichment runs.
 {
