@@ -922,6 +922,110 @@ assert.deepStrictEqual(mod.collectMorningProgress(morningProgressFixture, {}), {
   'progress-two': 0
 }, 'morning progress collector must preserve resume percentage and treat no resume overlay as unplayed');
 
+
+// Startup responsiveness regression: the critical authorization path must
+// finish before optional libraries / Morning Sesame progress enrichment runs.
+{
+  const savedFetch0 = mod.state.fetch0;
+  const savedCtx = mod.state.ctx;
+  const savedKey = mod.state.key;
+  const savedHdr = mod.state.hdr;
+  const savedLoggedIn = mod.state.loggedIn;
+  const savedLastLoggedIn = mod.state.lastLoggedIn;
+  const savedReady = mod.state.ready;
+  const savedP = mod.state.p;
+  const savedErrors = mod.state.errors.slice();
+  const savedSetTimeout = globalThis.setTimeout;
+  const deferred = [];
+  let backgroundCalls = 0;
+  const fakeFetch = async (input, init) => {
+    const u = new URL(String(input));
+    const body = JSON.parse((init && init.body) || '{}');
+    if (u.pathname.endsWith('/guide')) {
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { guideSubscriptionsSectionRenderer: { items: [
+            { guideEntryRenderer: { navigationEndpoint: { browseEndpoint: { browseId: 'UCfastSub' } } } }
+          ] } };
+        }
+      };
+    }
+    if (u.pathname.endsWith('/browse') && body.browseId === 'VLLL') {
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { contents: [{ playlistVideoRenderer: { videoId: 'fast-liked' } }] };
+        }
+      };
+    }
+    backgroundCalls += 1;
+    return new Promise(() => {});
+  };
+  try {
+    globalThis.setTimeout = (fn, ms) => { deferred.push({ fn, ms }); return deferred.length; };
+    mod.state.fetch0 = fakeFetch;
+    mod.state.ctx = { client: { clientName: 'TVHTML5' } };
+    mod.state.key = null;
+    mod.state.hdr = { authorization: 'Bearer unit-test' };
+    mod.state.loggedIn = true;
+    mod.state.lastLoggedIn = true;
+    mod.state.ready = false;
+    mod.state.p = null;
+    mod.state.errors.length = 0;
+    mod.state.liked.clear();
+    mod.state.subs.clear();
+    const result = await mod.bootWithRetry({ maxAttempts: 1, apiBase: 'https://unit.test' });
+    assert.strictEqual(result.ok, true, 'core liked/subscription authorization must become ready');
+    assert.ok(mod.state.liked.has('fast-liked'), 'core startup must load liked videos');
+    assert.ok(mod.state.subs.has('UCfastSub'), 'core startup must load subscriptions from guide');
+    assert.strictEqual(backgroundCalls, 0,
+      'optional account libraries/progress must not compete with the first content paint');
+    assert.ok(deferred.some(x => x.ms === 2500),
+      'optional enrichment must be explicitly deferred beyond the first paint');
+  } finally {
+    globalThis.setTimeout = savedSetTimeout;
+    mod.state.fetch0 = savedFetch0;
+    mod.state.ctx = savedCtx;
+    mod.state.key = savedKey;
+    mod.state.hdr = savedHdr;
+    mod.state.loggedIn = savedLoggedIn;
+    mod.state.lastLoggedIn = savedLastLoggedIn;
+    mod.state.ready = savedReady;
+    mod.state.p = savedP;
+    mod.state.errors.length = 0;
+    savedErrors.forEach(e => mod.state.errors.push(e));
+  }
+}
+
+assert.ok(!String(mod.statusTick).includes('sweepDom'),
+  'periodic status maintenance must never mutate/remove content tiles');
+
+{
+  const savedDocument = globalThis.document;
+  const savedStatusEl = mod.state.statusEl;
+  try {
+    let value = mod.statusText();
+    let writes = 0;
+    const el = {};
+    Object.defineProperty(el, 'textContent', {
+      configurable: true,
+      get() { return value; },
+      set(v) { writes += 1; value = v; }
+    });
+    globalThis.document = { createElement() { return {}; } };
+    mod.state.statusEl = el;
+    mod.renderStatus();
+    assert.strictEqual(writes, 0,
+      'unchanged status text must not trigger a DOM write/repaint every maintenance tick');
+  } finally {
+    globalThis.document = savedDocument;
+    mod.state.statusEl = savedStatusEl;
+  }
+}
+
 console.log('All TizenTube allowed-only unit tests passed.');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
