@@ -373,6 +373,14 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
     assert.strictEqual(tiles.length, 2, 'bootstrap sweep cannot blank the TV UI');
     assert.strictEqual(mod.state.stripped, 0, 'preserved tiles are not filter removals');
 
+    mod.state.ready = true;
+    mod.state.subs.add('UCnameUnavailable');
+    assert.strictEqual(mod.sweepDom(), 0,
+      'positive subscription authority with missing extracted names must preserve network-gated tiles');
+    assert.strictEqual(tiles.length, 2,
+      'renderer-shape name extraction failure cannot blank a subscribed home');
+    mod.state.subs.clear();
+
     for (const name of savedNames) mod.state.allowedNames.add(name);
     mod.state.ready = true;
     assert.strictEqual(mod.sweepDom(), 1,
