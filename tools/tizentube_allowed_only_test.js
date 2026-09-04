@@ -1,4 +1,4 @@
-﻿const assert = require('assert');
+const assert = require('assert');
 const mod = require('../x.js');
 
 function reset() {
@@ -990,7 +990,7 @@ assert.strictEqual(compactedShelves.contents[0].shelfRenderer.headerRenderer.she
         status: 200,
         async json() {
           return { contents: [
-            { channelRenderer: { navigationEndpoint: { browseEndpoint: { browseId: 'UCfastSub' } } } }
+            { channelRenderer: { title: { simpleText: 'Fast Sub Channel' }, navigationEndpoint: { browseEndpoint: { browseId: 'UCfastSub' } } } }
           ] };
         }
       };
@@ -1011,10 +1011,13 @@ assert.strictEqual(compactedShelves.contents[0].shelfRenderer.headerRenderer.she
     mod.state.errors.length = 0;
     mod.state.liked.clear();
     mod.state.subs.clear();
+    mod.state.allowedNames.clear();
     const result = await mod.bootWithRetry({ maxAttempts: 1, apiBase: 'https://unit.test' });
     assert.strictEqual(result.ok, true, 'core liked/subscription authorization must become ready');
     assert.ok(mod.state.liked.has('fast-liked'), 'core startup must load liked videos');
     assert.ok(mod.state.subs.has('UCfastSub'), 'core startup must load subscriptions from the first FEchannels page');
+    assert.ok(mod.state.allowedNames.has('fast sub channel'),
+      'core startup must also collect subscribed channel names for one-time server-rendered DOM filtering');
     assert.strictEqual(backgroundCalls, 0,
       'pagination, guide, account libraries, and progress must not compete with the first content paint');
     assert.ok(deferred.some(x => x.ms === 2500),
