@@ -1,4 +1,4 @@
-const assert = require('assert');
+﻿const assert = require('assert');
 const mod = require('../x.js');
 
 function reset() {
@@ -941,23 +941,28 @@ assert.deepStrictEqual(mod.collectMorningProgress(morningProgressFixture, {}), {
   const fakeFetch = async (input, init) => {
     const u = new URL(String(input));
     const body = JSON.parse((init && init.body) || '{}');
-    if (u.pathname.endsWith('/guide')) {
-      return {
-        ok: true,
-        status: 200,
-        async json() {
-          return { guideSubscriptionsSectionRenderer: { items: [
-            { guideEntryRenderer: { navigationEndpoint: { browseEndpoint: { browseId: 'UCfastSub' } } } }
-          ] } };
-        }
-      };
-    }
     if (u.pathname.endsWith('/browse') && body.browseId === 'VLLL') {
       return {
         ok: true,
         status: 200,
         async json() {
-          return { contents: [{ playlistVideoRenderer: { videoId: 'fast-liked' } }] };
+          return {
+            contents: [{ playlistVideoRenderer: { videoId: 'fast-liked' } }],
+            continuationItemRenderer: {
+              continuationEndpoint: { continuationCommand: { token: 'slow-liked-page-2' } }
+            }
+          };
+        }
+      };
+    }
+    if (u.pathname.endsWith('/browse') && body.browseId === 'FEchannels') {
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { contents: [
+            { channelRenderer: { navigationEndpoint: { browseEndpoint: { browseId: 'UCfastSub' } } } }
+          ] };
         }
       };
     }
@@ -980,9 +985,9 @@ assert.deepStrictEqual(mod.collectMorningProgress(morningProgressFixture, {}), {
     const result = await mod.bootWithRetry({ maxAttempts: 1, apiBase: 'https://unit.test' });
     assert.strictEqual(result.ok, true, 'core liked/subscription authorization must become ready');
     assert.ok(mod.state.liked.has('fast-liked'), 'core startup must load liked videos');
-    assert.ok(mod.state.subs.has('UCfastSub'), 'core startup must load subscriptions from guide');
+    assert.ok(mod.state.subs.has('UCfastSub'), 'core startup must load subscriptions from the first FEchannels page');
     assert.strictEqual(backgroundCalls, 0,
-      'optional account libraries/progress must not compete with the first content paint');
+      'pagination, guide, account libraries, and progress must not compete with the first content paint');
     assert.ok(deferred.some(x => x.ms === 2500),
       'optional enrichment must be explicitly deferred beyond the first paint');
   } finally {
