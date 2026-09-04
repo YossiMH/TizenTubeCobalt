@@ -7,6 +7,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.icu.util.HebrewCalendar;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -129,6 +132,7 @@ public final class WakeAndPlayActivity extends Activity {
                     .remove(KEY_PENDING)
                     .apply();
                 Log.i(TAG, "Prepared " + candidates.size() + " qualifying videos for account-progress selection");
+                waitForValidatedNetwork();
                 runOnUiThread(this::beginDeferredSelection);
             } catch (Exception e) {
                 Log.e(TAG, "Video selection failed", e);
@@ -203,6 +207,24 @@ public final class WakeAndPlayActivity extends Activity {
         } catch (Exception e) {
             Log.e(TAG, "TizenSub+ " + phase + " handoff failed", e);
         }
+    }
+
+    private void waitForValidatedNetwork() throws Exception {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        if (cm == null) throw new IllegalStateException("Connectivity service unavailable");
+        long deadline = System.currentTimeMillis() + 20_000L;
+        do {
+            Network network = cm.getActiveNetwork();
+            NetworkCapabilities caps = network == null ? null : cm.getNetworkCapabilities(network);
+            if (caps != null
+                    && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+                Log.i(TAG, "Validated internet is ready for TizenSub+ warm-up");
+                return;
+            }
+            Thread.sleep(1_000L);
+        } while (System.currentTimeMillis() < deadline);
+        throw new IllegalStateException("Validated internet did not return after TV wake");
     }
 
     private Map<String, Integer> fetchCandidatesWithRetry() throws Exception {
