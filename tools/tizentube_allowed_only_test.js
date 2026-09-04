@@ -335,8 +335,10 @@ assert.ok(mod.state.allowedNames.has('my sub channel'), 'must collect subscribed
 assert.ok(mod.state.allowedNames.has('owner name'), 'must collect owner name from video renderer');
 
 assert.strictEqual(typeof mod.tileShouldStay, 'function', 'tileShouldStay must be exported');
-assert.strictEqual(mod.tileShouldStay('Sesame Street - Elmo World', mod.state.allowedNames), true,
-  'a tile whose text contains an allowed channel name must stay');
+assert.strictEqual(mod.tileShouldStay('Elmo World\nSesame Street\n7M views', mod.state.allowedNames), true,
+  'a tile with an exact visible channel-name line must stay');
+assert.strictEqual(mod.tileShouldStay('Sesame Street documentary\nRandom Channel\n7M views', mod.state.allowedNames), false,
+  'a subscribed channel name appearing only inside a title must not authorize the tile');
 assert.strictEqual(mod.tileShouldStay('Random Video Not From Any Sub', mod.state.allowedNames), false,
   'a tile with no matching allowed channel name must be removed');
 assert.strictEqual(mod.tileShouldStay('', mod.state.allowedNames), false,
@@ -347,7 +349,7 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
 {
   const savedDocument = globalThis.document;
   const tiles = [
-    { getAttribute: () => null, innerText: 'Sesame Street - Elmo World' },
+    { getAttribute: () => null, innerText: 'Elmo World\nSesame Street\n7M views' },
     { getAttribute: () => null, innerText: 'Random Video Not From Any Sub', removed: false,
       parentNode: { removeChild(node) { node.removed = true; } } }
   ];
@@ -375,7 +377,7 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
     mod.state.ready = true;
     assert.strictEqual(mod.sweepDom(), 1,
       'a known allowlist name must authorize its matching tile');
-    assert.strictEqual(tiles[0].innerText, 'Sesame Street - Elmo World',
+    assert.strictEqual(tiles[0].innerText, 'Elmo World\nSesame Street\n7M views',
       'the authorized tile must remain attached');
     assert.strictEqual(tiles[1].removed, true,
       'the unauthorized tile must be removed when names are known');
