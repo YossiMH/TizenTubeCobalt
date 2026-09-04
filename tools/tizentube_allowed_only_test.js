@@ -990,7 +990,7 @@ assert.strictEqual(compactedShelves.contents[0].shelfRenderer.headerRenderer.she
         status: 200,
         async json() {
           return { contents: [
-            { channelRenderer: { title: { simpleText: 'Fast Sub Channel' }, navigationEndpoint: { browseEndpoint: { browseId: 'UCfastSub' } } } }
+            { tileRenderer: { contentType: 'TILE_CONTENT_TYPE_CHANNEL', contentId: 'UCfastSub', metadata: { tileMetadataRenderer: { title: { simpleText: 'Fast Sub Channel' } } }, onSelectCommand: { browseEndpoint: { browseId: 'UCfastSub' } } } }
           ] };
         }
       };
