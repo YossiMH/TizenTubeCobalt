@@ -93,7 +93,6 @@ async function testBootSucceedsOnFirstTry() {
     assert.strictEqual(result.ok, true, 'boot must succeed when endpoints are healthy');
     assert.ok(mod.state.liked.has('L1'), 'liked video must be collected');
     assert.ok(mod.state.subs.has('UCsub'), 'subscribed channel must be collected');
-    assert.ok(mod.state.subs.has('UCguide'), 'guide subscription must be collected');
     assert.strictEqual(mod.state.retries, 0, 'no retries needed on healthy boot');
   } finally {
     await closeServer(srv);
@@ -163,7 +162,7 @@ async function testHealthyZeroAllowlistReachesReady() {
   }
 }
 
-async function testPartialEmptyEndpointFailureStillRetries() {
+async function testOptionalGuideFailureDoesNotBlockStartup() {
   reset();
   const { srv, port } = await startServer(endpointFailureHandler('guide'));
   try {
@@ -172,10 +171,9 @@ async function testPartialEmptyEndpointFailureStillRetries() {
       maxAttempts: 3,
       baseDelayMs: 5,
     });
-    assert.strictEqual(result.ok, false, 'one failed relevant endpoint leaves readiness unproven');
-    assert.strictEqual(mod.state.ready, false, 'partial account proof must remain not ready');
-    assert.strictEqual(mod.state.retries, 3, 'partial failure must consume the retry budget');
-    assert.ok(mod.state.errors.some((message) => message.includes('guide')), 'the failed endpoint must be recorded');
+    assert.strictEqual(result.ok, true, 'optional guide failure must not delay liked/subscription startup authority');
+    assert.strictEqual(mod.state.ready, true, 'liked and subscription feeds are sufficient startup authority');
+    assert.strictEqual(mod.state.retries, 0, 'optional guide work cannot consume the startup retry budget');
   } finally {
     await closeServer(srv);
   }
@@ -246,7 +244,6 @@ async function testProvisionalSignedOutRecoversWithRealAccountProof() {
     assert.strictEqual(mod.state.ready, true, 'recovered account data must enable enforcement');
     assert.ok(mod.state.liked.has('L1'), 'liked videos must load after recovery');
     assert.ok(mod.state.subs.has('UCsub'), 'subscriptions must load after recovery');
-    assert.ok(mod.state.subs.has('UCguide'), 'guide subscriptions must load after recovery');
 
     const recoveredFeed = mod.filterTree({ contents: [
       { videoRenderer: { videoId: 'L1', ownerText: { runs: [{ navigationEndpoint: { browseEndpoint: { browseId: 'UCother' } } }] } } },
@@ -328,7 +325,6 @@ async function testSignInTransitionRebuildsAllowlist() {
     assert.strictEqual(mod.state.ready, true, 'recovery must enable enforcement');
     assert.ok(mod.state.liked.has('L1'), 'sign-in must rebuild liked videos');
     assert.ok(mod.state.subs.has('UCsub'), 'sign-in must rebuild subscriptions');
-    assert.ok(mod.state.subs.has('UCguide'), 'sign-in must rebuild guide subscriptions');
   } finally {
     await closeServer(healthy.srv);
   }
@@ -516,7 +512,7 @@ async function testMediaGateTransitionsAcrossBootRetryGuestAndRebuild() {
 (async function main() {
   await testRetryDelaySchedule();
   await testHealthyZeroAllowlistReachesReady();
-  await testPartialEmptyEndpointFailureStillRetries();
+  await testOptionalGuideFailureDoesNotBlockStartup();
   await testBootSucceedsOnFirstTry();
   await testTransientFailureRecoversWithRetry();
   await testPersistentFailureExhaustsBudgetAndReportsErrors();
