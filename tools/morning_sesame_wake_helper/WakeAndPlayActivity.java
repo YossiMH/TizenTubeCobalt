@@ -123,15 +123,7 @@ public final class WakeAndPlayActivity extends Activity {
         wakeScreen(WAKE_TIMEOUT_MS);
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
-                Map<String, Integer> candidates = fetchCandidates();
-                if (candidates.isEmpty()) {
-                    Log.e(TAG, "No qualifying >30 minute Sesame Street Classics video found");
-                    runOnUiThread(() -> {
-                        releaseWakeLock();
-                        finish();
-                    });
-                    return;
-                }
+                Map<String, Integer> candidates = fetchCandidatesWithRetry();
                 prefs().edit()
                     .putString(KEY_CANDIDATES, serializeCandidates(candidates))
                     .remove(KEY_PENDING)
@@ -211,6 +203,29 @@ public final class WakeAndPlayActivity extends Activity {
         } catch (Exception e) {
             Log.e(TAG, "TizenSub+ " + phase + " handoff failed", e);
         }
+    }
+
+    private Map<String, Integer> fetchCandidatesWithRetry() throws Exception {
+        Exception last = null;
+        for (int attempt = 1; attempt <= 4; attempt++) {
+            try {
+                Map<String, Integer> candidates = fetchCandidates();
+                if (!candidates.isEmpty()) return candidates;
+                last = new IllegalStateException("No qualifying >30 minute Sesame Street Classics video found");
+            } catch (Exception e) {
+                last = e;
+            }
+            if (attempt < 4) {
+                Log.w(TAG, "Morning source unavailable; retrying after network wake (attempt " + attempt + ")");
+                try {
+                    Thread.sleep(2_000L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+        throw last == null ? new IllegalStateException("Morning source unavailable") : last;
     }
 
     private Map<String, Integer> fetchCandidates() throws Exception {
