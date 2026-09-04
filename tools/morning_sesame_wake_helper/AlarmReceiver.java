@@ -68,6 +68,7 @@ public final class AlarmReceiver extends BroadcastReceiver {
             return;
         }
 
+        WakeAndPlayActivity.scheduleNext(context);
         routeScheduledRun(context);
     }
 
