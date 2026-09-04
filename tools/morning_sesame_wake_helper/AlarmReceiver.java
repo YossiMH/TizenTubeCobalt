@@ -1,6 +1,5 @@
 package dev.yossi.morningsesame;
 
-import android.app.ActivityOptions;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -8,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
-import android.os.Bundle;
 import android.util.Log;
 
 import org.json.JSONObject;
@@ -70,34 +68,15 @@ public final class AlarmReceiver extends BroadcastReceiver {
             return;
         }
 
-        Intent launch = new Intent(context, WakeAndPlayActivity.class)
-                .setAction(action)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        routeScheduledRun(context);
+    }
 
-        Bundle creatorOptions = null;
-        Bundle senderOptions = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            ActivityOptions creator = ActivityOptions.makeBasic();
-            creator.setPendingIntentCreatorBackgroundActivityStartMode(
-                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
-            creatorOptions = creator.toBundle();
-
-            ActivityOptions sender = ActivityOptions.makeBasic();
-            sender.setPendingIntentBackgroundActivityStartMode(
-                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
-            senderOptions = sender.toBundle();
-        }
-
-        PendingIntent activity = PendingIntent.getActivity(
-                context, 800, launch,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE,
-                creatorOptions);
-        try {
-            activity.send(context, 0, null, null, null, null, senderOptions);
-            Log.i(TAG, "Alarm receiver launched " + action);
-        } catch (PendingIntent.CanceledException e) {
-            Log.e(TAG, "Alarm receiver launch failed for " + action, e);
-        }
+    private static void routeScheduledRun(Context context) {
+        Intent handoff = new Intent("dev.yossi.onnkeyguard.MORNING_RUN")
+                .setClassName("dev.yossi.onnkeyguard",
+                        "dev.yossi.onnkeyguard.MorningPlaybackReceiver");
+        context.sendBroadcast(handoff);
+        Log.i(TAG, "Alarm receiver routed scheduled run through Onn Key Guard");
     }
 
     private static void selectAndVerify(Context context) throws Exception {
