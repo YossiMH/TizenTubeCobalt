@@ -32,8 +32,16 @@ public final class AlarmReceiver extends BroadcastReceiver {
     private static final String KEY_CANDIDATES = "candidate_list";
     private static final String DIAL_URL = "http://127.0.0.1:8012/apps/YouTube";
     private static final long PLAY_AFTER_VERIFY_MS = 10_000L;
+    private static final long PLAY_RETRY_MS = 15_000L;
+    private static final int MAX_PLAY_RETRIES = 3;
+    private static final String KEY_RUN_STARTED = "run_started_at";
+    private static final String EXTRA_PLAY_ATTEMPT = "play_attempt";
     private static final Pattern PROGRESS_XML =
            Pattern.compile("<ms_progress>(.*?)</ms_progress>", Pattern.DOTALL);
+    private static final Pattern PLAYING_XML =
+           Pattern.compile("<ms_playing>([A-Za-z0-9_-]{11})</ms_playing>");
+    private static final Pattern PLAYING_AT_XML =
+           Pattern.compile("<ms_playing_at>([0-9]+)</ms_playing_at>");
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -64,11 +72,23 @@ public final class AlarmReceiver extends BroadcastReceiver {
             return;
         }
         if (WakeAndPlayActivity.ACTION_PLAY.equals(action)) {
-            routePlayback(context, action, videoId);
+            int attempt = intent.getIntExtra(EXTRA_PLAY_ATTEMPT, 0);
+            PendingResult pending = goAsync();
+            new Thread(() -> {
+                try {
+                    handlePlaybackCheck(context, videoId, attempt);
+                } catch (Exception e) {
+                    Log.e(TAG, "Playback confirmation check failed", e);
+                } finally {
+                    pending.finish();
+                }
+            }, "MorningSesamePlayCheck").start();
             return;
         }
 
         WakeAndPlayActivity.scheduleNext(context);
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putLong(KEY_RUN_STARTED, System.currentTimeMillis()).apply();
         routeScheduledRun(context);
     }
 
@@ -162,20 +182,83 @@ public final class AlarmReceiver extends BroadcastReceiver {
     }
 
     private static void schedulePlay(Context context, String videoId) {
+        schedulePlay(context, videoId, 0, PLAY_AFTER_VERIFY_MS);
+    }
+
+    private static void schedulePlay(Context context, String videoId, int attempt, long delayMs) {
         AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(context, AlarmReceiver.class)
                 .setAction(WakeAndPlayActivity.ACTION_PLAY)
-                .putExtra(WakeAndPlayActivity.EXTRA_VIDEO, videoId);
+                .putExtra(WakeAndPlayActivity.EXTRA_VIDEO, videoId)
+                .putExtra(EXTRA_PLAY_ATTEMPT, attempt);
         PendingIntent pi = PendingIntent.getBroadcast(
                 context, 702, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        long when = System.currentTimeMillis() + PLAY_AFTER_VERIFY_MS;
+        long when = System.currentTimeMillis() + delayMs;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, when, pi);
         } else {
             am.setExact(AlarmManager.RTC_WAKEUP, when, pi);
         }
-        Log.i(TAG, "Scheduled playback handoff for " + videoId);
+        Log.i(TAG, "Scheduled playback confirmation check for " + videoId
+                + " attempt " + attempt);
+    }
+
+    private static void handlePlaybackCheck(Context context, String videoId, int attempt) {
+        if (!isVideoId(videoId)) {
+            Log.w(TAG, "Playback check ignored invalid video id");
+            return;
+        }
+        if (isConfirmedPlaying(context, videoId)) {
+            recordPlayed(context, videoId);
+            Log.i(TAG, "Playback confirmed for " + videoId);
+            return;
+        }
+        if (attempt >= MAX_PLAY_RETRIES) {
+            Log.e(TAG, "Playback not confirmed after retries for " + videoId);
+            return;
+        }
+        routePlayback(context, WakeAndPlayActivity.ACTION_PLAY, videoId);
+        schedulePlay(context, videoId, attempt + 1, PLAY_RETRY_MS);
+        Log.w(TAG, "Playback not confirmed; retrying " + videoId
+                + " attempt " + (attempt + 1));
+    }
+
+    private static boolean isConfirmedPlaying(Context context, String videoId) {
+        try {
+            String xml = fetch(DIAL_URL);
+            if (!xml.contains("<yumi>morning-sesame</yumi>")) return false;
+            Matcher playing = PLAYING_XML.matcher(xml);
+            Matcher at = PLAYING_AT_XML.matcher(xml);
+            if (!playing.find() || !at.find() || !videoId.equals(playing.group(1))) return false;
+            long startedAt = Long.parseLong(at.group(1));
+            long runStarted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .getLong(KEY_RUN_STARTED, 0L);
+            long now = System.currentTimeMillis();
+            return runStarted > 0L && startedAt >= runStarted
+                    && startedAt <= now + 5_000L && now - startedAt <= 120_000L;
+        } catch (Exception e) {
+            Log.w(TAG, "Playback confirmation unavailable: " + e);
+            return false;
+        }
+    }
+
+    private static void recordPlayed(Context context, String videoId) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        Set<String> played = new HashSet<>(
+                prefs.getStringSet(KEY_PLAYED, new HashSet<>()));
+        played.add(videoId);
+        if (played.size() > 250) {
+            played.clear();
+            played.add(videoId);
+        }
+        prefs.edit()
+             .putStringSet(KEY_PLAYED, played)
+             .remove(KEY_PENDING)
+             .remove(KEY_CANDIDATES)
+             .remove(KEY_RUN_STARTED)
+             .apply();
+        Log.i(TAG, "Recorded confirmed played video " + videoId);
     }
 
     private static void routePlayback(Context context, String action, String videoId) {
@@ -189,22 +272,6 @@ public final class AlarmReceiver extends BroadcastReceiver {
                 .putExtra("video_id", videoId);
         context.sendBroadcast(handoff);
         Log.i(TAG, "Alarm receiver routed " + action + " for " + videoId);
-        if (WakeAndPlayActivity.ACTION_PLAY.equals(action)) {
-            SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-            Set<String> played = new HashSet<>(
-                    prefs.getStringSet(KEY_PLAYED, new HashSet<>()));
-            played.add(videoId);
-            if (played.size() > 250) {
-                played.clear();
-                played.add(videoId);
-            }
-            prefs.edit()
-                 .putStringSet(KEY_PLAYED, played)
-                 .remove(KEY_PENDING)
-                 .remove(KEY_CANDIDATES)
-                 .apply();
-            Log.i(TAG, "Recorded played video " + videoId);
-        }
     }
 
     private static boolean isVideoId(String value) {

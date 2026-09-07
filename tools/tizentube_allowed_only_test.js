@@ -718,9 +718,16 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
         });
 
         resetSignedInReady();
-        mod.state.liked.add('likedAuthPlay');
-        setWatchRoute('https://www.youtube.com/watch?v=likedAuthPlay');
+        mod.state.liked.add('likedAck123');
+        setWatchRoute('https://www.youtube.com/watch?v=likedAck123');
         const likedEl = new HostMediaElement();
+        const morningPosts = [];
+        const savedTimeoutForMorningAck = globalThis.setTimeout;
+        mod.state.fetch0 = async (url, init) => {
+          morningPosts.push({ url: String(url), body: String(init && init.body || '') });
+          return { ok: true };
+        };
+        globalThis.setTimeout = () => 0;
         await checkAsync('authorized liked video passes the full media lifecycle through', async () => {
           const blobUrl = URL.createObjectURL(new Blob(['ok']));
           assert.strictEqual(blobUrl.indexOf('blob:'), 0, 'liked blob creation must pass through');
@@ -728,7 +735,14 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           assert.strictEqual(likedEl.src, blobUrl);
           likedEl.load();
           assert.strictEqual(await likedEl.play(), 'played');
+          await Promise.resolve();
+          assert.ok(morningPosts.some((post) =>
+            post.url.includes('localhost:8012/apps/YouTube') &&
+            post.body.includes('ms_playing=likedAck123') &&
+            post.body.includes('ms_playing_at=')),
+            'successful authorized playback must publish a Morning Sesame playback acknowledgement');
         });
+        globalThis.setTimeout = savedTimeoutForMorningAck;
 
         resetSignedInReady();
         mod.state.subs.add('UCauthPlaySub');
