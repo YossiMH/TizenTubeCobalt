@@ -7,7 +7,7 @@ const { execFileSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { normalize } = require('./verify_signing_identity.js');
+const { normalize, parseExpectedFingerprint } = require('./verify_signing_identity.js');
 
 function makeKeystore(dir) {
   const ks = path.join(dir, 'test.keystore');
@@ -40,6 +40,25 @@ function testNormalization() {
   assert.strictEqual(normalize('f8:82:1e:41'), 'F8821E41');
   assert.strictEqual(normalize('sha-256: f8:82:1e:41'), 'F8821E41');
   assert.strictEqual(normalize(''), '');
+
+  const realFp = 'F8:82:1E:41:4C:D2:E0:93:F6:4F:6C:FB:6E:32:54:59:2E:83:9B:1C:1D:0A:FC:D3:B2:DE:C0:EE:10:65:B9:AB';
+  const commented = [
+    '# Persistent release signing identity',
+    '# SHA-256 fingerprint. Explanatory prose must never be parsed as certificate bytes.',
+    '# Format: SHA256 fingerprint with colons, uppercase.',
+    'SHA256:' + realFp,
+  ].join('\n');
+  assert.strictEqual(parseExpectedFingerprint(commented), realFp.replace(/:/g, ''));
+  assert.throws(
+    () => parseExpectedFingerprint('# SHA256: prose only\n'),
+    /exactly one SHA256/,
+    'comments mentioning SHA256 must not be interpreted as fingerprint bytes'
+  );
+  assert.throws(
+    () => parseExpectedFingerprint('SHA256:' + realFp + '\nSHA256:' + realFp),
+    /exactly one SHA256/,
+    'multiple fingerprint lines must fail closed'
+  );
 }
 
 function testFingerprintAcceptAndReject() {
@@ -57,7 +76,12 @@ function testFingerprintAcceptAndReject() {
     fs.writeFileSync(passFile, pass);
 
     const okFile = path.join(dir, 'ok-fp.txt');
-    fs.writeFileSync(okFile, fp);
+    fs.writeFileSync(okFile, [
+      '# Persistent release signing identity',
+      '# SHA-256 fingerprint. This comment deliberately contains hexadecimal-looking words.',
+      '# Format: SHA256 fingerprint with colons, uppercase.',
+      'SHA256:' + fp,
+    ].join('\n'));
     const ok = runVerifier(b64File, passFile, okFile);
     assert.strictEqual(ok.status, 0, 'correct fingerprint must verify: ' + ok.stderr);
     assert.ok(/signing identity verified/.test(ok.stdout));

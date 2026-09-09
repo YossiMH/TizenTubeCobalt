@@ -23,6 +23,21 @@ function normalize(fp) {
     .toUpperCase();
 }
 
+function parseExpectedFingerprint(text) {
+  const matches = String(text)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .map((line) => line.match(/^SHA256:\s*((?:[0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2})\s*$/))
+    .filter(Boolean);
+
+  if (matches.length !== 1) {
+    throw new Error(
+      'expected fingerprint file must contain exactly one SHA256:<32-byte-colon-fingerprint> line'
+    );
+  }
+  return normalize(matches[0][1]);
+}
+
 function main(argv) {
   if (argv.length !== 3) {
     console.error('usage: verify_signing_identity.js <keystore-b64-file> <password-file> <expected-fingerprint-file>');
@@ -31,9 +46,11 @@ function main(argv) {
   const [b64File, passFile, expectedFile] = argv;
   const b64 = fs.readFileSync(b64File, 'utf8').trim();
   const password = fs.readFileSync(passFile, 'utf8').trim();
-  const expected = normalize(fs.readFileSync(expectedFile, 'utf8'));
-  if (!expected) {
-    console.error('expected fingerprint file is empty or unreadable: ' + expectedFile);
+  let expected;
+  try {
+    expected = parseExpectedFingerprint(fs.readFileSync(expectedFile, 'utf8'));
+  } catch (e) {
+    console.error('invalid expected fingerprint file ' + expectedFile + ': ' + e.message);
     process.exit(2);
   }
 
@@ -77,4 +94,4 @@ if (require.main === module) {
   main(process.argv.slice(2));
 }
 
-module.exports = { normalize };
+module.exports = { normalize, parseExpectedFingerprint };
