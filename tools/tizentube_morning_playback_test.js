@@ -1,0 +1,66 @@
+
+'use strict';
+const assert=require('assert');
+const mod=require('../x.js');
+const v='Abcde123_-X', other='Other123_-X';
+let posts=[], timers=[];
+const oldTimeout=globalThis.setTimeout;
+globalThis.setTimeout=(fn)=>{timers.push(fn);return timers.length;};
+globalThis.location={href:'https://www.youtube.com/tv#/watch?v='+v};
+Object.assign(mod.state,{ready:true,loggedIn:true,booting:false});
+mod.state.liked.add(v);mod.state.liked.add(other);
+mod.state.fetch0=async(url,init)=>{posts.push(new URLSearchParams(init.body));return {ok:true};};
+const media={paused:false,ended:false,readyState:4,currentTime:0};
+(async()=>{
+  try {
+    assert(mod.publishMorningPlaying(v,media));
+    await Promise.resolve();
+    assert(!posts.at(-1).has('ms_playing'),'play promise alone is not playback proof');
+    media.currentTime=2;
+    assert(await mod.writeMorningPlaying(v));
+    assert.strictEqual(posts.at(-1).get('ms_playing'),v);
+    assert.strictEqual(posts.at(-1).get('ms_position'),'2');
+    assert(!(await mod.writeMorningPlaying(v)),'frozen position must not renew heartbeat');
+    assert(!posts.at(-1).has('ms_playing'));
+    media.currentTime=4;assert(await mod.writeMorningPlaying(v));
+    await mod.writeMorningProgress({[v]:5});
+    assert.strictEqual(posts.at(-1).get('ms_playing'),v,'progress must not overwrite current playback');
+    assert(posts.at(-1).has('ms_progress'));
+    media.paused=true;media.currentTime=6;
+    assert(!(await mod.writeMorningPlaying(v)));
+    assert.strictEqual(posts.at(-1).get('ms_state'),'idle');
+    media.paused=false;media.ended=true;media.currentTime=8;
+    assert(!(await mod.writeMorningPlaying(v)));
+    media.ended=false;media.readyState=1;media.currentTime=10;
+    assert(!(await mod.writeMorningPlaying(v)));
+    media.readyState=4;globalThis.location.href='https://www.youtube.com/tv#/watch?v='+other;
+    media.currentTime=12;assert(!(await mod.writeMorningPlaying(v)),'route changes invalidate old media');
+    globalThis.location.href='https://www.youtube.com/tv#/watch?v='+v;
+    mod.state.liked.delete(v);media.currentTime=14;
+    assert(!(await mod.writeMorningPlaying(v)),'disallowed video cannot acknowledge');
+    mod.state.liked.add(v);
+    // An already-open app starts an independent observation, not a replay of old success.
+    const staleTick=timers[0], next={paused:false,ended:false,readyState:4,currentTime:120};
+    mod.publishMorningPlaying(v,next);await Promise.resolve();
+    let before=posts.length;staleTick();await Promise.resolve();
+    assert.strictEqual(posts.length,before,'old timer cannot publish into new playback');
+    assert(!(await mod.writeMorningPlaying(v)),'unchanged warm playback is not a fresh sample');
+    next.currentTime=122;assert(await mod.writeMorningPlaying(v));
+    next.paused=true;await mod.writeMorningProgress({[v]:10});
+    assert(!posts.at(-1).has('ms_playing'),'progress refresh after pause must not resurrect success');
+    const buffering={paused:false,ended:false,readyState:1,currentTime:0};
+    mod.publishMorningPlaying(v,buffering);
+    let tick=timers.at(-1), count=timers.length;
+    tick();await Promise.resolve();
+    assert.strictEqual(timers.length,count+1,'buffering must keep observation alive');
+    buffering.readyState=4;buffering.currentTime=2;
+    timers.at(-1)();await Promise.resolve();
+    assert.strictEqual(posts.at(-1).get('ms_playing'),v,'playback after buffering should be observed without another play call');
+    buffering.paused=true;timers.at(-1)();await Promise.resolve();
+    assert(!posts.at(-1).has('ms_playing'));
+    buffering.paused=false;buffering.currentTime=4;
+    timers.at(-1)();await Promise.resolve();
+    assert.strictEqual(posts.at(-1).get('ms_playing'),v,'short pause/resume must preserve observation');
+    console.log('Morning Sesame JS: advancing/frozen, paused/ended, buffering/resume, repeated play, route, authorization and generation cases passed.');
+  } finally {globalThis.setTimeout=oldTimeout;}
+})().catch(e=>{console.error(e);process.exitCode=1;});

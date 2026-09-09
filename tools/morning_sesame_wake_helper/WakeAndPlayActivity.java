@@ -26,10 +26,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -40,7 +38,6 @@ public final class WakeAndPlayActivity extends Activity {
     private static final String TARGET_ACTIVITY = "dev.cobalt.app.MainActivity";
     private static final String CHANNEL_URL = "https://www.youtube.com/@SesameStreetClassics/videos";
     private static final String PREFS = "morning_sesame";
-    private static final String KEY_PLAYED = "played_ids";
     private static final String KEY_PENDING = "pending_video";
     private static final String KEY_CANDIDATES = "candidate_list";
     private static final int MIN_SECONDS = 30 * 60;
@@ -93,8 +90,9 @@ public final class WakeAndPlayActivity extends Activity {
             if (videoId != null) {
                 handoffVideo(videoId, ACTION_PLAY.equals(action) ? "playback" : "verification");
                 if (ACTION_PLAY.equals(action)) {
-                    recordPlayed(videoId);
-                    prefs().edit().remove(KEY_PENDING).apply();
+                    startRunEvidence();
+                    AlarmReceiver.schedulePlay(this, videoId);
+                    Log.i(TAG, "Playback requested; awaiting player evidence before recording history");
                     new Handler(Looper.getMainLooper()).postDelayed(WakeAndPlayActivity::releaseWakeLock, 15_000L);
                 }
             }
@@ -123,6 +121,7 @@ public final class WakeAndPlayActivity extends Activity {
     }
 
     private void beginScheduledRun() {
+        startRunEvidence();
         wakeScreen(WAKE_TIMEOUT_MS);
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
@@ -163,6 +162,7 @@ public final class WakeAndPlayActivity extends Activity {
     }
 
     private void beginWithVideo(String videoId) {
+        startRunEvidence();
         wakeScreen(WAKE_TIMEOUT_MS);
         prefs().edit().putString(KEY_PENDING, videoId).apply();
 
@@ -330,15 +330,8 @@ public final class WakeAndPlayActivity extends Activity {
         }
     }
 
-    private void recordPlayed(String videoId) {
-        Set<String> played = new HashSet<>(prefs().getStringSet(KEY_PLAYED, new HashSet<>()));
-        played.add(videoId);
-        if (played.size() > 250) {
-            played.clear();
-            played.add(videoId);
-        }
-        prefs().edit().putStringSet(KEY_PLAYED, played).apply();
-        Log.i(TAG, "Recorded played video " + videoId);
+    private void startRunEvidence() {
+        prefs().edit().putLong(AlarmReceiver.KEY_RUN_STARTED, System.currentTimeMillis()).apply();
     }
 
     private SharedPreferences prefs() {

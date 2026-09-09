@@ -34,14 +34,10 @@ public final class AlarmReceiver extends BroadcastReceiver {
     private static final long PLAY_AFTER_VERIFY_MS = 10_000L;
     private static final long PLAY_RETRY_MS = 15_000L;
     private static final int MAX_PLAY_RETRIES = 3;
-    private static final String KEY_RUN_STARTED = "run_started_at";
+    static final String KEY_RUN_STARTED = "run_started_at";
     private static final String EXTRA_PLAY_ATTEMPT = "play_attempt";
     private static final Pattern PROGRESS_XML =
            Pattern.compile("<ms_progress>(.*?)</ms_progress>", Pattern.DOTALL);
-    private static final Pattern PLAYING_XML =
-           Pattern.compile("<ms_playing>([A-Za-z0-9_-]{11})</ms_playing>");
-    private static final Pattern PLAYING_AT_XML =
-           Pattern.compile("<ms_playing_at>([0-9]+)</ms_playing_at>");
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -181,7 +177,7 @@ public final class AlarmReceiver extends BroadcastReceiver {
         return out;
     }
 
-    private static void schedulePlay(Context context, String videoId) {
+    static void schedulePlay(Context context, String videoId) {
         schedulePlay(context, videoId, 0, PLAY_AFTER_VERIFY_MS);
     }
 
@@ -226,17 +222,19 @@ public final class AlarmReceiver extends BroadcastReceiver {
 
     private static boolean isConfirmedPlaying(Context context, String videoId) {
         try {
-            String xml = fetch(DIAL_URL);
-            if (!xml.contains("<yumi>morning-sesame</yumi>")) return false;
-            Matcher playing = PLAYING_XML.matcher(xml);
-            Matcher at = PLAYING_AT_XML.matcher(xml);
-            if (!playing.find() || !at.find() || !videoId.equals(playing.group(1))) return false;
-            long startedAt = Long.parseLong(at.group(1));
             long runStarted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                     .getLong(KEY_RUN_STARTED, 0L);
-            long now = System.currentTimeMillis();
-            return runStarted > 0L && startedAt >= runStarted
-                    && startedAt <= now + 5_000L && now - startedAt <= 120_000L;
+            PlaybackEvidence first = PlaybackEvidence.read(
+                    fetch(DIAL_URL), videoId, runStarted, System.currentTimeMillis());
+            if (first == null) return false;
+            // Two independently refreshed samples reject cached success and frozen playback.
+            Thread.sleep(2300L);
+            PlaybackEvidence second = PlaybackEvidence.read(
+                    fetch(DIAL_URL), videoId, runStarted, System.currentTimeMillis());
+            return PlaybackEvidence.advances(first, second);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         } catch (Exception e) {
             Log.w(TAG, "Playback confirmation unavailable: " + e);
             return false;

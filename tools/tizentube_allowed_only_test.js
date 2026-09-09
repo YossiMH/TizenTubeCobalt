@@ -721,6 +721,7 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
         mod.state.liked.add('likedAck123');
         setWatchRoute('https://www.youtube.com/watch?v=likedAck123');
         const likedEl = new HostMediaElement();
+        Object.assign(likedEl, {paused:false, ended:false, readyState:4, currentTime:0});
         const morningPosts = [];
         const savedTimeoutForMorningAck = globalThis.setTimeout;
         mod.state.fetch0 = async (url, init) => {
@@ -736,6 +737,9 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           likedEl.load();
           assert.strictEqual(await likedEl.play(), 'played');
           await Promise.resolve();
+          assert.ok(!morningPosts.some(post => post.body.includes('ms_playing=')), 'play promise alone must not confirm playback');
+          likedEl.currentTime=2;
+          await mod.writeMorningPlaying('likedAck123');
           assert.ok(morningPosts.some((post) =>
             post.url.includes('localhost:8012/apps/YouTube') &&
             post.body.includes('ms_playing=likedAck123') &&
