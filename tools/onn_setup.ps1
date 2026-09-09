@@ -15,14 +15,15 @@
 param(
     [string]$Serial = '192.168.1.172:5555',
     [string]$ApkPath = '',
+    [string]$SourceCommit = '',
     [string]$Adb = 'C:\Users\YossiMH\AppData\Local\Android\Sdk\platform-tools\adb.exe',
     [switch]$Restore,
     [switch]$VerifyOnly,
     [switch]$VerifyApp
 )
 
-# Pick the app build that matches the box: ARM64 for modern boxes like the Onn
-# 4K Pro, 32-bit ARM for older devices. The release ships both.
+# Match the reported Android userspace ABI, not the processor marketing name.
+# The Bedroom Onn has 32-bit userspace and needs the ARM32 release.
 function Get-MatchingApk {
     param([string]$DeviceAbi)
     # Verified release builds live in .temp2 (current filter pin). The .temp
@@ -228,7 +229,12 @@ if (-not (Test-Path $ApkPath)) { throw "APK not found: $ApkPath" }
 # experience on the box.
 if ($ApkPath) {
     Write-Host '=== Verifying this is a guarded allowed-only build ==='
-    python (Join-Path $PSScriptRoot 'verify_allowed_only_apk.py') $ApkPath
+    if (-not $SourceCommit) {
+        $SourceCommit = git -C (Join-Path $PSScriptRoot '..') rev-parse HEAD
+        if ($LASTEXITCODE -ne 0) { throw 'Pass -SourceCommit with the full commit used to build the APK.' }
+    }
+    if ($SourceCommit -notmatch '^[0-9a-fA-F]{40}$') { throw 'SourceCommit must be a full 40-character Git commit.' }
+    python (Join-Path $PSScriptRoot 'verify_allowed_only_apk.py') $ApkPath --sha $SourceCommit
     if ($LASTEXITCODE -ne 0) { throw 'Refusing to install: build is not a verified guarded allowed-only release.' }
 }
 

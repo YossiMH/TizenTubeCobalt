@@ -11,3 +11,9 @@ Run node tools/tizentube_morning_playback_test.js plus the other tools/tizentube
 Live acceptance: verify installed APK hashes; test a real alarm from TV sleep with TizenSub+ stopped; repeat with TizenSub+ already open and with a prior episode paused or ended. Require fresh Playback confirmed logs, independently advancing media position, and visible video. Restore and verify the regular morning alarm. Do not remove account filtering or the Key Guard/PIN safeguard.
 
 When adbd is stopped and the UI controller is unreachable, the Termux application UID cannot enable USB debugging or force-stop protected apps. Record this as a live installation and acceptance blocker, not completion.
+
+## Atomic paired installation
+
+Use tools/install_morning_sesame.py with --app, --helper, --source-commit, and --report. Add --check-only to verify both artifacts without contacting the TV. The installer checks package versions, signing identities, the pinned script revision, the Onn identity, and ARM32 compatibility; it uses one atomic install-multi-package update, verifies installed hashes, and requests regular schedule setup. Its receipt explicitly distinguishes artifact verification, unavailable ADB, installation, and unverified playback.
+
+The general tools/onn_setup.ps1 installer also accepts -SourceCommit and now supplies the mandatory --sha argument to the release verifier. When omitted, the expected source is local Git HEAD; supply the recorded build commit when using an APK from another revision.
