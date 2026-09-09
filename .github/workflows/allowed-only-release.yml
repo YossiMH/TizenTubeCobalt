@@ -130,20 +130,21 @@ jobs:
             echo "$apk certificate matches pinned signing identity"
           done
 
-      - name: Verify patched document-start loader is present
+      - name: Verify pinned native filter URL is present
         env:
           EXPECTED_URL: https://cdn.jsdelivr.net/gh/YossiMH/TizenTubeCobalt@${{ github.sha }}/x.js
         run: |
           python3 - <<'PY'
           import os, zipfile
-          expected = os.environ['EXPECTED_URL'].encode()
+          from tools.patch_allowed_only_apk import pinned_cdn_url
+          expected = pinned_cdn_url(os.environ['EXPECTED_URL'], 9).encode()
           for apk in ['dist/TizenTube-Liked-Subs-arm.apk', 'dist/TizenTube-Liked-Subs-arm64.apk']:
               with zipfile.ZipFile(apk) as z:
                   libs = [n for n in z.namelist() if n.endswith('/libchrobalt.so')]
                   assert libs, apk
                   hits = sum(z.read(n).count(expected) for n in libs)
                   assert hits == 1, (apk, libs, hits)
-                  print(apk, 'contains pinned document-start loader in', libs)
+                  print(apk, 'contains pinned native filter URL in', libs)
           PY
 
       - name: Upload APK artifact
