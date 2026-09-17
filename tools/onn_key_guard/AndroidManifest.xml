@@ -1,5 +1,6 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dev.yossi.onnkeyguard" android:versionCode="2" android:versionName="2.0">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dev.yossi.onnkeyguard" android:versionCode="3" android:versionName="2.1">
 <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
+<uses-permission android:name="android.permission.WAKE_LOCK" />
 <permission android:name="dev.yossi.onnkeyguard.permission.MORNING_PLAY" android:protectionLevel="signature" />
 <application android:allowBackup="false" android:label="Onn Key Guard" android:theme="@android:style/Theme.NoDisplay">
 <service android:name=".KeyGuardService" android:label="Onn Key Guard" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
@@ -7,4 +8,15 @@
 <meta-data android:name="android.accessibilityservice" android:resource="@xml/keyguard_service" />
 </service>
 <receiver android:name=".MorningPlaybackReceiver" android:exported="true" android:permission="dev.yossi.onnkeyguard.permission.MORNING_PLAY" />
+<activity android:name=".CastLaunchActivity" android:exported="true" android:excludeFromRecents="true" android:noHistory="true">
+<intent-filter>
+<action android:name="com.google.android.gms.cast.tv.action.LAUNCH" />
+<category android:name="android.intent.category.DEFAULT" />
+</intent-filter>
+<intent-filter>
+<action android:name="com.google.android.gms.cast.tv.action.LAUNCH" />
+<category android:name="android.intent.category.DEFAULT" />
+<data android:scheme="https" android:host="www.youtube.com" android:pathPattern=".*" />
+</intent-filter>
+</activity>
 </application></manifest>

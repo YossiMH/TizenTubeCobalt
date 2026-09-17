@@ -11,7 +11,10 @@ function reset() {
   mod.state.loggedIn = true;
   mod.state.ready = true;
   mod.state.booting = false;
-  for (const stateName of ['playlist', 'music', 'purchased', 'accountVideos']) {
+  for (const stateName of [
+    'playlist', 'savedPlaylists', 'savedPlaylistContinuations',
+    'savedLibraryContinuations', 'music', 'purchased', 'accountVideos',
+  ]) {
     const memberships = mod.state[stateName];
     if (memberships && typeof memberships.clear === 'function') memberships.clear();
   }
@@ -201,6 +204,52 @@ const accountLibraryResponses = {
   },
 };
 
+const reactiveSavedLibraryPage = {
+  contents: [{ tileRenderer: {
+    contentType: 'TILE_CONTENT_TYPE_PLAYLIST',
+    contentId: 'PLreactive-owned',
+    onSelectCommand: { browseEndpoint: { browseId: 'VLPLreactive-owned' } },
+  } }],
+  continuationItemRenderer: {
+    continuationEndpoint: {
+      continuationCommand: { token: 'reactive-library-next' },
+    },
+  },
+};
+
+const reactiveSavedLibraryContinuation = {
+  contents: [{ tileRenderer: {
+    contentType: 'TILE_CONTENT_TYPE_PLAYLIST',
+    contentId: 'PLreactive-owned-2',
+    onSelectCommand: { browseEndpoint: { browseId: 'VLPLreactive-owned-2' } },
+  } }],
+};
+
+const reactiveSavedPlaylistPage = {
+  contents: {
+    playlistVideoListRenderer: {
+      contents: [{ videoRenderer: { videoId: 'reactive-owned-video-1' } }],
+      continuations: [{ nextContinuationData: { continuation: 'reactive-playlist-next' } }],
+    },
+  },
+};
+
+const reactiveSavedPlaylistContinuation = {
+  contents: {
+    playlistVideoListRenderer: {
+      contents: [{ compactVideoRenderer: { videoId: 'reactive-owned-video-2' } }],
+    },
+  },
+};
+
+const reactivePublicPlaylistPage = {
+  contents: {
+    playlistVideoListRenderer: {
+      contents: [{ videoRenderer: { videoId: 'reactive-public-video' } }],
+    },
+  },
+};
+
 const tests = {
   'orphan-accountvideos-not-authorized': () => {
     reset();
@@ -267,6 +316,60 @@ const tests = {
       'captured playlistVideoListRenderer tile entries must contribute video membership');
     assert.deepStrictEqual(mod.continuationTokens(capturedPlaylistVideoListPage), ['playlist-captured-next'],
       'captured playlist video lists must expose nextContinuationData tokens');
+  },
+  'saved-playlist-response-is-learned-before-filtering': () => {
+    reset();
+    const browseUrl = new URL('https://www.youtube.com/youtubei/v1/browse');
+
+    mod.processApiPayload(
+      browseUrl,
+      JSON.parse(JSON.stringify(reactiveSavedLibraryPage)),
+      { browseId: 'FElibrary', params: 'FEplaylist_aggregation' },
+    );
+    assert.strictEqual(mod.state.savedPlaylists.has('VLPLreactive-owned'), true,
+      'the account playlist aggregation response must establish saved-playlist provenance');
+    assert.strictEqual(mod.state.savedLibraryContinuations.has('reactive-library-next'), true,
+      'the account playlist aggregation continuation must retain account-library provenance');
+
+    mod.processApiPayload(
+      browseUrl,
+      JSON.parse(JSON.stringify(reactiveSavedLibraryContinuation)),
+      { continuation: 'reactive-library-next' },
+    );
+    assert.strictEqual(mod.state.savedPlaylists.has('VLPLreactive-owned-2'), true,
+      'saved playlists discovered on an account-library continuation must inherit provenance');
+
+    const filteredSaved = mod.processApiPayload(
+      browseUrl,
+      JSON.parse(JSON.stringify(reactiveSavedPlaylistPage)),
+      { browseId: 'VLPLreactive-owned' },
+    );
+    assert.strictEqual(mod.allowed('reactive-owned-video-1'), true,
+      'a video learned from a proven saved playlist response must be authorized immediately');
+    assert.ok(JSON.stringify(filteredSaved).includes('reactive-owned-video-1'),
+      'the just-learned saved-playlist video must survive that same response filter pass');
+    assert.strictEqual(mod.state.savedPlaylistContinuations.has('reactive-playlist-next'), true,
+      'saved-playlist continuation tokens must retain saved-playlist provenance');
+
+    const filteredContinuation = mod.processApiPayload(
+      browseUrl,
+      JSON.parse(JSON.stringify(reactiveSavedPlaylistContinuation)),
+      { continuation: 'reactive-playlist-next' },
+    );
+    assert.strictEqual(mod.allowed('reactive-owned-video-2'), true,
+      'modern video renderers on a proven saved-playlist continuation must be authorized');
+    assert.ok(JSON.stringify(filteredContinuation).includes('reactive-owned-video-2'),
+      'saved-playlist continuation videos must survive their first filter pass');
+
+    const filteredPublic = mod.processApiPayload(
+      browseUrl,
+      JSON.parse(JSON.stringify(reactivePublicPlaylistPage)),
+      { browseId: 'VLPLnot-saved-by-account' },
+    );
+    assert.strictEqual(mod.allowed('reactive-public-video'), false,
+      'an arbitrary public playlist must not establish playlist ownership');
+    assert.ok(!JSON.stringify(filteredPublic).includes('reactive-public-video'),
+      'an arbitrary public-playlist video must remain filtered out');
   },
   'music-library-membership': () => {
     reset();

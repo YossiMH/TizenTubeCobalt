@@ -8,6 +8,9 @@ on:
       - x.js
       - cobalt/shell/embedded_resources/cobalt_java_script_polyfill/tizentube_allowed_only_loader.js
       - tools/tizentube_allowed_only_test.js
+      - tools/tizentube_library_allowlist_test.js
+      - tools/onn_cast_bridge_test.js
+      - tools/onn_key_guard/**
       - tools/tizentube_boot_recovery_test.js
       - tools/signing_identity_test.js
       - tools/verify_signing_identity.js
@@ -41,7 +44,7 @@ jobs:
             cobalt/shell/embedded_resources/cobalt_java_script_polyfill
 
       - name: Run filter unit tests
-        run: node tools/tizentube_allowed_only_test.js && node tools/signing_identity_test.js && node tools/tizentube_boot_recovery_test.js && python3 tools/patch_allowed_only_apk_test.py
+        run: node tools/tizentube_allowed_only_test.js && node tools/tizentube_library_allowlist_test.js && node tools/onn_cast_bridge_test.js && node tools/signing_identity_test.js && node tools/tizentube_boot_recovery_test.js && python3 tools/patch_allowed_only_apk_test.py
 
       - name: Download upstream v2.0.2 APKs
         run: |
