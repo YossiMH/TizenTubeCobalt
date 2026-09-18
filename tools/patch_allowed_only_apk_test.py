@@ -64,6 +64,36 @@ def build_test_apk(tmp: Path) -> Path:
     return in_apk
 
 
+def make_binary_manifest_fixture() -> bytes:
+    strings = ["dev.cobalt.app.MainActivity", "supportsPictureInPicture"]
+    encoded = []
+    offsets = []
+    cursor = 0
+    for value in strings:
+        offsets.append(cursor)
+        item = struct.pack("<H", len(value)) + value.encode("utf-16le") + b"\x00\x00"
+        encoded.append(item)
+        cursor += len(item)
+    string_blob = b"".join(encoded)
+    string_blob += b"\x00" * ((4 - len(string_blob) % 4) % 4)
+    string_header_size = 28
+    strings_start = string_header_size + 4 * len(strings)
+    pool_size = strings_start + len(string_blob)
+    pool = (
+        struct.pack("<HHI", patcher.AXML_STRING_POOL_TYPE, string_header_size, pool_size)
+        + struct.pack("<IIIII", len(strings), 0, 0, strings_start, 0)
+        + b"".join(struct.pack("<I", x) for x in offsets)
+        + string_blob
+    )
+    resource_ids = (0, patcher.ANDROID_ATTR_SUPPORTS_PIP)
+    resource_map = (
+        struct.pack("<HHI", patcher.AXML_RESOURCE_MAP_TYPE, 8, 8 + 4 * len(resource_ids))
+        + b"".join(struct.pack("<I", x) for x in resource_ids)
+    )
+    size = 8 + len(pool) + len(resource_map)
+    return struct.pack("<HHI", patcher.AXML_TYPE, 8, size) + pool + resource_map
+
+
 def main() -> None:
     # The document-start gate must rely solely on the Trusted-Types-exempt
     # native injection and hold network requests until enforcement is armed.
@@ -85,6 +115,17 @@ def main() -> None:
     assert b'setInterval' in loader, 'gate must poll for enforcement'
     assert b'clearInterval' in loader, 'gate must stop polling once enforcement exists'
     assert len(loader.rstrip(b' ')) <= len(polyfill), 'gate must fit the embedded polyfill slot'
+
+    manifest = make_binary_manifest_fixture()
+    patched_manifest, manifest_count = patcher.patch_main_activity_show_when_locked(manifest)
+    assert manifest_count == 1
+    assert len(patched_manifest) == len(manifest), 'binary manifest patch must be size-preserving'
+    assert 'showWhenLocked'.encode('utf-16le') in patched_manifest
+    assert 'supportsPictureInPicture'.encode('utf-16le') not in patched_manifest
+    assert struct.pack('<I', patcher.ANDROID_ATTR_SHOW_WHEN_LOCKED) in patched_manifest
+    assert struct.pack('<I', patcher.ANDROID_ATTR_SUPPORTS_PIP) not in patched_manifest
+    patched_again, second_count = patcher.patch_main_activity_show_when_locked(patched_manifest)
+    assert second_count == 0 and patched_again == patched_manifest, 'manifest patch must be idempotent'
 
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
