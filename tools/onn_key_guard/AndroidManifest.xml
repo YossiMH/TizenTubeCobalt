@@ -1,6 +1,7 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dev.yossi.onnkeyguard" android:versionCode="3" android:versionName="2.1">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dev.yossi.onnkeyguard" android:versionCode="5" android:versionName="2.3">
 <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
 <uses-permission android:name="android.permission.WAKE_LOCK" />
+<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 <permission android:name="dev.yossi.onnkeyguard.permission.MORNING_PLAY" android:protectionLevel="signature" />
 <application android:allowBackup="false" android:label="Onn Key Guard" android:theme="@android:style/Theme.NoDisplay">
 <service android:name=".KeyGuardService" android:label="Onn Key Guard" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
