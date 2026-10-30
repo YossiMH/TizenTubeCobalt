@@ -20,6 +20,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -121,12 +123,16 @@ public final class AlarmReceiver extends BroadcastReceiver {
         JSONObject progress = readProgressWithRetry(context, runId);
 
         String chosen = null;
+        String selection = "local_history_fallback";
+        long selectedProgress = -1L;
         if (progress != null && progress.length() > 0) {
             for (String candidate : candidates) {
                 if (played.contains(candidate) || !progress.has(candidate)) continue;
                 double pct = progress.optDouble(candidate, 100.0);
                 if (pct < 50.0) {
                     chosen = candidate;
+                    selection = "account_progress_selected";
+                    selectedProgress = Math.round(pct);
                     Log.i(TAG, "Selected " + candidate
                             + " from account progress (" + pct + "% watched)");
                     break;
@@ -145,9 +151,13 @@ public final class AlarmReceiver extends BroadcastReceiver {
         }
         if (chosen == null) {
             chosen = candidates.get(0);
+            selection = "cycling_history";
             Log.i(TAG, "All recent candidates were previously played; cycling to " + chosen);
         }
 
+        RunDiagnostics.event(context, runId, "account_progress", selection, RunDiagnostics.values(
+                "candidate_count", candidates.size(), "progress_count", progress == null ? 0 : progress.length(),
+                "account_progress_percent", selectedProgress));
         if (!RunCoordinator.storePending(context, runId, chosen)) return;
         RunCoordinator.note(context, runId, "play_requested", chosen, 0);
         routePlayback(context, runId, chosen);
@@ -155,33 +165,45 @@ public final class AlarmReceiver extends BroadcastReceiver {
     }
 
     private static JSONObject readProgressWithRetry(Context context, String runId) {
-        long deadline = SystemClock.elapsedRealtime() + RECEIVER_WORK_MS;
-        for (int attempt = 0; attempt < 6; attempt++) {
-            if (!RunCoordinator.checkpoint(context, runId)
-                    || SystemClock.elapsedRealtime() >= deadline) break;
-            try {
-                String xml = fetch(context, runId, DIAL_URL, deadline);
-                if (xml.contains("<yumi>morning-sesame</yumi>")) {
-                    Matcher matcher = PROGRESS_XML.matcher(xml);
-                    if (matcher.find()) {
-                        String json = unescapeXml(matcher.group(1));
-                        JSONObject result = new JSONObject(json);
-                        if (result.length() > 0) return result;
+        long started = SystemClock.elapsedRealtime(), deadline = started + RECEIVER_WORK_MS;
+        HttpObservation http = new HttpObservation();
+        int attempts = 0, count = 0;
+        String observation = "unavailable";
+        try {
+            for (int attempt = 0; attempt < 6; attempt++) {
+                if (!RunCoordinator.checkpoint(context, runId)
+                        || SystemClock.elapsedRealtime() >= deadline) break;
+                attempts++;
+                try {
+                    String xml = fetch(context, runId, DIAL_URL, deadline, http);
+                    observation = "unavailable";
+                    if (xml.contains("<yumi>morning-sesame</yumi>")) {
+                        Matcher matcher = PROGRESS_XML.matcher(xml);
+                        if (matcher.find()) {
+                            JSONObject result = new JSONObject(unescapeXml(matcher.group(1)));
+                            count = result.length();
+                            if (count > 0) { observation = "available"; return result; }
+                        }
                     }
+                } catch (Exception e) {
+                    observation = RunDiagnostics.classify(e);
+                    if (attempt == 5) Log.w(TAG, "Signed-in progress feed unavailable: " + e);
                 }
-            } catch (Exception e) {
-                if (attempt == 5) Log.w(TAG, "Signed-in progress feed unavailable: " + e);
+                try {
+                    long left = deadline - SystemClock.elapsedRealtime();
+                    if (left <= 0L) break;
+                    Thread.sleep(Math.min(1_000L, left));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt(); observation = "interrupted"; break;
+                }
             }
-            try {
-                long left = deadline - SystemClock.elapsedRealtime();
-                if (left <= 0L) break;
-                Thread.sleep(Math.min(1_000L, left));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
+            return null;
+        } finally {
+            RunDiagnostics.event(context, runId, "account_progress", observation, RunDiagnostics.values(
+                    "progress_attempts", attempts, "progress_count", count,
+                    "progress_fetch_ms", SystemClock.elapsedRealtime() - started,
+                    "dial_http_status", http.status, "dial_fetch_ms", http.totalMs));
         }
-        return null;
     }
 
     private static List<String> parseCandidates(String encoded) {
@@ -238,7 +260,7 @@ public final class AlarmReceiver extends BroadcastReceiver {
             RunCoordinator.finish(context, runId, "failed", "invalid_video_id");
             return;
         }
-        if (isConfirmedPlaying(context, runId, videoId)) {
+        if (isConfirmedPlaying(context, runId, videoId, attempt)) {
             RunCoordinator.confirmPlayed(context, runId, videoId);
             return;
         }
@@ -253,28 +275,52 @@ public final class AlarmReceiver extends BroadcastReceiver {
                 + " attempt " + (attempt + 1));
     }
 
-    private static boolean isConfirmedPlaying(Context context, String runId, String videoId) {
-        long deadline = SystemClock.elapsedRealtime() + RECEIVER_WORK_MS;
+    private static boolean isConfirmedPlaying(Context context, String runId, String videoId, int attempt) {
+        long started = SystemClock.elapsedRealtime(), deadline = started + RECEIVER_WORK_MS;
+        HttpObservation http = new HttpObservation();
+        Map<String, Long> facts = new LinkedHashMap<>();
+        String result = "unavailable";
         try {
             if (!RunCoordinator.checkpoint(context, runId)) return false;
             long runStarted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                     .getLong(KEY_RUN_STARTED, 0L);
-            PlaybackEvidence first = PlaybackEvidence.read(
-                    fetch(context, runId, DIAL_URL, deadline), videoId, runStarted, System.currentTimeMillis());
+            String xml = fetch(context, runId, DIAL_URL, deadline, http);
+            long observedAt = System.currentTimeMillis();
+            PlaybackEvidence first = PlaybackEvidence.read(xml, videoId, runStarted, observedAt);
+            PlaybackDiagnostics.Observation firstObservation = PlaybackDiagnostics.inspect(xml, videoId, runStarted, observedAt);
+            facts.putAll(firstObservation.values); result = firstObservation.reason;
             if (first == null) return false;
-            // Two independently refreshed samples reject cached success and frozen playback.
-            if (deadline - SystemClock.elapsedRealtime() < 2300L) return false;
+            // Two independently refreshed samples still decide success; diagnostic parsing is descriptive only.
+            if (deadline - SystemClock.elapsedRealtime() < 2300L) { result = "timeout"; return false; }
             Thread.sleep(2300L);
-            if (!RunCoordinator.checkpoint(context, runId)) return false;
-            PlaybackEvidence second = PlaybackEvidence.read(
-                    fetch(context, runId, DIAL_URL, deadline), videoId, runStarted, System.currentTimeMillis());
-            return PlaybackEvidence.advances(first, second);
+            if (!RunCoordinator.checkpoint(context, runId)) { result = "interrupted"; return false; }
+            xml = fetch(context, runId, DIAL_URL, deadline, http);
+            observedAt = System.currentTimeMillis();
+            PlaybackEvidence second = PlaybackEvidence.read(xml, videoId, runStarted, observedAt);
+            PlaybackDiagnostics.Observation secondObservation = PlaybackDiagnostics.inspect(xml, videoId, runStarted, observedAt);
+            Long firstPosition = facts.get("first_position_ms");
+            facts.putAll(secondObservation.values);
+            if (firstPosition != null) facts.put("first_position_ms", firstPosition);
+            Long secondPosition = secondObservation.values.get("first_position_ms");
+            if (secondPosition != null) facts.put("second_position_ms", secondPosition);
+            if (second != null) {
+                facts.put("sample_delta_ms", second.at - first.at);
+                facts.put("position_delta_ms", Math.round((second.position - first.position) * 1000.0));
+            }
+            boolean advances = PlaybackEvidence.advances(first, second);
+            result = advances ? "confirmed" : second == null ? secondObservation.reason : "not_advancing";
+            return advances;
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
+            Thread.currentThread().interrupt(); result = "interrupted"; return false;
         } catch (Exception e) {
+            result = RunDiagnostics.classify(e);
             Log.w(TAG, "Playback confirmation unavailable: " + e);
             return false;
+        } finally {
+            facts.put("playback_checks", (long) attempt + 1L);
+            facts.put("playback_check_ms", SystemClock.elapsedRealtime() - started);
+            facts.put("dial_http_status", (long) http.status); facts.put("dial_fetch_ms", http.totalMs);
+            RunDiagnostics.event(context, runId, "playback_check", result, facts);
         }
     }
 
@@ -294,8 +340,12 @@ public final class AlarmReceiver extends BroadcastReceiver {
         return value != null && value.matches("[A-Za-z0-9_-]{11}");
     }
 
-    private static String fetch(Context context, String runId, String urlText, long deadline)
+    private static final class HttpObservation { int status; long totalMs; }
+
+    private static String fetch(Context context, String runId, String urlText, long deadline, HttpObservation observation)
             throws Exception {
+        long started = SystemClock.elapsedRealtime();
+        observation.status = 0;
         if (!RunCoordinator.checkpoint(context, runId)) throw new InterruptedException("Run ended");
         long left = deadline - SystemClock.elapsedRealtime();
         if (left <= 0L) throw new java.net.SocketTimeoutException("Receiver work deadline");
@@ -305,7 +355,8 @@ public final class AlarmReceiver extends BroadcastReceiver {
         connection.setReadTimeout(timeout);
         try {
             int status = connection.getResponseCode();
-            if (status < 200 || status >= 300) throw new IllegalStateException("HTTP " + status);
+            observation.status = status;
+            if (status < 200 || status >= 300) throw new RunDiagnostics.HttpStatusException(status);
             InputStream input = connection.getInputStream();
             BufferedReader reader = new BufferedReader(
                     new InputStreamReader(input, StandardCharsets.UTF_8));
@@ -322,6 +373,7 @@ public final class AlarmReceiver extends BroadcastReceiver {
             }
             return out.toString();
         } finally {
+            observation.totalMs += SystemClock.elapsedRealtime() - started;
             connection.disconnect();
         }
     }

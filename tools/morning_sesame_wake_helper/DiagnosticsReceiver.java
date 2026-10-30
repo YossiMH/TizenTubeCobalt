@@ -10,7 +10,8 @@ public final class DiagnosticsReceiver extends BroadcastReceiver {
 
     @Override public void onReceive(Context context, Intent intent) {
         if (intent == null || !ACTION_STATUS.equals(intent.getAction())) return;
-        setResultCode(0);
-        setResultData(RunCoordinator.diagnostics(context));
+        PendingResult pending = goAsync();
+        RunDiagnostics.respondStatus(context, intent.getStringExtra("detail"),
+                Math.min(64, intent.getIntExtra("offset", -1)), pending);
     }
 }

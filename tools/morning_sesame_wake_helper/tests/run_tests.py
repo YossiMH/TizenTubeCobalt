@@ -15,9 +15,11 @@ def main():
     compiler = [javac] if javac else [java, "com.sun.tools.javac.Main"]
     with tempfile.TemporaryDirectory(prefix="morning-sesame-tests-") as classes:
         sources = [helper / "PlaybackEvidence.java", helper / "RunPolicy.java",
-                   helper / "tests/PlaybackEvidenceTest.java", helper / "tests/RunPolicyTest.java"]
+                   helper / "tests/PlaybackEvidenceTest.java", helper / "tests/RunPolicyTest.java",
+                   helper / "DiagnosticArchive.java", helper / "tests/DiagnosticArchiveTest.java",
+                   helper / "PlaybackDiagnostics.java", helper / "tests/PlaybackDiagnosticsTest.java"]
         subprocess.run(compiler + ["-d", classes] + [str(path) for path in sources], check=True)
-        for name in ("PlaybackEvidenceTest", "RunPolicyTest"):
+        for name in ("PlaybackEvidenceTest", "RunPolicyTest", "DiagnosticArchiveTest", "PlaybackDiagnosticsTest"):
             subprocess.run([java, "-cp", classes, "dev.yossi.morningsesame." + name], check=True)
 
 

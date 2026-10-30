@@ -13,7 +13,10 @@ public final class BootReceiver extends BroadcastReceiver {
         String action = intent == null ? null : intent.getAction();
         if (Intent.ACTION_BOOT_COMPLETED.equals(action)
                 || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
-            RunCoordinator.interruptedAfterBoot(context);
+            boolean boot = Intent.ACTION_BOOT_COMPLETED.equals(action);
+            RunDiagnostics.reconcile(context);
+            RunDiagnostics.system(context, boot ? "boot" : "package_updated");
+            RunCoordinator.interruptedAfterBoot(context, boot ? "device_restarted" : "package_updated");
             WakeAndPlayActivity.scheduleNext(context);
             Log.i(TAG, "Morning schedule restored after " + action);
         }

@@ -72,6 +72,7 @@ public final class WakeAndPlayActivity extends Activity {
     private Future<?> work;
     private boolean handoffComplete;
     private TextView startupText;
+    private int lastCandidateHttpStatus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -246,42 +247,63 @@ public final class WakeAndPlayActivity extends Activity {
     private void waitForValidatedNetwork() throws Exception {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         if (cm == null) throw new IllegalStateException("Connectivity service unavailable");
-        long deadline = SystemClock.elapsedRealtime() + 60_000L;
-        do {
-            ensureCurrent();
-            Network network = cm.getActiveNetwork();
-            NetworkCapabilities caps = network == null ? null : cm.getNetworkCapabilities(network);
-            if (caps != null
-                    && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                    && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
-                Log.i(TAG, "Validated internet is ready for TizenSub+ warm-up");
-                return;
-            }
-            postStartupMessage("Waiting for the internet…");
-            Thread.sleep(1_000L);
-        } while (SystemClock.elapsedRealtime() < deadline);
-        throw new IllegalStateException("Validated internet did not return after TV wake");
+        long started = SystemClock.elapsedRealtime(), deadline = started + 60_000L;
+        NetworkCapabilities observed = null;
+        String result = "unavailable";
+        try {
+            do {
+                ensureCurrent();
+                Network network = cm.getActiveNetwork();
+                observed = network == null ? null : cm.getNetworkCapabilities(network);
+                if (observed != null
+                        && observed.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        && observed.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+                    result = "ok";
+                    Log.i(TAG, "Validated internet is ready for TizenSub+ warm-up");
+                    return;
+                }
+                postStartupMessage("Waiting for the internet…");
+                Thread.sleep(1_000L);
+            } while (SystemClock.elapsedRealtime() < deadline);
+            result = "timeout";
+            throw new IllegalStateException("Validated internet did not return after TV wake");
+        } finally {
+            RunDiagnostics.event(this, runId, "network_ready", result, RunDiagnostics.values(
+                    "network_wait_ms", SystemClock.elapsedRealtime() - started,
+                    "network_internet", observed != null && observed.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ? 1 : 0,
+                    "network_validated", observed != null && observed.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ? 1 : 0,
+                    "network_wifi", observed != null && observed.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ? 1 : 0,
+                    "network_ethernet", observed != null && observed.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ? 1 : 0));
+        }
     }
 
     private Map<String, Integer> fetchCandidatesWithRetry() throws Exception {
         Exception last = null;
         for (int attempt = 1; attempt <= 4; attempt++) {
             ensureCurrent();
+            long started = SystemClock.elapsedRealtime();
+            int count = 0;
+            String result = "unknown_error";
+            lastCandidateHttpStatus = 0;
             try {
                 Map<String, Integer> candidates = fetchCandidates();
-                if (!candidates.isEmpty()) return candidates;
+                count = candidates.size();
+                if (!candidates.isEmpty()) { result = "ok"; return candidates; }
+                result = "no_candidates";
                 last = new IllegalStateException("No qualifying >30 minute Sesame Street Classics video found");
             } catch (Exception e) {
+                result = RunDiagnostics.classify(e);
                 last = e;
+            } finally {
+                RunDiagnostics.event(this, runId, "candidate_fetch", result, RunDiagnostics.values(
+                        "candidate_attempt", attempt, "candidate_count", count,
+                        "candidate_fetch_ms", SystemClock.elapsedRealtime() - started,
+                        "candidate_http_status", lastCandidateHttpStatus));
             }
             if (attempt < 4) {
                 Log.w(TAG, "Morning source unavailable; retrying after network wake (attempt " + attempt + ")");
-                try {
-                    Thread.sleep(2_000L);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw e;
-                }
+                try { Thread.sleep(2_000L); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); throw e; }
             }
         }
         throw last == null ? new IllegalStateException("Morning source unavailable") : last;
@@ -353,7 +375,8 @@ public final class WakeAndPlayActivity extends Activity {
         connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
         try {
             int status = connection.getResponseCode();
-            if (status < 200 || status >= 300) throw new IllegalStateException("HTTP " + status);
+            lastCandidateHttpStatus = status;
+            if (status < 200 || status >= 300) throw new RunDiagnostics.HttpStatusException(status);
             InputStream input = connection.getInputStream();
             BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
             StringBuilder out = new StringBuilder(1_200_000);

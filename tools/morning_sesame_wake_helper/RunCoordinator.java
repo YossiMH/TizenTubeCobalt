@@ -49,6 +49,7 @@ final class RunCoordinator {
 
     static synchronized String begin(Context context, String trigger) {
         SharedPreferences p = prefs(context);
+        RunDiagnostics.reconcile(context);
         String previous = p.getString(GENERATION, null);
         if ("running".equals(p.getString(OUTCOME, ""))) {
             finish(context, previous, "interrupted", "superseded");
@@ -60,8 +61,11 @@ final class RunCoordinator {
                 .putLong(START_ELAPSED, SystemClock.elapsedRealtime())
                 .putLong(START_WALL, now).putLong(AlarmReceiver.KEY_RUN_STARTED, now)
                 .putString(OUTCOME, "running").putString(REASON, "")
+                .putInt("diagnostic_helper_version", RunDiagnostics.VERSION)
+                .putString("diagnostic_trigger", trigger).putLong("diagnostic_elapsed_ms", 0L)
                 .putString(VIDEO, "").putInt(ATTEMPT, 0)
                 .remove("pending_video").remove("candidate_list").commit();
+        RunDiagnostics.begin(context, id, now, trigger);
         note(context, id, trigger, null, 0);
         armDeadline(context, id);
         return id;
@@ -156,10 +160,12 @@ final class RunCoordinator {
         SharedPreferences p = prefs(context);
         if (video == null) video = p.getString(VIDEO, "");
         long now = System.currentTimeMillis();
+        long elapsed = RunDiagnostics.runElapsed(context, id);
         p.edit().putString(PHASE, phase).putString(VIDEO, video)
-                .putInt(ATTEMPT, attempt).putLong(UPDATED, now)
+                .putInt(ATTEMPT, attempt).putLong(UPDATED, now).putLong("diagnostic_elapsed_ms", elapsed)
                 .putString(HISTORY, appendHistory(p, id, now, phase, video,
                         attempt, "running", "")).commit();
+        RunDiagnostics.phase(context, id, now, elapsed, phase, video, attempt);
         Log.i(TAG, "Run " + id + " phase=" + phase + " attempt=" + attempt);
         return true;
     }
@@ -198,10 +204,12 @@ final class RunCoordinator {
         String phase = p.getString(PHASE, "");
         String video = p.getString(VIDEO, "");
         int attempt = p.getInt(ATTEMPT, 0);
-        p.edit().putString(OUTCOME, outcome).putString(REASON, reason).putLong(UPDATED, now)
+        long elapsed = "device_restarted".equals(reason) ? -1L : RunDiagnostics.runElapsed(context, id);
+        p.edit().putString(OUTCOME, outcome).putString(REASON, reason).putLong(UPDATED, now).putLong("diagnostic_elapsed_ms", elapsed)
                 .putString(HISTORY, appendHistory(p, id, now, phase, video, attempt, outcome, reason))
                 .remove("pending_video").remove("candidate_list")
                 .remove(AlarmReceiver.KEY_RUN_STARTED).commit();
+        RunDiagnostics.finish(context, id, p.getLong(START_WALL, now), now, elapsed, phase, video, attempt, outcome, reason);
         AlarmReceiver.cancelPhases(context);
         if (deadlineCallback != null) MAIN.removeCallbacks(deadlineCallback);
         deadlineCallback = null;
@@ -214,10 +222,10 @@ final class RunCoordinator {
         Log.i(TAG, "Run " + id + " outcome=" + outcome + " reason=" + reason);
     }
 
-    static synchronized void interruptedAfterBoot(Context context) {
+    static synchronized void interruptedAfterBoot(Context context, String reason) {
         SharedPreferences p = prefs(context);
         if ("running".equals(p.getString(OUTCOME, ""))) {
-            finish(context, p.getString(GENERATION, null), "interrupted", "device_restarted");
+            finish(context, p.getString(GENERATION, null), "interrupted", reason);
         }
     }
 
