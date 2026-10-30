@@ -7,17 +7,18 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.icu.util.HebrewCalendar;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.PowerManager;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.WindowManager;
+import android.view.Gravity;
+import android.widget.TextView;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -26,9 +27,13 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.lang.ref.WeakReference;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -54,7 +59,6 @@ public final class WakeAndPlayActivity extends Activity {
     private static final int REQ_PLAY = 702;
     private static final long VERIFY_DELAY_MS = 65_000L;
     private static final long PLAY_DELAY_MS = 75_000L;
-    private static final long WAKE_TIMEOUT_MS = 130_000L;
 
     private static final Pattern VIDEO_ENTRY = Pattern.compile(
             "\"videoWithContextRenderer\".*?\"lengthText\".*?"
@@ -62,7 +66,12 @@ public final class WakeAndPlayActivity extends Activity {
                     + "\"videoId\":\"([A-Za-z0-9_-]{11})\"",
             Pattern.DOTALL);
 
-    private static PowerManager.WakeLock wakeLock;
+    private static final Map<String, WeakReference<WakeAndPlayActivity>> activeActivities = new HashMap<>();
+    private String runId;
+    private ExecutorService worker;
+    private Future<?> work;
+    private boolean handoffComplete;
+    private TextView startupText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,19 +91,21 @@ public final class WakeAndPlayActivity extends Activity {
         }
 
         if (ACTION_VERIFY.equals(action) || ACTION_PLAY.equals(action)) {
-            wakeScreen(35_000L);
             String videoId = getIntent().getStringExtra(EXTRA_VIDEO);
             if (videoId == null || !videoId.matches("[A-Za-z0-9_-]{11}")) {
                 videoId = prefs().getString(KEY_PENDING, null);
             }
-            if (videoId != null) {
-                handoffVideo(videoId, ACTION_PLAY.equals(action) ? "playback" : "verification");
-                if (ACTION_PLAY.equals(action)) {
-                    startRunEvidence();
-                    AlarmReceiver.schedulePlay(this, videoId);
-                    Log.i(TAG, "Playback requested; awaiting player evidence before recording history");
-                    new Handler(Looper.getMainLooper()).postDelayed(WakeAndPlayActivity::releaseWakeLock, 15_000L);
-                }
+            if (videoId == null || !videoId.matches("[A-Za-z0-9_-]{11}")) {
+                finish();
+                return;
+            }
+            runId = RunCoordinator.begin(this, "manual_play");
+            registerRun();
+            if (wakeScreen() && RunCoordinator.storePending(this, runId, videoId)) {
+                RunCoordinator.note(this, runId, "play_requested", videoId, 0);
+                AlarmReceiver.routePlayback(this, runId, videoId);
+                AlarmReceiver.schedulePlay(this, runId, videoId);
+                handoffComplete = true;
             }
             finish();
             return;
@@ -121,30 +132,45 @@ public final class WakeAndPlayActivity extends Activity {
     }
 
     private void beginScheduledRun() {
-        startRunEvidence();
-        wakeScreen(WAKE_TIMEOUT_MS);
-        Executors.newSingleThreadExecutor().execute(() -> {
+        runId = RunCoordinator.adoptScheduledStartup(this);
+        registerRun();
+        if (runId == null || !wakeScreen()) {
+            finish();
+            return;
+        }
+        showStartupMessage("Starting Sesame Street…");
+        final String ownedRun = runId;
+        final ExecutorService executor = Executors.newSingleThreadExecutor();
+        worker = executor;
+        work = executor.submit(() -> {
             try {
-                Map<String, Integer> candidates = fetchCandidatesWithRetry();
-                prefs().edit()
-                    .putString(KEY_CANDIDATES, serializeCandidates(candidates))
-                    .remove(KEY_PENDING)
-                    .apply();
-                Log.i(TAG, "Prepared " + candidates.size() + " qualifying videos for account-progress selection");
+                RunCoordinator.note(this, ownedRun, "waiting_for_network", null, 0);
                 waitForValidatedNetwork();
-                runOnUiThread(this::beginDeferredSelection);
+                ensureCurrent();
+                RunCoordinator.note(this, ownedRun, "fetching_candidates", null, 0);
+                postStartupMessage("Starting Sesame Street…");
+                Map<String, Integer> candidates = fetchCandidatesWithRetry();
+                if (!RunCoordinator.storeCandidates(this, ownedRun, serializeCandidates(candidates))) return;
+                Log.i(TAG, "Prepared " + candidates.size() + " qualifying videos for account-progress selection");
+                runOnUiThread(() -> {
+                    if (!isFinishing() && !isDestroyed()
+                            && RunCoordinator.checkpoint(this, ownedRun)) beginDeferredSelection();
+                });
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                RunCoordinator.finish(this, ownedRun, "cancelled", "startup_interrupted");
             } catch (Exception e) {
                 Log.e(TAG, "Video selection failed", e);
-                runOnUiThread(() -> {
-                    releaseWakeLock();
-                    finish();
-                });
+                RunCoordinator.finish(this, ownedRun, "failed", "network_or_candidate_selection_failed");
+            } finally {
+                executor.shutdown();
             }
         });
     }
 
     private void beginDeferredSelection() {
-        wakeScreen(WAKE_TIMEOUT_MS);
+        if (!wakeScreen()) return;
+        if (!RunCoordinator.note(this, runId, "warming_player", null, 0)) return;
         try {
             Intent warm = new Intent(Intent.ACTION_MAIN);
             warm.setClassName(TARGET_PACKAGE, TARGET_ACTIVITY);
@@ -153,19 +179,23 @@ public final class WakeAndPlayActivity extends Activity {
             Log.i(TAG, "TizenSub+ warm-up requested before account-progress selection");
         } catch (Exception e) {
             Log.e(TAG, "TizenSub+ warm-up failed", e);
-            releaseWakeLock();
+            RunCoordinator.finish(this, runId, "failed", "player_warmup_failed");
             finish();
             return;
         }
-        schedulePhase(ACTION_VERIFY, REQ_VERIFY, VERIFY_DELAY_MS, null);
-        Log.i(TAG, "Scheduled account-progress selection and verification");
+        if (!schedulePhase(ACTION_VERIFY, REQ_VERIFY, VERIFY_DELAY_MS, null)) return;
+        RunCoordinator.note(this, runId, "waiting_for_account_progress", null, 0);
+        handoffComplete = true;
+        // Alarms and RunCoordinator own the wake lease now; no empty window remains behind.
+        finish();
     }
 
     private void beginWithVideo(String videoId) {
-        startRunEvidence();
-        wakeScreen(WAKE_TIMEOUT_MS);
-        prefs().edit().putString(KEY_PENDING, videoId).apply();
-
+        runId = RunCoordinator.begin(this, "manual_video");
+        registerRun();
+        showStartupMessage("Starting Sesame Street…");
+        if (!wakeScreen() || !RunCoordinator.storePending(this, runId, videoId)) return;
+        RunCoordinator.note(this, runId, "warming_player", videoId, 0);
         try {
             Intent warm = new Intent(Intent.ACTION_MAIN);
             warm.setClassName(TARGET_PACKAGE, TARGET_ACTIVITY);
@@ -174,46 +204,51 @@ public final class WakeAndPlayActivity extends Activity {
             Log.i(TAG, "TizenSub+ warm-up requested for " + videoId);
         } catch (Exception e) {
             Log.e(TAG, "TizenSub+ warm-up failed", e);
-            releaseWakeLock();
+            RunCoordinator.finish(this, runId, "failed", "player_warmup_failed");
             finish();
             return;
         }
-
-        schedulePhase(ACTION_VERIFY, REQ_VERIFY, VERIFY_DELAY_MS, videoId);
-        schedulePhase(ACTION_PLAY, REQ_PLAY, PLAY_DELAY_MS, videoId);
-        Log.i(TAG, "Staged verification/playback handoffs for " + videoId);
+        if (!schedulePhase(ACTION_VERIFY, REQ_VERIFY, VERIFY_DELAY_MS, videoId)
+                || !schedulePhase(ACTION_PLAY, REQ_PLAY, PLAY_DELAY_MS, videoId)) return;
+        RunCoordinator.note(this, runId, "waiting_for_playback", videoId, 0);
+        handoffComplete = true;
+        finish();
     }
 
-    private void schedulePhase(String action, int requestCode, long delayMs, String videoId) {
-        AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
-        Intent intent = new Intent(this, AlarmReceiver.class).setAction(action);
-        if (videoId != null && videoId.matches("[A-Za-z0-9_-]{11}")) {
-            intent.putExtra(EXTRA_VIDEO, videoId);
+    private boolean schedulePhase(String action, int requestCode, long delayMs, String videoId) {
+        synchronized (RunCoordinator.class) {
+            if (!RunCoordinator.checkpoint(this, runId)) return false;
+            AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
+            Intent intent = new Intent(this, AlarmReceiver.class).setAction(action)
+                    .putExtra(RunCoordinator.EXTRA_RUN, runId);
+            if (videoId != null && videoId.matches("[A-Za-z0-9_-]{11}")) {
+                intent.putExtra(EXTRA_VIDEO, videoId);
         }
-        PendingIntent pi = PendingIntent.getBroadcast(
-                this, requestCode, intent,
+        PendingIntent pi = PendingIntent.getBroadcast(this, requestCode, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        setExact(am, System.currentTimeMillis() + delayMs, pi);
+        am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + delayMs, pi);
+        return true;
+        }
     }
 
-    private void handoffVideo(String videoId, String phase) {
-        try {
-            Uri url = Uri.parse("https://www.youtube.com/watch?v=" + videoId);
-            Intent play = new Intent(Intent.ACTION_VIEW, url);
-            play.setPackage(TARGET_PACKAGE);
-            play.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(play);
-            Log.i(TAG, "TizenSub+ " + phase + " handoff requested for " + videoId);
-        } catch (Exception e) {
-            Log.e(TAG, "TizenSub+ " + phase + " handoff failed", e);
+
+    private void ensureCurrent() throws InterruptedException {
+        if (Thread.currentThread().isInterrupted()
+                || !RunCoordinator.checkpoint(this, runId)) {
+            throw new InterruptedException("Morning run no longer active");
+        }
+        if (!RunCoordinator.keepAwake(this, runId)) {
+            throw new InterruptedException("Morning wake lease ended");
         }
     }
 
     private void waitForValidatedNetwork() throws Exception {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         if (cm == null) throw new IllegalStateException("Connectivity service unavailable");
-        long deadline = System.currentTimeMillis() + 20_000L;
+        long deadline = SystemClock.elapsedRealtime() + 60_000L;
         do {
+            ensureCurrent();
             Network network = cm.getActiveNetwork();
             NetworkCapabilities caps = network == null ? null : cm.getNetworkCapabilities(network);
             if (caps != null
@@ -222,14 +257,16 @@ public final class WakeAndPlayActivity extends Activity {
                 Log.i(TAG, "Validated internet is ready for TizenSub+ warm-up");
                 return;
             }
+            postStartupMessage("Waiting for the internet…");
             Thread.sleep(1_000L);
-        } while (System.currentTimeMillis() < deadline);
+        } while (SystemClock.elapsedRealtime() < deadline);
         throw new IllegalStateException("Validated internet did not return after TV wake");
     }
 
     private Map<String, Integer> fetchCandidatesWithRetry() throws Exception {
         Exception last = null;
         for (int attempt = 1; attempt <= 4; attempt++) {
+            ensureCurrent();
             try {
                 Map<String, Integer> candidates = fetchCandidates();
                 if (!candidates.isEmpty()) return candidates;
@@ -305,10 +342,12 @@ public final class WakeAndPlayActivity extends Activity {
         return 0;
     }
 
-    private static String fetch(String urlText) throws Exception {
+    private String fetch(String urlText) throws Exception {
+        ensureCurrent();
         HttpURLConnection connection = (HttpURLConnection) new URL(urlText).openConnection();
-        connection.setConnectTimeout(15_000);
-        connection.setReadTimeout(20_000);
+        int remaining = (int) Math.max(1L, RunCoordinator.remaining(this, runId));
+        connection.setConnectTimeout(Math.min(15_000, remaining));
+        connection.setReadTimeout(Math.min(20_000, remaining));
         connection.setInstanceFollowRedirects(true);
         connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android TV; Morning Sesame)");
         connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
@@ -321,6 +360,7 @@ public final class WakeAndPlayActivity extends Activity {
             char[] buffer = new char[8192];
             int read;
             while ((read = reader.read(buffer)) != -1) {
+                ensureCurrent();
                 out.append(buffer, 0, read);
                 if (out.length() > 3_000_000) throw new IllegalStateException("Channel page unexpectedly large");
             }
@@ -330,35 +370,63 @@ public final class WakeAndPlayActivity extends Activity {
         }
     }
 
-    private void startRunEvidence() {
-        prefs().edit().putLong(AlarmReceiver.KEY_RUN_STARTED, System.currentTimeMillis()).apply();
-    }
-
     private SharedPreferences prefs() {
         return getSharedPreferences(PREFS, MODE_PRIVATE);
     }
 
-    private void wakeScreen(long timeoutMs) {
+    private boolean wakeScreen() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setTurnScreenOn(true);
             setShowWhenLocked(true);
         }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
-        if (power == null) return;
-        if (wakeLock == null) {
-            wakeLock = power.newWakeLock(PowerManager.FULL_WAKE_LOCK
-                            | PowerManager.ACQUIRE_CAUSES_WAKEUP
-                            | PowerManager.ON_AFTER_RELEASE,
-                    "MorningSesame:Wake");
-            wakeLock.setReferenceCounted(false);
-        }
-        if (!wakeLock.isHeld()) wakeLock.acquire(timeoutMs);
+        return RunCoordinator.renewWake(this, runId);
     }
 
-    private static void releaseWakeLock() {
-        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+    private void showStartupMessage(String message) {
+        if (startupText == null) {
+            startupText = new TextView(this);
+            startupText.setGravity(Gravity.CENTER);
+            startupText.setTextSize(24f);
+            startupText.setTextColor(Color.WHITE);
+            startupText.setBackgroundColor(Color.rgb(18, 18, 18));
+            setContentView(startupText);
+        }
+        if (!message.contentEquals(startupText.getText())) startupText.setText(message);
+    }
+
+    private void postStartupMessage(String message) {
+        runOnUiThread(() -> {
+            if (!isFinishing() && !isDestroyed() && RunCoordinator.isActive(this, runId)) {
+                showStartupMessage(message);
+            }
+        });
+    }
+
+    private void registerRun() {
+        if (runId != null) activeActivities.put(runId, new WeakReference<>(this));
+    }
+
+    static void finishRunIfOwned(String id) {
+        WeakReference<WakeAndPlayActivity> ref = activeActivities.get(id);
+        WakeAndPlayActivity activity = ref == null ? null : ref.get();
+        if (activity != null && id != null && id.equals(activity.runId)) {
+            if (activity.work != null) activity.work.cancel(true);
+            if (activity.worker != null) activity.worker.shutdownNow();
+            activity.finish();
+        }
+    }
+
+    @Override protected void onDestroy() {
+        if (work != null && !work.isDone()) work.cancel(true);
+        if (worker != null) worker.shutdownNow();
+        if (!handoffComplete && runId != null && RunCoordinator.isActive(this, runId)) {
+            RunCoordinator.finish(this, runId, "cancelled", "startup_activity_destroyed");
+        }
+        WeakReference<WakeAndPlayActivity> ref = activeActivities.get(runId);
+        if (ref != null && ref.get() == this) activeActivities.remove(runId);
+        super.onDestroy();
     }
 
     public static void scheduleNext(Context context) {

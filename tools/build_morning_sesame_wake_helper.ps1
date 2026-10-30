@@ -4,7 +4,8 @@ param(
     [string]$KeyAlias = "androiddebugkey",
     [string]$KeystorePassword = "android",
     [string]$KeyPassword = "android",
-    [string]$OutputPath = "$env:TEMP\\MorningSesameWakeHelper.apk"
+    [string]$OutputPath = "$env:TEMP\\MorningSesameWakeHelper.apk",
+    [string]$WorkRoot = $env:TEMP
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,7 +36,8 @@ $manifest = Join-Path $src "AndroidManifest.xml"
 $javaSources = Get-ChildItem -LiteralPath $src -Filter "*.java" | Sort-Object Name
 if (-not $javaSources) { throw "No Java sources found under $src" }
 
-$work = Join-Path $env:TEMP ("morning-sesame-build-" + [guid]::NewGuid().ToString("N"))
+$buildRoot = [System.IO.Path]::GetFullPath($WorkRoot)
+$work = Join-Path $buildRoot ("morning-sesame-build-" + [guid]::NewGuid().ToString("N"))
 $classesDir = Join-Path $work "classes"
 $dexDir = Join-Path $work "dex"
 New-Item -ItemType Directory -Force -Path $classesDir, $dexDir | Out-Null
@@ -82,5 +84,10 @@ try {
 
     Write-Host "Built $OutputPath"
 } finally {
-    Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+    $resolvedWork = [System.IO.Path]::GetFullPath($work)
+    $expectedParent = $buildRoot.TrimEnd([char[]]"\/") + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $resolvedWork.StartsWith($expectedParent, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to clean a build directory outside WorkRoot"
+    }
+    Remove-Item -LiteralPath $resolvedWork -Recurse -Force -ErrorAction SilentlyContinue
 }

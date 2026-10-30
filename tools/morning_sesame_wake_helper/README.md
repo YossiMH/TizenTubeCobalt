@@ -1,19 +1,44 @@
-# Morning Sesame version 6
+# Morning Sesame version 7
 
-The existing 07:00 Sunday-Friday schedule, Diaspora Yom Tov exclusions, videos longer than 30 minutes, account progress preference, and local-history fallback remain unchanged.
 
-Install the helper with a TizenSub+ APK pinned to the matching x.js revision. A source commit alone does not update an installed APK. Preserve sign-in and app data; never uninstall or clear data to make an update fit.
+## Windows build workspace
 
-Completion requires two fresh observations of the selected authorized video with increasing timestamps and playback position. A resolved play promise, an opened app, a paused or ended video, a frozen position, or stale evidence is not success. Brief buffering and pauses retain observation. Progress and playback evidence share one status payload. Old callbacks cannot publish into a later playback generation. Only confirmed playback updates played history. Direct/manual starts also initialize the run and schedule confirmation.
+The helper build accepts `-WorkRoot` to select a short temporary build directory when a Windows sandbox provides a very long default temporary path. The build cleans only its newly created GUID directory after verifying that the path remains under the selected WorkRoot.
 
-Run node tools/tizentube_morning_playback_test.js plus the other tools/tizentube_*test.js suites. Compile PlaybackEvidence.java with tests/PlaybackEvidenceTest.java and run dev.yossi.morningsesame.PlaybackEvidenceTest. These are code tests, not proof of physical-TV warm or cold startup.
+The existing 07:00 Sunday–Friday schedule, Diaspora Yom Tov exclusions, Sesame Street Classics channel, videos longer than 30 minutes, account-progress preference, and local-history fallback remain unchanged. The Key Guard signature-protected handoff and account filtering remain required.
 
-Live acceptance: verify installed APK hashes; test a real alarm from TV sleep with TizenSub+ stopped; repeat with TizenSub+ already open and with a prior episode paused or ended. Require fresh Playback confirmed logs, independently advancing media position, and visible video. Restore and verify the regular morning alarm. Do not remove account filtering or the Key Guard/PIN safeguard.
+## Startup reliability
 
-When adbd is stopped and the UI controller is unreachable, the Termux application UID cannot enable USB debugging or force-stop protected apps. Record this as a live installation and acceptance blocker, not completion.
+The helper waits up to 60 seconds for validated internet before requesting the channel page. It retains four bounded candidate-fetch attempts. A simple startup message identifies internet/startup waiting; the helper activity finishes immediately after the warm-up handoff and phase scheduling, so an empty translucent activity is not left behind the player.
 
-## Atomic paired installation
+One run owns a renewable wake lease and a five-minute deadline measured with Android's elapsed clock. Internal phase/deadline alarms use that clock; the regular 07:00 schedule still uses local calendar time. A new run supersedes an older run, and callbacks and phase alarms carry a generation that must still be current before they update state, schedule another phase, or request playback. Timeout, cancellation, failure, and confirmed success cancel the helper's remaining phase alarms and release its owned wake lock. Destroying an unfinished startup activity cancels its worker. Successful activity handoff transfers wake ownership to the run rather than releasing it early.
 
-Use tools/install_morning_sesame.py with --app, --helper, --source-commit, and --report. Add --check-only to verify both artifacts without contacting the TV. The installer checks package versions, signing identities, the pinned script revision, the Onn identity, and ARM32 compatibility; it uses one atomic install-multi-package update, verifies installed hashes, and requests regular schedule setup. Its receipt explicitly distinguishes artifact verification, unavailable ADB, installation, and unverified playback.
+Local DIAL status reads use 800 ms connect/read timeouts and a 6.5-second work budget. A blocked final read can add at most one such timeout. Network waits therefore do not keep an asynchronous broadcast receiver busy for the old multi-attempt 30-second interval. Playback keeps the original three bounded retries and two fresh observations of the selected authorized video with advancing timestamps and playback position. Only confirmed playback updates played history; PlaybackEvidence.java is unchanged.
 
-The general tools/onn_setup.ps1 installer also accepts -SourceCommit and now supplies the mandatory --sha argument to the release verifier. When omitted, the expected source is local Git HEAD; supply the recorded build commit when using an APK from another revision.
+The helper does not force-stop another app, restart Android, or navigate Home after a failure. It also cannot revoke a playback broadcast already queued to the unchanged Key Guard. Generation protection applies to helper callbacks, phase alarms, and new sends. A whole-device freeze still requires separate evidence.
+
+## Read-only diagnostics
+
+The helper persists the latest phase, timestamps, selected video ID, attempt, outcome/reason, and at most 32 history events. It stores no URLs, cookies, or account details in diagnostics. Boot/package-replacement handling marks an unfinished version-7 run interrupted and restores the normal schedule.
+
+Android shell can read this state without opening an activity or changing the schedule:
+
+    adb shell am broadcast -a dev.yossi.morningsesame.STATUS -n dev.yossi.morningsesame/.DiagnosticsReceiver
+
+The explicit receiver is exported with android.permission.DUMP; ordinary apps cannot call it. It only reads preferences and returns JSON as the ordered-broadcast result. If an in-place upgrade still has version-6 pending fields, diagnostics may include a legacy object whose outcome is explicitly unknown. Version 6 did not record historical failure reasons.
+
+## Validation and installation
+
+Run the pure Java rules without contacting the TV:
+
+    python tools/morning_sesame_wake_helper/tests/run_tests.py
+
+The original 12 playback-evidence cases still reject stale, paused, frozen, wrong-video, and uninitialized evidence. Seventeen additional timing/generation checks simulate a slow successful network startup, renewed wake coverage, the absolute deadline, superseded callbacks, terminal outcomes, old alarms without generations, and elapsed-clock rollback. These tests do not establish physical TV wake or playback behavior.
+
+Use the existing tools/build_morning_sesame_wake_helper.ps1 to build with the established signing key. Update in place and preserve sign-in and app data. This helper-only version does not change the installed TizenSub+ player or its script; its existing fresh advancing evidence contract remains compatible. Preserve the existing installed player and verify helper package version/signing identity before and after updating.
+
+Live acceptance should use a real alarm from TV sleep, including a cold player start and an already-running or paused player. To request an acceptance alarm, launch .WakeAndPlayActivity with dev.yossi.morningsesame.SETUP and a positive test_delay_ms long extra. Bare RUN is an internal Key Guard handoff that only adopts a pending alarm run; it cannot create a new run after a delayed handoff or timeout. Direct video URI and explicit PLAY requests still initialize their own run.
+
+Require fresh Playback confirmed evidence, independently advancing video position, and visible video, then verify the regular morning alarm. Also test that the read-only STATUS broadcast leaves the current viewing app and regular alarm unchanged. Do not remove account filtering or the Key Guard/PIN safeguard.
+
+The existing tools/tizentube_startup_recovery_test.ps1 invokes device setup/recovery, clears logcat, and restarts the player. It is not a read-only diagnostic command.
