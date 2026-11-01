@@ -27,13 +27,15 @@ final class DiagnosticArchive {
             "manual_video", "waiting_for_network", "fetching_candidates", "warming_player",
             "waiting_for_account_progress", "selecting_account_progress", "play_requested",
             "confirming_playback", "waiting_for_playback", "network_ready", "candidate_fetch",
-            "account_progress", "playback_check", "runtime_snapshot", "completed", "recovered"};
+            "account_progress", "playback_check", "runtime_snapshot", "completed", "recovered",
+            "post_success_observe"};
     private static final String[] RESULTS = {"none", "ok", "timeout", "dns_error", "connect_error",
             "tls_error", "http_error", "io_error", "unknown_error", "no_candidates", "available",
             "unavailable", "local_history_fallback", "cycling_history", "marker_missing",
             "state_idle", "video_mismatch", "sample_missing", "sample_before_run", "sample_future",
             "sample_stale", "position_invalid", "not_advancing", "confirmed", "interrupted",
-            "snapshot_unavailable", "account_progress_selected"};
+            "snapshot_unavailable", "account_progress_selected", "post_playing_fresh",
+            "post_playing_stale", "post_idle", "post_marker_missing", "post_unavailable"};
     private static final String[] OUTCOMES = {"none", "running", "success", "failed", "interrupted", "cancelled"};
     private static final String[] REASONS = {"", "playback_confirmed", "playback_not_confirmed",
             "deadline_exceeded", "network_or_candidate_selection_failed", "account_selection_failed",
@@ -52,11 +54,16 @@ final class DiagnosticArchive {
             "available_memory_mb", "total_memory_mb", "memory_threshold_mb", "low_memory",
             "helper_heap_used_kb", "helper_heap_max_kb", "storage_available_mb", "wake_held",
             "run_remaining_ms", "snapshot_age_ms", "snapshot_elapsed_ms", "snapshot_ok",
-            "snapshot_duration_ms", "alarm_handoff_ms", "account_progress_percent", "playback_check_ms"};
+            "snapshot_duration_ms", "alarm_handoff_ms", "account_progress_percent", "playback_check_ms",
+            "post_index", "post_lag_ms", "remote_input_present", "post_http_status",
+            "post_fetch_ms", "post_marker_present", "post_playing", "post_video_matches",
+            "post_sample_age_ms", "post_position_ms"};
     private static final List<String> SUMMARY_METRICS = Arrays.asList("network_wait_ms", "candidate_attempt",
             "candidate_count", "candidate_fetch_ms", "candidate_http_status", "progress_count",
             "progress_attempts", "playback_checks", "available_memory_mb", "low_memory",
-            "thermal_status", "storage_available_mb", "alarm_handoff_ms");
+            "thermal_status", "storage_available_mb", "alarm_handoff_ms",
+            "post_index", "remote_input_present", "post_marker_present", "post_playing",
+            "post_sample_age_ms");
 
     static final class Event {
         final long atMs, elapsedMs;
@@ -148,6 +155,33 @@ final class DiagnosticArchive {
         }
         append(new Event(Math.max(0L, wall), elapsed, known(PHASES, phase, "unknown"),
                 known(RESULTS, result, "unknown_error"), safe));
+    }
+
+    /** Append read-only observations after success without reopening a completed playback run. */
+    void afterSuccess(String id, long wall, long elapsed, String result, Map<String, Long> values) {
+        if (current == null || id == null || !id.equals(current.runId)
+                || !"success".equals(current.outcome)) return;
+        Map<String, Long> safe = new LinkedHashMap<>();
+        if (values != null) for (Map.Entry<String, Long> entry : values.entrySet()) {
+            if (entry.getValue() == null || index(METRICS, entry.getKey()) < 0
+                    || safe.size() >= MAX_METRICS) {
+                droppedFields = increment(droppedFields);
+                continue;
+            }
+            safe.put(entry.getKey(), entry.getValue());
+            if (SUMMARY_METRICS.contains(entry.getKey())
+                    && (current.values.containsKey(entry.getKey()) || current.values.size() < MAX_METRICS)) {
+                current.values.put(entry.getKey(), entry.getValue());
+            }
+        }
+        append(new Event(Math.max(0L, wall), elapsed, "post_success_observe",
+                known(RESULTS, result, "post_unavailable"), safe));
+        for (Summary summary : recent) if (id.equals(summary.runId)) {
+            summary.values.clear();
+            summary.values.putAll(current.values);
+            summary.droppedEvents = current.droppedEvents;
+            break;
+        }
     }
 
     void finish(String id, long wall, long elapsed, String outcome, String reason) {

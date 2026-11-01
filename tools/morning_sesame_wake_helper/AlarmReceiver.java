@@ -1,13 +1,17 @@
 package dev.yossi.morningsesame;
 
 import android.app.AlarmManager;
+import android.app.ActivityManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.hardware.input.InputManager;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.InputDevice;
 
 import org.json.JSONObject;
 
@@ -42,6 +46,17 @@ public final class AlarmReceiver extends BroadcastReceiver {
     private static final String EXTRA_PLAY_ATTEMPT = "play_attempt";
     private static final Pattern PROGRESS_XML =
            Pattern.compile("<ms_progress>(.*?)</ms_progress>", Pattern.DOTALL);
+    private static final String ACTION_POST_SUCCESS = "dev.yossi.morningsesame.POST_SUCCESS";
+    private static final String EXTRA_POST_INDEX = "post_index";
+    private static final int POST_REQUEST_BASE = 704;
+    // Non-waking and finite: before and after the likely end of a resumed long episode.
+    private static final int[] POST_MINUTES = {10, 35, 55, 70};
+    private static final Pattern POST_PLAYING_AT =
+            Pattern.compile("<ms_playing_at>([0-9]+)</ms_playing_at>");
+    private static final Pattern POST_POSITION =
+            Pattern.compile("<ms_position>([0-9]+(?:\\.[0-9]+)?)</ms_position>");
+    private static final Pattern POST_VIDEO =
+            Pattern.compile("<ms_playing>([A-Za-z0-9_-]{11})</ms_playing>");
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -56,6 +71,19 @@ public final class AlarmReceiver extends BroadcastReceiver {
         String runId = intent.getStringExtra(RunCoordinator.EXTRA_RUN);
         if (RunCoordinator.ACTION_TIMEOUT.equals(action)) {
             RunCoordinator.checkpoint(context, runId);
+            return;
+        }
+        if (ACTION_POST_SUCCESS.equals(action)) {
+            int index = intent.getIntExtra(EXTRA_POST_INDEX, -1);
+            if (index < 0 || index >= POST_MINUTES.length
+                    || !RunCoordinator.canObservePostSuccess(context, runId)) return;
+            PendingResult pending = goAsync();
+            new Thread(() -> {
+                try { observeAfterSuccess(context, runId, index); }
+                catch (Exception e) {
+                    Log.w(TAG, "Passive post-success observation unavailable", e);
+                } finally { pending.finish(); }
+            }, "MorningSesamePostCheck").start();
             return;
         }
         if (!WakeAndPlayActivity.ACTION_VERIFY.equals(action)
@@ -150,9 +178,15 @@ public final class AlarmReceiver extends BroadcastReceiver {
             }
         }
         if (chosen == null) {
-            chosen = candidates.get(0);
+            Map<String, Integer> durations = parseDurations(prefs.getString(KEY_CANDIDATES, ""));
+            Map<String, Double> pct = new LinkedHashMap<>();
+            if (progress != null) for (String candidate : candidates) {
+                if (progress.has(candidate)) pct.put(candidate, progress.optDouble(candidate, 0.0));
+            }
+            chosen = MorningCandidatePolicy.longestRemaining(candidates, durations, pct);
+            if (chosen == null) chosen = candidates.get(0);
             selection = "cycling_history";
-            Log.i(TAG, "All recent candidates were previously played; cycling to " + chosen);
+            Log.i(TAG, "All recent candidates previously played; selecting longest remaining " + chosen);
         }
 
         RunDiagnostics.event(context, runId, "account_progress", selection, RunDiagnostics.values(
@@ -217,6 +251,22 @@ public final class AlarmReceiver extends BroadcastReceiver {
         return out;
     }
 
+    private static Map<String, Integer> parseDurations(String encoded) {
+        Map<String, Integer> result = new LinkedHashMap<>();
+        if (encoded == null) return result;
+        for (String row : encoded.split(";")) {
+            int comma = row.indexOf(',');
+            if (comma < 0) continue;
+            String id = row.substring(0, comma);
+            if (!isVideoId(id)) continue;
+            try {
+                int seconds = Integer.parseInt(row.substring(comma + 1));
+                if (seconds > 0 && seconds <= 24 * 3600) result.put(id, seconds);
+            } catch (NumberFormatException ignored) {}
+        }
+        return result;
+    }
+
     static void schedulePlay(Context context, String runId, String videoId) {
         schedulePlay(context, runId, videoId, 0, PLAY_AFTER_VERIFY_MS);
     }
@@ -250,6 +300,123 @@ public final class AlarmReceiver extends BroadcastReceiver {
                     new Intent(context, AlarmReceiver.class).setAction(actions[i]),
                     PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
             if (pi != null) am.cancel(pi);
+        }
+    }
+
+    static void cancelPostSuccess(Context context) {
+        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+        for (int index = 0; index < POST_MINUTES.length; index++) {
+            PendingIntent old = PendingIntent.getBroadcast(context, POST_REQUEST_BASE + index,
+                    new Intent(context, AlarmReceiver.class).setAction(ACTION_POST_SUCCESS),
+                    PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+            if (old != null) am.cancel(old);
+        }
+    }
+
+    static void schedulePostSuccess(Context context, String runId) {
+        if (!RunCoordinator.canObservePostSuccess(context, runId)) return;
+        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+        long now = SystemClock.elapsedRealtime();
+        for (int index = 0; index < POST_MINUTES.length; index++) {
+            Intent intent = new Intent(context, AlarmReceiver.class).setAction(ACTION_POST_SUCCESS)
+                    .putExtra(RunCoordinator.EXTRA_RUN, runId).putExtra(EXTRA_POST_INDEX, index);
+            PendingIntent pi = PendingIntent.getBroadcast(context, POST_REQUEST_BASE + index, intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            // ELAPSED_REALTIME (without WAKEUP) cannot wake an otherwise sleeping TV.
+            am.setExact(AlarmManager.ELAPSED_REALTIME,
+                    now + POST_MINUTES[index] * 60_000L, pi);
+        }
+    }
+
+    private static void observeAfterSuccess(Context context, String runId, int index) {
+        if (!RunCoordinator.canObservePostSuccess(context, runId)) return;
+        long started = SystemClock.elapsedRealtime();
+        long completedAt = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getLong("diagnostic_updated_at", 0L);
+        long expectedAt = completedAt + POST_MINUTES[index] * 60_000L;
+        long late = Math.max(0L, System.currentTimeMillis() - expectedAt);
+        // Deferred non-wake alarms are not evidence for the original window hours later.
+        if (late > 15 * 60_000L) return;
+        Map<String, Long> facts = RunDiagnostics.values(
+                "post_index", index, "post_lag_ms", late, "remote_input_present", remotePresent(context));
+        try {
+            PowerManager power = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (power != null) facts.put("interactive", power.isInteractive() ? 1L : 0L);
+            ActivityManager activity = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            if (activity != null) {
+                ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
+                activity.getMemoryInfo(memory);
+                facts.put("available_memory_mb", memory.availMem / 1_048_576L);
+                facts.put("low_memory", memory.lowMemory ? 1L : 0L);
+            }
+        } catch (RuntimeException ignored) {}
+        String result = "post_unavailable";
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(DIAL_URL).openConnection();
+            connection.setConnectTimeout(600);
+            connection.setReadTimeout(600);
+            int status = connection.getResponseCode();
+            facts.put("post_http_status", (long) status);
+            if (status >= 200 && status < 300) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(
+                        connection.getInputStream(), StandardCharsets.UTF_8));
+                StringBuilder body = new StringBuilder(2048);
+                char[] buffer = new char[2048];
+                int count;
+                while ((count = reader.read(buffer)) >= 0 && body.length() <= 100_000) {
+                    body.append(buffer, 0, count);
+                }
+                String xml = body.toString();
+                boolean marker = xml.contains("<yumi>morning-sesame</yumi>");
+                boolean playing = xml.contains("<ms_state>playing</ms_state>");
+                Matcher video = POST_VIDEO.matcher(xml);
+                String expected = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                        .getString("diagnostic_video", "");
+                boolean matches = video.find() && expected.equals(video.group(1));
+                facts.put("post_marker_present", marker ? 1L : 0L);
+                facts.put("post_playing", playing ? 1L : 0L);
+                facts.put("post_video_matches", matches ? 1L : 0L);
+                result = !marker ? "post_marker_missing" : !playing ? "post_idle" : "post_playing_stale";
+                Matcher at = POST_PLAYING_AT.matcher(xml), position = POST_POSITION.matcher(xml);
+                if (at.find()) {
+                    long age = System.currentTimeMillis() - Long.parseLong(at.group(1));
+                    facts.put("post_sample_age_ms", age);
+                    if (marker && playing && matches && age >= -1_000L && age <= 5_000L) {
+                        result = "post_playing_fresh";
+                    }
+                }
+                if (position.find()) {
+                    double seconds = Double.parseDouble(position.group(1));
+                    if (Double.isFinite(seconds) && seconds >= 0
+                            && seconds < Long.MAX_VALUE / 1000.0) {
+                        facts.put("post_position_ms", Math.round(seconds * 1000));
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            result = "post_unavailable";
+        } finally {
+            if (connection != null) connection.disconnect();
+            facts.put("post_fetch_ms", SystemClock.elapsedRealtime() - started);
+            RunDiagnostics.afterSuccess(context, runId, result, facts);
+        }
+    }
+
+    private static long remotePresent(Context context) {
+        try {
+            InputManager input = (InputManager) context.getSystemService(Context.INPUT_SERVICE);
+            if (input == null) return -1L;
+            for (int id : input.getInputDeviceIds()) {
+                InputDevice device = input.getInputDevice(id);
+                if (device != null && device.getName() != null
+                        && device.getName().startsWith("Onn-Remote")) return 1L;
+            }
+            return 0L;
+        } catch (RuntimeException ignored) {
+            return -1L;
         }
     }
 

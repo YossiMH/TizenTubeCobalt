@@ -17,9 +17,11 @@ def main():
         sources = [helper / "PlaybackEvidence.java", helper / "RunPolicy.java",
                    helper / "tests/PlaybackEvidenceTest.java", helper / "tests/RunPolicyTest.java",
                    helper / "DiagnosticArchive.java", helper / "tests/DiagnosticArchiveTest.java",
-                   helper / "PlaybackDiagnostics.java", helper / "tests/PlaybackDiagnosticsTest.java"]
+                   helper / "PlaybackDiagnostics.java", helper / "tests/PlaybackDiagnosticsTest.java",
+                   helper / "MorningCandidatePolicy.java", helper / "tests/MorningCandidatePolicyTest.java"]
         subprocess.run(compiler + ["-d", classes] + [str(path) for path in sources], check=True)
-        for name in ("PlaybackEvidenceTest", "RunPolicyTest", "DiagnosticArchiveTest", "PlaybackDiagnosticsTest"):
+        for name in ("PlaybackEvidenceTest", "RunPolicyTest", "DiagnosticArchiveTest",
+                     "PlaybackDiagnosticsTest", "MorningCandidatePolicyTest"):
             subprocess.run([java, "-cp", classes, "dev.yossi.morningsesame." + name], check=True)
 
 

@@ -1,4 +1,4 @@
-# Morning Sesame version 8
+# Morning Sesame version 9
 
 
 ## Windows build workspace
@@ -17,7 +17,22 @@ Local DIAL status reads use 800 ms connect/read timeouts and a 6.5-second work b
 
 The helper does not force-stop another app, restart Android, or navigate Home after a failure. It also cannot revoke a playback broadcast already queued to the unchanged Key Guard. Generation protection applies to helper callbacks, phase alarms, and new sends. A whole-device freeze still requires separate evidence.
 
-## Bounded diagnostics (version 8)
+## Bounded diagnostics (version 9)
+
+Version 9 retains version 8's fixed archive format and storage limits. After a confirmed
+morning run it schedules exactly four non-waking, read-only checks at 10, 35, 55 and
+70 minutes after success. Each check only reads local player status, device memory
+and whether Android exposes the Onn-Remote as an input device. It never navigates,
+starts an app, triggers playback, changes Bluetooth pairing or wakes the TV.
+Non-waking alarms delayed by more than 15 minutes are discarded rather than
+presented as observations of the intended time. Future runs cancel old checks.
+The observations are attached to the successful run without revising its outcome.
+
+When all locally tracked long Sesame Street episodes have been played, version 9
+uses signed-in account resume progress and known episode durations to select the
+candidate with the greatest estimated remaining playback duration, rather than
+blindly resuming the first episode in the list. Normal unplayed-video preference
+and account-progress selection are unchanged.
 
 Diagnostics run only when an existing startup, phase, HTTP attempt, playback check, completion, boot, package update, or explicit STATUS request occurs. They create no periodic polling or additional playback/network requests. The private journal has one fixed name, morning-diagnostics.bin, and a versioned, checksummed binary format; STATUS renders its records as JSON.
 

@@ -285,6 +285,46 @@ public final class DiagnosticArchiveTest {
         rejected(withChecksum(oversizedId), "valid-CRC oversized string declaration rejected before allocation");
     }
 
+    private static void postSuccessIsPassiveAndBounded() throws Exception {
+        DiagnosticArchive archive = new DiagnosticArchive();
+        success(archive, "successful-morning", WALL);
+        int eventsBefore = archive.current().events.size();
+        int recentBefore = archive.recentCount();
+        Map<String, Long> metrics = new LinkedHashMap<>();
+        metrics.put("post_index", 2L);
+        metrics.put("remote_input_present", 0L);
+        metrics.put("post_marker_present", 1L);
+        metrics.put("post_playing", 0L);
+        metrics.put("post_sample_age_ms", 2_400_000L);
+        archive.afterSuccess("successful-morning", WALL + 2_400_000, 2_400_000,
+                "post_playing_stale", metrics);
+        check(archive.current().events.size() == eventsBefore + 1,
+                "successful run accepts one passive late observation");
+        check("success".equals(archive.current().outcome)
+                        && "playback_confirmed".equals(archive.current().reason),
+                "late observation never changes confirmed success");
+        check(archive.recentCount() == recentBefore && archive.failureCount() == 0,
+                "late observation neither duplicates history nor manufactures a failure");
+        check(archive.recentSummaries().get(0).values.get("remote_input_present") == 0L,
+                "compact summary includes the late remote input state");
+        archive.afterSuccess("wrong-generation", WALL + 2_401_000, 2_401_000,
+                "post_unavailable", metrics);
+        check(archive.current().events.size() == eventsBefore + 1,
+                "stale generation cannot modify a completed trace");
+        DiagnosticArchive restored = DiagnosticArchive.decode(archive.encode());
+        check(restored.current().events.size() == eventsBefore + 1
+                        && "post_playing_stale".equals(restored.current().events.get(eventsBefore).result),
+                "late diagnostic survives a durable restart");
+        for (int i = 0; i < 1_000; i++) {
+            archive.afterSuccess("successful-morning", WALL + 3_000_000 + i, 3_000_000 + i,
+                    "post_idle", metrics);
+        }
+        check(archive.current().events.size() <= DiagnosticArchive.MAX_EVENTS,
+                "post-success sample storms remain bounded");
+        check(archive.encode().length <= DiagnosticArchive.MAX_BYTES,
+                "post-success samples respect the archive byte cap");
+    }
+
     public static void main(String[] args) throws Exception {
         retentionAcrossDecades();
         boundedRepeatedFailures();
@@ -294,6 +334,7 @@ public final class DiagnosticArchiveTest {
         boundedPrivacyInputs();
         maximumRetainedFootprint();
         strictFramingAndRoundTrip();
+        postSuccessIsPassiveAndBounded();
         System.out.println("DiagnosticArchive: " + checks
                 + " long-term retention, isolation, cap, privacy and corruption checks passed.");
     }

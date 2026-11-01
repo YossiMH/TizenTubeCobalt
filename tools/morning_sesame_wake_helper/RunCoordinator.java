@@ -50,6 +50,7 @@ final class RunCoordinator {
     static synchronized String begin(Context context, String trigger) {
         SharedPreferences p = prefs(context);
         RunDiagnostics.reconcile(context);
+        AlarmReceiver.cancelPostSuccess(context);
         String previous = p.getString(GENERATION, null);
         if ("running".equals(p.getString(OUTCOME, ""))) {
             finish(context, previous, "interrupted", "superseded");
@@ -219,7 +220,27 @@ final class RunCoordinator {
             wakeLeaseExpiresElapsed = 0L;
         }
         MAIN.post(() -> WakeAndPlayActivity.finishRunIfOwned(id));
+        if ("success".equals(outcome)) {
+            Context app = context.getApplicationContext();
+            try {
+                new Thread(() -> {
+                    try { AlarmReceiver.schedulePostSuccess(app, id); }
+                    catch (RuntimeException ignored) {
+                        Log.w(TAG, "Passive observation alarms unavailable; playback remains confirmed");
+                    }
+                }, "MorningPostSchedule").start();
+            } catch (RuntimeException | OutOfMemoryError ignored) {}
+        }
         Log.i(TAG, "Run " + id + " outcome=" + outcome + " reason=" + reason);
+    }
+
+    static synchronized boolean canObservePostSuccess(Context context, String id) {
+        SharedPreferences p = prefs(context);
+        if (id == null || !id.equals(p.getString(GENERATION, null))
+                || !"success".equals(p.getString(OUTCOME, ""))) return false;
+        long started = p.getLong(START_ELAPSED, -1L);
+        long elapsed = SystemClock.elapsedRealtime();
+        return started > 0L && elapsed >= started && elapsed - started <= 3 * 60 * 60_000L;
     }
 
     static synchronized void interruptedAfterBoot(Context context, String reason) {

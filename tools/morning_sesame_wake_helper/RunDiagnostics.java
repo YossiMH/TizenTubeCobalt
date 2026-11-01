@@ -35,7 +35,7 @@ import javax.net.ssl.SSLException;
 
 /** Optional diagnostics. Callers enqueue bounded work; this class never controls playback. */
 final class RunDiagnostics {
-    static final int VERSION = 8;
+    static final int VERSION = 9;
     private static final String FILE_NAME = "morning-diagnostics.bin";
     private static final int MAX_PENDING = 64, MAX_DETAIL_BYTES = 32 * 1024;
     private static final Object QUEUE_LOCK = new Object(), TELEMETRY_LOCK = new Object();
@@ -88,6 +88,14 @@ final class RunDiagnostics {
             long wall = System.currentTimeMillis(), elapsed = runElapsed(context, id);
             Map<String, Long> copy = boundedCopy(values);
             enqueue(context, new Change(false, false, a -> a.event(id, wall, elapsed, phase, result, copy)));
+        });
+    }
+    static void afterSuccess(Context context, String id, String result, Map<String, Long> values) {
+        optional(() -> {
+            long wall = System.currentTimeMillis(), elapsed = runElapsed(context, id);
+            Map<String, Long> copy = boundedCopy(values);
+            enqueue(context, new Change(false, false,
+                    a -> a.afterSuccess(id, wall, elapsed, result, copy)));
         });
     }
     static void finish(Context context, String id, long startedWall, long wall, long elapsed,
@@ -364,7 +372,7 @@ final class RunDiagnostics {
         synchronized (STATUS_LOCK) {
             if (statusWorkerRunning) {
                 pendingResult.setResultCode(1);
-                pendingResult.setResultData("{\"schema\":8,\"error\":\"diagnostics_busy\"}");
+                pendingResult.setResultData("{\"schema\":9,\"error\":\"diagnostics_busy\"}");
                 pendingResult.finish();
                 return;
             }
@@ -374,7 +382,7 @@ final class RunDiagnostics {
         Runnable timeout = () -> {
             if (answered.compareAndSet(false, true)) {
                 pendingResult.setResultCode(1);
-                pendingResult.setResultData("{\"schema\":8,\"error\":\"diagnostics_timeout\"}");
+                pendingResult.setResultData("{\"schema\":9,\"error\":\"diagnostics_timeout\"}");
                 pendingResult.finish();
             }
         };
@@ -451,7 +459,7 @@ final class RunDiagnostics {
             }
             return encoded;
         } catch (Exception | OutOfMemoryError ignored) {
-            return "{\"schema\":8,\"error\":\"diagnostics_unavailable\"}";
+            return "{\"schema\":9,\"error\":\"diagnostics_unavailable\"}";
         }
     }
     private static JSONObject summaryJson(DiagnosticArchive.Summary summary) throws Exception {
