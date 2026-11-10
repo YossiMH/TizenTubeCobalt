@@ -1,0 +1,380 @@
+{
+  "started_epoch_ms": 1794330098978,
+  "cases": [
+    {
+      "scenario": "lease_expiry",
+      "events": [
+        {
+          "kind": "ready",
+          "version": 1,
+          "mode": "controlled",
+          "pid": 19248,
+          "max_lease_ms": 15000
+        },
+        {
+          "kind": "device",
+          "source": "physical",
+          "input_id": 7,
+          "name": "Onn-Remote Keyboard",
+          "bus": 5,
+          "vendor": 2391,
+          "product": 49
+        },
+        {
+          "kind": "device",
+          "source": "phone",
+          "input_id": 3,
+          "name": "virtual-remote",
+          "bus": 6,
+          "vendor": 6353,
+          "product": 256
+        },
+        {
+          "kind": "device",
+          "source": "other_power",
+          "input_id": 6,
+          "name": "vad_keypad",
+          "bus": 16,
+          "vendor": 1,
+          "product": 1
+        },
+        {
+          "kind": "device",
+          "source": "other_power",
+          "input_id": 4,
+          "name": "input_ethrcu",
+          "bus": 16,
+          "vendor": 1,
+          "product": 1
+        },
+        {
+          "kind": "device",
+          "source": "other_power",
+          "input_id": 5,
+          "name": "input_btrcu",
+          "bus": 16,
+          "vendor": 1,
+          "product": 1
+        },
+        {
+          "kind": "device",
+          "source": "cec",
+          "input_id": 0,
+          "name": "cec_input",
+          "bus": 16,
+          "vendor": 7054,
+          "product": 3308
+        },
+        {
+          "kind": "lease",
+          "phase": "armed",
+          "heartbeat_deadline_ms": 780586350,
+          "session_end_ms": 1794330109134
+        },
+        {
+          "kind": "volume_ready",
+          "input_id": 8
+        },
+        {
+          "kind": "grabbed",
+          "source": "physical",
+          "input_id": 7,
+          "boottime_ms": 780585788
+        },
+        {
+          "kind": "released",
+          "input_id": 7,
+          "reason": "lease_expired",
+          "ioctl_result": 0
+        },
+        {
+          "kind": "disarmed",
+          "reason": "lease_expired"
+        },
+        {
+          "kind": "status",
+          "lease": "disarmed",
+          "volume": "ready",
+          "boottime_ms": 780586436
+        },
+        {
+          "kind": "controller_closed"
+        },
+        {
+          "kind": "stopped",
+          "result": 0
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "scenario": "stdin_eof",
+      "events": [
+        {
+          "kind": "ready",
+          "version": 1,
+          "mode": "controlled",
+          "pid": 19293,
+          "max_lease_ms": 15000
+        },
+        {
+          "kind": "device",
+          "source": "physical",
+          "input_id": 7,
+          "name": "Onn-Remote Keyboard",
+          "bus": 5,
+          "vendor": 2391,
+          "product": 49
+        },
+        {
+          "kind": "device",
+          "source": "phone",
+          "input_id": 3,
+          "name": "virtual-remote",
+          "bus": 6,
+          "vendor": 6353,
+          "product": 256
+        },
+        {
+          "kind": "device",
+          "source": "other_power",
+          "input_id": 6,
+          "name": "vad_keypad",
+          "bus": 16,
+          "vendor": 1,
+          "product": 1
+        },
+        {
+          "kind": "device",
+          "source": "other_power",
+          "input_id": 4,
+          "name": "input_ethrcu",
+          "bus": 16,
+          "vendor": 1,
+          "product": 1
+        },
+        {
+          "kind": "device",
+          "source": "other_power",
+          "input_id": 5,
+          "name": "input_btrcu",
+          "bus": 16,
+          "vendor": 1,
+          "product": 1
+        },
+        {
+          "kind": "device",
+          "source": "cec",
+          "input_id": 0,
+          "name": "cec_input",
+          "bus": 16,
+          "vendor": 7054,
+          "product": 3308
+        },
+        {
+          "kind": "lease",
+          "phase": "armed",
+          "heartbeat_deadline_ms": 780589232,
+          "session_end_ms": 1794330110716
+        },
+        {
+          "kind": "volume_ready",
+          "input_id": 8
+        },
+        {
+          "kind": "grabbed",
+          "source": "physical",
+          "input_id": 7,
+          "boottime_ms": 780587356
+        },
+        {
+          "kind": "controller_closed"
+        },
+        {
+          "kind": "released",
+          "input_id": 7,
+          "reason": "process_exit",
+          "ioctl_result": 0
+        },
+        {
+          "kind": "stopped",
+          "result": 0
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "scenario": "sigterm",
+      "events": [
+        {
+          "kind": "ready",
+          "version": 1,
+          "mode": "controlled",
+          "pid": 19338,
+          "max_lease_ms": 15000
+        },
+        {
+          "kind": "device",
+          "source": "physical",
+          "input_id": 7,
+          "name": "Onn-Remote Keyboard",
+          "bus": 5,
+          "vendor": 2391,
+          "product": 49
+        },
+        {
+          "kind": "device",
+          "source": "phone",
+          "input_id": 3,
+          "name": "virtual-remote",
+          "bus": 6,
+          "vendor": 6353,
+          "product": 256
+        },
+        {
+          "kind": "device",
+          "source": "other_power",
+          "input_id": 6,
+          "name": "vad_keypad",
+          "bus": 16,
+          "vendor": 1,
+          "product": 1
+        },
+        {
+          "kind": "device",
+          "source": "other_power",
+          "input_id": 4,
+          "name": "input_ethrcu",
+          "bus": 16,
+          "vendor": 1,
+          "product": 1
+        },
+        {
+          "kind": "device",
+          "source": "other_power",
+          "input_id": 5,
+          "name": "input_btrcu",
+          "bus": 16,
+          "vendor": 1,
+          "product": 1
+        },
+        {
+          "kind": "device",
+          "source": "cec",
+          "input_id": 0,
+          "name": "cec_input",
+          "bus": 16,
+          "vendor": 7054,
+          "product": 3308
+        },
+        {
+          "kind": "lease",
+          "phase": "armed",
+          "heartbeat_deadline_ms": 780590186,
+          "session_end_ms": 1794330111671
+        },
+        {
+          "kind": "volume_ready",
+          "input_id": 8
+        },
+        {
+          "kind": "grabbed",
+          "source": "physical",
+          "input_id": 7,
+          "boottime_ms": 780588251
+        },
+        {
+          "kind": "released",
+          "input_id": 7,
+          "reason": "process_exit",
+          "ioctl_result": 0
+        },
+        {
+          "kind": "stopped",
+          "result": 0
+        }
+      ],
+      "status": "passed"
+    }
+  ],
+  "post_exit_probe": [
+    {
+      "kind": "device",
+      "source": "physical",
+      "input_id": 7,
+      "name": "Onn-Remote Keyboard",
+      "bus": 5,
+      "vendor": 2391,
+      "product": 49
+    },
+    {
+      "kind": "device",
+      "source": "phone",
+      "input_id": 3,
+      "name": "virtual-remote",
+      "bus": 6,
+      "vendor": 6353,
+      "product": 256
+    },
+    {
+      "kind": "device",
+      "source": "other_power",
+      "input_id": 6,
+      "name": "vad_keypad",
+      "bus": 16,
+      "vendor": 1,
+      "product": 1
+    },
+    {
+      "kind": "device",
+      "source": "other_power",
+      "input_id": 4,
+      "name": "input_ethrcu",
+      "bus": 16,
+      "vendor": 1,
+      "product": 1
+    },
+    {
+      "kind": "device",
+      "source": "other_power",
+      "input_id": 5,
+      "name": "input_btrcu",
+      "bus": 16,
+      "vendor": 1,
+      "product": 1
+    },
+    {
+      "kind": "device",
+      "source": "cec",
+      "input_id": 0,
+      "name": "cec_input",
+      "bus": 16,
+      "vendor": 7054,
+      "product": 3308
+    },
+    {
+      "kind": "probe_grab",
+      "result": "passed_and_released",
+      "input_id": 7
+    },
+    {
+      "kind": "device",
+      "source": "physical",
+      "input_id": 7,
+      "name": "Onn-Remote Keyboard",
+      "bus": 5,
+      "vendor": 2391,
+      "product": 49
+    },
+    {
+      "kind": "volume_ready",
+      "input_id": 8
+    },
+    {
+      "kind": "probe_volume",
+      "result": "created_ready_destroyed",
+      "keys_sent": 0
+    }
+  ],
+  "finished_epoch_ms": 1794330103498
+}

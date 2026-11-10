@@ -251,7 +251,7 @@ public final class AlarmReceiver extends BroadcastReceiver {
         return out;
     }
 
-    private static Map<String, Integer> parseDurations(String encoded) {
+    static Map<String, Integer> parseDurations(String encoded) {
         Map<String, Integer> result = new LinkedHashMap<>();
         if (encoded == null) return result;
         for (String row : encoded.split(";")) {

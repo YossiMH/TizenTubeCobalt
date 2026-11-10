@@ -35,7 +35,7 @@ import javax.net.ssl.SSLException;
 
 /** Optional diagnostics. Callers enqueue bounded work; this class never controls playback. */
 final class RunDiagnostics {
-    static final int VERSION = 9;
+    static final int VERSION = 10;
     private static final String FILE_NAME = "morning-diagnostics.bin";
     private static final int MAX_PENDING = 64, MAX_DETAIL_BYTES = 32 * 1024;
     private static final Object QUEUE_LOCK = new Object(), TELEMETRY_LOCK = new Object();

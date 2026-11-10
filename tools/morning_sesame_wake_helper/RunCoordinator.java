@@ -193,7 +193,27 @@ final class RunCoordinator {
             played.add(video);
         }
         p.edit().putStringSet("played_ids", played).commit();
+        // Capture the already verified candidate before finish() clears startup state.
+        Integer knownDuration = AlarmReceiver.parseDurations(p.getString("candidate_list", "")).get(video);
+        int protectSeconds = ProtectionStartPolicy.durationFor(
+                p.getString("diagnostic_trigger", ""), video,
+                knownDuration == null ? 0 : knownDuration);
         finish(context, id, "success", "playback_confirmed");
+        if (protectSeconds > 0) {
+            // This receiver remains protected by the existing signature permission.
+            // A guard/controller failure must not undo successful normal playback.
+            Intent session = new Intent("dev.yossi.onnkeyguard.MORNING_SESSION")
+                    .setClassName("dev.yossi.onnkeyguard", "dev.yossi.onnkeyguard.MorningPlaybackReceiver")
+                    .putExtra(EXTRA_RUN, id).putExtra("video_id", video)
+                    .putExtra("duration_seconds", protectSeconds)
+                    .putExtra("trigger", "scheduled_confirmed");
+            try {
+                context.sendBroadcast(session);
+                Log.i(TAG, "Confirmed scheduled playback offered to bounded session policy");
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Session policy unavailable; confirmed playback continues", e);
+            }
+        }
         Log.i(TAG, "Playback confirmed for " + video);
     }
 

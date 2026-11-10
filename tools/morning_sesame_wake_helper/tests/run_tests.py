@@ -18,10 +18,11 @@ def main():
                    helper / "tests/PlaybackEvidenceTest.java", helper / "tests/RunPolicyTest.java",
                    helper / "DiagnosticArchive.java", helper / "tests/DiagnosticArchiveTest.java",
                    helper / "PlaybackDiagnostics.java", helper / "tests/PlaybackDiagnosticsTest.java",
-                   helper / "MorningCandidatePolicy.java", helper / "tests/MorningCandidatePolicyTest.java"]
+                   helper / "MorningCandidatePolicy.java", helper / "tests/MorningCandidatePolicyTest.java",
+                   helper / "ProtectionStartPolicy.java", helper / "tests/ProtectionStartPolicyTest.java"]
         subprocess.run(compiler + ["-d", classes] + [str(path) for path in sources], check=True)
         for name in ("PlaybackEvidenceTest", "RunPolicyTest", "DiagnosticArchiveTest",
-                     "PlaybackDiagnosticsTest", "MorningCandidatePolicyTest"):
+                     "PlaybackDiagnosticsTest", "MorningCandidatePolicyTest", "ProtectionStartPolicyTest"):
             subprocess.run([java, "-cp", classes, "dev.yossi.morningsesame." + name], check=True)
 
 

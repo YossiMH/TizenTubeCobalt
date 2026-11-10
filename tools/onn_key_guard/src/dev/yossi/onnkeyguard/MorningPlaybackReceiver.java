@@ -10,6 +10,7 @@ public final class MorningPlaybackReceiver extends BroadcastReceiver {
     private static final String TAG = "OnnKeyGuard";
     public static final String ACTION_PLAY = "dev.yossi.onnkeyguard.MORNING_PLAY";
     public static final String ACTION_RUN = "dev.yossi.onnkeyguard.MORNING_RUN";
+    public static final String ACTION_SESSION = "dev.yossi.onnkeyguard.MORNING_SESSION";
     public static final String EXTRA_VIDEO = "video_id";
     private static final String TARGET_PACKAGE = "io.gh.yossim.tizentube.cobalt";
     private static final String TARGET_ACTIVITY = "dev.cobalt.app.MainActivity";
@@ -20,6 +21,16 @@ public final class MorningPlaybackReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context context, Intent intent) {
         if (intent == null) return;
         String action = intent.getAction();
+        if (ACTION_SESSION.equals(action)) {
+            try {
+                PolicyRuntime.get(context).startSession(intent.getStringExtra("run_generation"),
+                        intent.getStringExtra(EXTRA_VIDEO), intent.getIntExtra("duration_seconds", 0),
+                        intent.getStringExtra("trigger"));
+            } catch (RuntimeException invalid) {
+                Log.w(TAG, "Confirmed session offer could not be accepted");
+            }
+            return;
+        }
         if (ACTION_RUN.equals(action)) {
             Intent run = new Intent(MORNING_RUN_ACTION);
             run.setClassName(MORNING_PACKAGE, MORNING_ACTIVITY);

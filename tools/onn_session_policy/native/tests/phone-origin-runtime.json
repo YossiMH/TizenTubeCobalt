@@ -1,0 +1,38 @@
+{
+  "probe": {
+    "job_id": "9fa0c3b69abc",
+    "status": "completed",
+    "exit_code": 0,
+    "finish_reason": "completed",
+    "backend": "termux",
+    "cwd": null,
+    "pid": 22764,
+    "duration_ms": 1984,
+    "stdout": "name=virtual-remote id=8 descriptor=d76b0dc9b6d844ab25ed6d04f6d43a45d3806d72 vendor=6353 product=256 hasKeys_POWER_TVPOWER_SLEEP=[true, false, false]\n",
+    "stderr": "/data/data/com.termux/files/home/onn-policy-native-20261110/power-origin.jar: 1 file pushed, 0 skipped. 3.2 MB/s (1271 bytes in 0.000s)\n",
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "truncated": false,
+    "has_more": false,
+    "stdout_offset": 150,
+    "stderr_offset": 136
+  },
+  "service_summary": {
+    "job_id": "263b339225d7",
+    "status": "completed",
+    "exit_code": 0,
+    "finish_reason": "completed",
+    "backend": "termux",
+    "cwd": null,
+    "pid": 23101,
+    "duration_ms": 187,
+    "stdout": "    Emote features (8):\n      Keyboard feature is available\n      \tTotal keys injected 90/94\n      App Link: 0 requests received, 0 intents launched, 0 Play Store redirects, 0 activity launch failures\n      Volume Feature: 0 active clients\n      \tAvailable Audio Output Devices: 2\n--\n      \tVolume Control Capabilities: INCREMENTAL\n      Power Feature: 0 active clients\n      Fmr Feature: 0 active clients\n    Emote clients: 12 connection attempts, 0 failed, 12 connected, 12 disconnected, 0 errors \n    BLE remotes:\n    Audio Provider Service: Streams 0/0\n",
+    "stderr": "",
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "truncated": false,
+    "has_more": false,
+    "stdout_offset": 557,
+    "stderr_offset": 0
+  }
+}

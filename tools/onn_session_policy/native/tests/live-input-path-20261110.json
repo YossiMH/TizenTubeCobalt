@@ -1,0 +1,247 @@
+{
+  "started_epoch_ms": 1794330888861,
+  "status": "blocked_by_command_failure",
+  "verification": "real evdev writes through ordinary authenticated ADB shell",
+  "keys_permitted": [
+    103,
+    108
+  ],
+  "lease_ttl_ms": 12000,
+  "steps": [],
+  "screenshots": {
+    "before": {
+      "path": "/data/data/com.termux/files/home/onn-policy-native-20261110/tests/live-input-path-before.png",
+      "sha256": "d3690988716b2690553defcdafcb88294351e79fce04bc53c23f40282d0eb5c1"
+    }
+  },
+  "binary_sha256": "0056bbc0e330c97a4661d5228ed902ae81d6a6ffafaf4f419e859616d60297f9",
+  "identities": [
+    {
+      "kind": "device",
+      "source": "physical",
+      "input_id": 7,
+      "name": "Onn-Remote Keyboard",
+      "bus": 5,
+      "vendor": 2391,
+      "product": 49
+    },
+    {
+      "kind": "device",
+      "source": "phone",
+      "input_id": 3,
+      "name": "virtual-remote",
+      "bus": 6,
+      "vendor": 6353,
+      "product": 256
+    }
+  ],
+  "failed_command": [
+    "adb",
+    "-s",
+    "emulator-5554",
+    "shell",
+    "sendevent",
+    "/dev/input/event7",
+    "1",
+    "108",
+    "1"
+  ],
+  "returncode": 1,
+  "stderr": "sendevent: /dev/input/event7: Permission denied\n",
+  "stdout": "",
+  "helper_exit_code": 0,
+  "events": [
+    {
+      "kind": "ready",
+      "version": 1,
+      "mode": "controlled",
+      "pid": 24688,
+      "max_lease_ms": 15000
+    },
+    {
+      "kind": "device",
+      "source": "physical",
+      "input_id": 7,
+      "name": "Onn-Remote Keyboard",
+      "bus": 5,
+      "vendor": 2391,
+      "product": 49
+    },
+    {
+      "kind": "device",
+      "source": "phone",
+      "input_id": 3,
+      "name": "virtual-remote",
+      "bus": 6,
+      "vendor": 6353,
+      "product": 256
+    },
+    {
+      "kind": "device",
+      "source": "other_power",
+      "input_id": 6,
+      "name": "vad_keypad",
+      "bus": 16,
+      "vendor": 1,
+      "product": 1
+    },
+    {
+      "kind": "device",
+      "source": "other_power",
+      "input_id": 4,
+      "name": "input_ethrcu",
+      "bus": 16,
+      "vendor": 1,
+      "product": 1
+    },
+    {
+      "kind": "device",
+      "source": "other_power",
+      "input_id": 5,
+      "name": "input_btrcu",
+      "bus": 16,
+      "vendor": 1,
+      "product": 1
+    },
+    {
+      "kind": "device",
+      "source": "cec",
+      "input_id": 0,
+      "name": "cec_input",
+      "bus": 16,
+      "vendor": 7054,
+      "product": 3308
+    },
+    {
+      "kind": "lease",
+      "phase": "armed",
+      "heartbeat_deadline_ms": 781388011,
+      "session_end_ms": 1794330909996
+    },
+    {
+      "kind": "volume_ready",
+      "input_id": 8
+    },
+    {
+      "kind": "grabbed",
+      "source": "physical",
+      "input_id": 7,
+      "boottime_ms": 781376604
+    },
+    {
+      "kind": "released",
+      "input_id": 7,
+      "reason": "controller_disarm",
+      "ioctl_result": 0
+    },
+    {
+      "kind": "disarmed",
+      "reason": "controller_disarm"
+    },
+    {
+      "kind": "stopped",
+      "result": 0
+    }
+  ],
+  "post_exit_probe": [
+    {
+      "kind": "device",
+      "source": "physical",
+      "input_id": 7,
+      "name": "Onn-Remote Keyboard",
+      "bus": 5,
+      "vendor": 2391,
+      "product": 49
+    },
+    {
+      "kind": "device",
+      "source": "phone",
+      "input_id": 3,
+      "name": "virtual-remote",
+      "bus": 6,
+      "vendor": 6353,
+      "product": 256
+    },
+    {
+      "kind": "device",
+      "source": "other_power",
+      "input_id": 6,
+      "name": "vad_keypad",
+      "bus": 16,
+      "vendor": 1,
+      "product": 1
+    },
+    {
+      "kind": "device",
+      "source": "other_power",
+      "input_id": 4,
+      "name": "input_ethrcu",
+      "bus": 16,
+      "vendor": 1,
+      "product": 1
+    },
+    {
+      "kind": "device",
+      "source": "other_power",
+      "input_id": 5,
+      "name": "input_btrcu",
+      "bus": 16,
+      "vendor": 1,
+      "product": 1
+    },
+    {
+      "kind": "device",
+      "source": "cec",
+      "input_id": 0,
+      "name": "cec_input",
+      "bus": 16,
+      "vendor": 7054,
+      "product": 3308
+    },
+    {
+      "kind": "probe_grab",
+      "result": "passed_and_released",
+      "input_id": 7
+    },
+    {
+      "kind": "device",
+      "source": "physical",
+      "input_id": 7,
+      "name": "Onn-Remote Keyboard",
+      "bus": 5,
+      "vendor": 2391,
+      "product": 49
+    },
+    {
+      "kind": "volume_ready",
+      "input_id": 8
+    },
+    {
+      "kind": "probe_volume",
+      "result": "created_ready_destroyed",
+      "keys_sent": 0
+    }
+  ],
+  "phone_focus_restore_pending": false,
+  "finished_epoch_ms": 1794330891752,
+  "final_cleanup": {
+    "before_sha256": "d3690988716b2690553defcdafcb88294351e79fce04bc53c23f40282d0eb5c1",
+    "after_sha256": "e7cdcd6b8535ee046b48c941f894cf411424c45b0425b328707b6cb0e1a34842",
+    "screen_png_identical": false,
+    "helper_pidof_exit_code": 1,
+    "helper_pids": "",
+    "helper_pidof_stderr": ""
+  },
+  "visual_review": {
+    "before": "Google PIN entry; focus highlight on digit 3.",
+    "after": "Google PIN entry; focus highlight remains on digit 3.",
+    "digits_entered_by_test": 0,
+    "submit_or_power_events_sent": 0
+  },
+  "verification_limits": [
+    "The first physical-source sendevent failed with Permission denied; no input event was generated.",
+    "Physical filtering, phone DPAD movement, and actual volume forwarding remain unverified by this attempted input-path test.",
+    "No access-control workaround or alternate input-injection route was attempted.",
+    "Screenshot PNG hashes differ; visible PIN stage and selected digit are unchanged."
+  ]
+}

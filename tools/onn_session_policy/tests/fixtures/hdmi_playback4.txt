@@ -1,0 +1,126 @@
+mProhibitMode: false
+mPowerStatus: 0
+mIsCecAvailable: true
+mCecVersion: 5
+mIsAbsoluteVolumeBehaviorEnabled: false
+System_settings:
+  mMhlInputChangeEnabled: true
+  mSystemAudioActivated: false
+  mHdmiCecVolumeControlEnabled: 1
+CEC settings:
+  hdmi_cec_enabled (int): 1 (default: 1) [modifiable]
+  hdmi_cec_version (int): 6 (default: 6) [modifiable]
+  routing_control (int): 0 (default: 0) [modifiable]
+  soundbar_mode (int): 0 (default: 0) [modifiable]
+  power_control_mode (string): broadcast (default: broadcast) [modifiable]
+  power_state_change_on_active_source_lost (string): none (default: standby_now) [modifiable]
+  system_audio_control (int): 1 (default: 1) [modifiable]
+  system_audio_mode_muting (int): 1 (default: 1) [modifiable]
+  volume_control_enabled (int): 1 (default: 1) [modifiable]
+  tv_wake_on_one_touch_play (int): 1 (default: 1) [modifiable]
+  tv_send_standby_on_sleep (int): 1 (default: 1) [modifiable]
+  set_menu_language (int): 1 (default: 1) [modifiable]
+  rc_profile_tv (int): 0 (default: 0) [modifiable]
+  rc_profile_source_handles_root_menu (int): 1 (default: 1) [modifiable]
+  rc_profile_source_handles_setup_menu (int): 1 (default: 1) [modifiable]
+  rc_profile_source_handles_contents_menu (int): 0 (default: 0) [modifiable]
+  rc_profile_source_handles_top_menu (int): 0 (default: 0) [modifiable]
+  rc_profile_source_handles_media_context_sensitive_menu (int): 0 (default: 0) [modifiable]
+  query_sad_lpcm (int): 1 (default: 1) [modifiable]
+  query_sad_dd (int): 1 (default: 1) [modifiable]
+  query_sad_mpeg1 (int): 1 (default: 1) [modifiable]
+  query_sad_mp3 (int): 1 (default: 1) [modifiable]
+  query_sad_mpeg2 (int): 1 (default: 1) [modifiable]
+  query_sad_aac (int): 1 (default: 1) [modifiable]
+  query_sad_dts (int): 1 (default: 1) [modifiable]
+  query_sad_atrac (int): 1 (default: 1) [modifiable]
+  query_sad_onebitaudio (int): 1 (default: 1) [modifiable]
+  query_sad_ddp (int): 1 (default: 1) [modifiable]
+  query_sad_dtshd (int): 1 (default: 1) [modifiable]
+  query_sad_truehd (int): 1 (default: 1) [modifiable]
+  query_sad_dst (int): 1 (default: 1) [modifiable]
+  query_sad_wmapro (int): 1 (default: 1) [modifiable]
+  query_sad_max (int): 1 (default: 1) [modifiable]
+  tv_behavior_on_standby_message (int): 0 (default: 0)
+  earc_enabled (int): 1 (default: 1) [modifiable]
+mMhlController: 
+eARC local device: None. eARC is either disabled or not available.
+HDMI CEC Network
+  mPortInfo:
+    port_id: 0, type: HDMI_OUT, address: 0x1000, cec: true, arc: true, mhl: false, earc: false
+  HdmiCecLocalDevice #4:
+    mDeviceType: 4
+    mPreferredAddress: 4
+    mDeviceInfo: CEC: logical_address: 0x04 device_type: 4 cec_version: 5 vendor_id: 1877008 display_name: Bedroom TV power_status: 0 physical_address: 0x1000 port_id: 0
+      Device features: record_tv_screen: N set_osd_string: N deck_control: N set_audio_rate: N arc_tx: N arc_rx: N set_audio_volume_level: N 
+    mActiveSource: (0x00, 0x0000)
+    mActiveRoutingPath: 0x0000
+    isActiveSource(): false
+    Active Source history:
+      time=2026-11-10 07:53:45 active source=(0x04, 0x1000) isActiveSource=true from=ActiveSourceAction
+      time=2026-11-10 07:54:07 active source=(0x04, 0x1000) isActiveSource=true from=OneTouchPlayAction#broadcastActiveSource()
+      time=2026-11-10 07:54:07 active source=(0x04, 0x1000) isActiveSource=true from=ActiveSourceAction
+      time=2026-11-10 07:54:07 active source=(0x04, 0x1000) isActiveSource=true from=ActiveSourceAction
+      time=2026-11-10 07:54:21 active source=(0x00, 0x0000) isActiveSource=false from=HdmiCecLocalDeviceSource#handleActiveSource()
+      time=2026-11-10 08:15:35 active source=(invalid, invalid) isActiveSource=false from=HdmiCecLocalDevicePlayback#onStandby()
+      time=2026-11-10 08:57:25 active source=(0x04, 0x1000) isActiveSource=true from=OneTouchPlayAction#broadcastActiveSource()
+      time=2026-11-10 08:57:25 active source=(0x04, 0x1000) isActiveSource=true from=ActiveSourceAction
+      time=2026-11-10 08:57:27 active source=(0x04, 0x1000) isActiveSource=true from=ActiveSourceAction
+      time=2026-11-10 08:57:45 active source=(0x00, 0x0000) isActiveSource=false from=HdmiCecLocalDeviceSource#handleActiveSource()
+  mDeviceInfos:
+    CEC: logical_address: 0x00 device_type: 0 cec_version: 5 vendor_id: 240 display_name: TV power_status: 0 physical_address: 0x0000 port_id: -1
+      Device features: record_tv_screen: ? set_osd_string: ? deck_control: ? set_audio_rate: ? arc_tx: ? arc_rx: ? set_audio_volume_level: ? 
+    CEC: logical_address: 0x04 device_type: 4 cec_version: 5 vendor_id: 1877008 display_name: Bedroom TV power_status: 0 physical_address: 0x1000 port_id: 0
+      Device features: record_tv_screen: N set_osd_string: N deck_control: N set_audio_rate: N arc_tx: N arc_rx: N set_audio_volume_level: N 
+mCecController: 
+  CEC message history:
+    [R] time=2026-11-09 17:41:19 message=<Give Device Power Status> 04:8F
+    [S] time=2026-11-09 17:41:19 message=<Report Power Status> 40:90:00 (ACK)
+    [R] time=2026-11-09 17:41:20 message=<Report Power Status> 04:90:01
+    [R] time=2026-11-09 17:41:20 message=<Report Power Status> 04:90:01
+    [S] time=2026-11-09 17:41:20 message=<Give Device Power Status> 40:8F (ACK)
+    [R] time=2026-11-09 17:41:21 message=<Give Deck Status> 04:1A:01
+    [S] time=2026-11-09 17:41:21 message=<Feature Abort> 40:00:1A:00 (ACK)
+    [R] time=2026-11-09 17:41:21 message=<Report Power Status> 04:90:01
+    [S] time=2026-11-09 17:41:22 message=<Give Device Power Status> 40:8F (ACK)
+    [R] time=2026-11-09 17:41:22 message=<Report Power Status> 04:90:00
+    [S] time=2026-11-09 17:41:22 message=<Active Source> 4F:82:10:00 (ACK)
+    [S] time=2026-11-09 17:41:22 message=<Menu Status> 40:8E:00 (ACK)
+    [R] time=2026-11-09 17:41:24 message=<Give Physical Address> 04:83
+    [S] time=2026-11-09 17:41:24 message=<Report Physical Address> 4F:84:10:00:04 (ACK)
+    [R] time=2026-11-09 17:41:25 message=<Give Osd Name> 04:46
+    [S] time=2026-11-09 17:41:25 message=<Set Osd Name> 40:47 <Redacted len=10> (ACK)
+    [R] time=2026-11-09 17:41:25 message=<Vendor Command With Id> 04:A0 <Redacted len=4>
+    [S] time=2026-11-09 17:41:25 message=<Feature Abort> 40:00:A0:04 (ACK)
+    [R] time=2026-11-09 17:41:25 message=<Get Cec Version> 04:9F
+    [S] time=2026-11-09 17:41:25 message=<Cec Version> 40:9E:05 (ACK)
+    [S] time=2026-11-09 18:41:14 message=<Text View On> 40:0D (ACK)
+    [S] time=2026-11-09 18:41:14 message=<Active Source> 4F:82:10:00 (ACK)
+    [S] time=2026-11-09 18:41:14 message=<Menu Status> 40:8E:00 (ACK)
+    [S] time=2026-11-09 18:41:14 message=<System Audio Mode Request> 45:70:10:00 (NACK, NACK)
+    [S] time=2026-11-09 18:41:14 message=<Give Device Power Status> 40:8F (ACK)
+    [R] time=2026-11-09 18:41:15 message=<Report Power Status> 04:90:00
+    [S] time=2026-11-09 18:41:15 message=<Active Source> 4F:82:10:00 (ACK)
+    [S] time=2026-11-09 18:41:15 message=<Menu Status> 40:8E:00 (ACK)
+    [S] time=2026-11-09 19:22:12 message=<Text View On> 40:0D (ACK)
+    [S] time=2026-11-09 19:22:12 message=<Active Source> 4F:82:10:00 (ACK)
+    [S] time=2026-11-09 19:22:12 message=<Menu Status> 40:8E:00 (ACK)
+    [S] time=2026-11-09 19:22:12 message=<System Audio Mode Request> 45:70:10:00 (NACK, NACK)
+    [S] time=2026-11-09 19:22:12 message=<Give Device Power Status> 40:8F (ACK)
+    [R] time=2026-11-09 19:22:13 message=<Report Power Status> 04:90:00
+    [S] time=2026-11-09 19:22:13 message=<Active Source> 4F:82:10:00 (ACK)
+    [S] time=2026-11-09 19:22:13 message=<Menu Status> 40:8E:00 (ACK)
+    [S] time=2026-11-09 19:36:54 message=<Text View On> 40:0D (ACK)
+    [S] time=2026-11-09 19:36:54 message=<Active Source> 4F:82:10:00 (ACK)
+    [S] time=2026-11-09 19:36:54 message=<Menu Status> 40:8E:00 (ACK)
+    [S] time=2026-11-09 19:36:54 message=<System Audio Mode Request> 45:70:10:00 (NACK, NACK)
+    [S] time=2026-11-09 19:36:54 message=<Give Device Power Status> 40:8F (ACK)
+    [R] time=2026-11-09 19:36:54 message=<Report Power Status> 04:90:00
+    [S] time=2026-11-09 19:36:54 message=<Active Source> 4F:82:10:00 (ACK)
+    [S] time=2026-11-09 19:36:54 message=<Menu Status> 40:8E:00 (ACK)
+    [S] time=2026-11-09 19:43:52 message=<Text View On> 40:0D (ACK)
+    [S] time=2026-11-09 19:43:52 message=<Active Source> 4F:82:10:00 (ACK)
+    [S] time=2026-11-09 19:43:52 message=<Menu Status> 40:8E:00 (ACK)
+    [S] time=2026-11-09 19:43:52 message=<System Audio Mode Request> 45:70:10:00 (NACK, NACK)
+    [S] time=2026-11-09 19:43:52 message=<Give Device Power Status> 40:8F (ACK)
+

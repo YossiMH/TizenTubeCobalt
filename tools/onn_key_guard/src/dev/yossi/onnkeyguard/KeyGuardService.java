@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -28,6 +29,8 @@ public final class KeyGuardService extends AccessibilityService {
     private volatile boolean lockScreenVisible;
     private boolean castHandoffInFlight;
     private int castGeneration;
+    private final PhysicalKeyGate physicalGate = new PhysicalKeyGate();
+    private PolicyRuntime policyRuntime;
 
     @Override protected void onServiceConnected() {
         super.onServiceConnected();
@@ -39,6 +42,9 @@ public final class KeyGuardService extends AccessibilityService {
         }
         lockScreenVisible = false;
         castHandoffInFlight = false;
+        policyRuntime = PolicyRuntime.get(this);
+        policyRuntime.attach(this);
+        lockScreenVisible = policyRuntime.authenticationRequired();
         Log.i(TAG, "connected; event-driven filter-key-events and YouTube Cast guard active");
     }
 
@@ -56,6 +62,7 @@ public final class KeyGuardService extends AccessibilityService {
             lockScreenVisible = locked;
             Log.i(TAG, "lockState changed to " + locked + " class=" + cls);
         }
+        if (policyRuntime != null) policyRuntime.onWindow(pkg, cls, locked);
 
         if (CAST_WEB_PKG.equals(pkg) && cls.contains(CAST_WEB_ACTIVITY)) {
             if (!castHandoffInFlight) {
@@ -154,6 +161,17 @@ public final class KeyGuardService extends AccessibilityService {
     }
 
     @Override public boolean onKeyEvent(KeyEvent event) {
+        if (event == null) return false;
+        InputDevice device = event.getDevice();
+        RemoteIdentity.Origin origin = RemoteIdentity.classify(event.getDeviceId(),
+                device == null ? "" : device.getName(), device == null ? 0 : device.getVendorId(),
+                device == null ? 0 : device.getProductId(), device == null ? "" : device.getDescriptor());
+        PhysicalKeyGate.Protection protection = policyRuntime != null && policyRuntime.physicalProtectionActive()
+                ? PhysicalKeyGate.Protection.ENABLED : PhysicalKeyGate.Protection.DISABLED;
+        if (physicalGate.onEvent(event.getAction(), event.getDeviceId(), event.getKeyCode(), origin, protection)) {
+            return true;
+        }
+        // Phone session intent comes only from the native proven-source stream, never twice here.
         boolean interactive = isInteractive();
         int keyCode = event.getKeyCode();
         boolean block = KeyPolicy.shouldBlock(interactive, lockScreenVisible, keyCode);
@@ -171,4 +189,17 @@ public final class KeyGuardService extends AccessibilityService {
     }
 
     @Override public void onInterrupt() {}
+
+    @Override public boolean onUnbind(Intent intent) {
+        if (policyRuntime != null) policyRuntime.detach(this);
+        physicalGate.clear();
+        return super.onUnbind(intent);
+    }
+
+    @Override public void onDestroy() {
+        if (policyRuntime != null) policyRuntime.detach(this);
+        physicalGate.clear();
+        handler.removeCallbacksAndMessages(null);
+        super.onDestroy();
+    }
 }

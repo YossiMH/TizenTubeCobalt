@@ -1,0 +1,2 @@
+# Optional read-only Cobalt media telemetry. Core/DIAL mode has no dependencies.
+websocket-client==1.9.2
