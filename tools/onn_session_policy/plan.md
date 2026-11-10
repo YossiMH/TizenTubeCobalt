@@ -20,7 +20,7 @@ The physical input identity is bus 5, vendor 0x0957, product 0x0031, name `Onn-R
 | audio-policy | pure rules tested; adapters blocked | ../onn_key_guard/src/dev/yossi/onnkeyguard/AudioPreferencePolicy.java | Actual app menus | 161 pure assertions passed; Netflix/Disney+/Prime adapters still absent | Preserve unknown-origin choice; no subtitle changes; stop unrecognized UI automation |
 | app-inspection | blocked | Normal Google TV PIN entry, then installed player menus | Owner's normal profile authentication | Capture actual Netflix/Disney+/Prime UI and validate adapters | No PIN guess, reset, or profile-protection bypass |
 | validation | independent checks passed; acceptance blocked | Native, Java, Python tests and live Onn checks | Previous rows | Java 484 assertions, Morning 135 assertions, actual-Termux controller 40 tests and 18 prepared production-wiring checks passed; real input/playback/audio acceptance remains open | Do not enable unsupported behavior or claim unobserved playback success |
-| publication | in progress | Source commits and existing handoff | Reviewed coherent code and exact validation state | Save deployed hashes, instructions, limits, continuation | Keep unfinished work explicit |
+| publication | done | Source commits and existing handoff | Reviewed coherent code and exact validation state | Reviewed source, deployed hashes, acceptance limits and continuation are published; requested behavior remains blocked on owner authentication and real acceptance | Keep unfinished work explicit |
 
 ## Current observations
 
