@@ -7,7 +7,7 @@ import tempfile
 import threading
 import unittest
 
-from onn_session_policy.adapters import AdapterError, Android, SessionClient, broadcast_json, read_token, store_token
+from onn_session_policy.adapters import AdapterError, Android, SessionClient, broadcast_json, hdmi_output_status, read_token, store_token
 from onn_session_policy.controller import Config, Controller, control_request
 from onn_session_policy.policy import Phase
 
@@ -114,6 +114,12 @@ class AdapterTests(unittest.IsolatedAsyncioTestCase):
 
 
 class TokenTests(unittest.TestCase):
+    def test_hdmi_diagnostics_are_only_fixed_outcomes(self):
+        self.assertEqual('hdmi_callback_deadline',hdmi_output_status(b'Sending One Touch Play...\nOne Touch Play timed out.\n'))
+        self.assertEqual('hdmi_result_timeout',hdmi_output_status(b'Sending One Touch Play... done (Timeout)\n'))
+        self.assertEqual('hdmi_result_success',hdmi_output_status(b'Sending One Touch Play... done (Success)\n'))
+        self.assertEqual('unknown',hdmi_output_status(b'Unrecognized text Success'))
+        self.assertEqual('unknown',hdmi_output_status(b'Authorization: private-never-log'))
     def test_token_saved_atomically_private_and_insecure_file_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             token_file = Path(directory)/"controller.token"

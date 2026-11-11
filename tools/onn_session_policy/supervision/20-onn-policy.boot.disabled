@@ -1,0 +1,5 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Candidate only. Do not place this file in .termux/boot before acceptance.
+exec /data/data/com.termux/files/home/onn-policy-20261110/venv/bin/python \
+  /data/data/com.termux/files/home/onn-policy-20261110/controller/supervision/supervise.py \
+  --config /data/data/com.termux/files/home/onn-policy-20261110/controller/supervision/service.json run

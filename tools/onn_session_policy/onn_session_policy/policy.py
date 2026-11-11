@@ -85,6 +85,7 @@ class Rollout(str, Enum):
 class SessionMode(str, Enum):
     SCHEDULED = "scheduled"
     TEST = "test"
+    POWER_PROBE = "power_probe"
 
 
 class Observer(str, Enum):
@@ -135,6 +136,13 @@ class InputKey:
 class Observation:
     activity: Activity = Activity.UNKNOWN
     power: Power = Power.UNKNOWN
+    onn_power: Power = Power.UNKNOWN
+    tv_power: Power = Power.UNKNOWN
+
+
+def restored_power_state(observation):
+    return (observation.activity == Activity.ACTIVE and observation.onn_power == Power.AWAKE
+            and observation.tv_power == Power.AWAKE)
 
 
 @dataclass(frozen=True)
@@ -337,18 +345,25 @@ def guard_required(state, now_ms, wall_ms):
     return (session is not None and session.phase in (Phase.ACTIVE, Phase.PHONE_PAUSED)
             and observer_fresh(state, now_ms) and state.fault_fence == FaultFence.CLEAR
             and session.id != state.blocked_session_id
-            and (state.snapshot.rollout == Rollout.ENABLED or state.snapshot.session_mode == SessionMode.TEST)
-            and (state.snapshot.session_mode != SessionMode.TEST or session.expires_at_ms - wall_ms <= 60_000)
+            and (state.snapshot.rollout == Rollout.ENABLED or state.snapshot.session_mode in (SessionMode.TEST, SessionMode.POWER_PROBE))
+            and (state.snapshot.session_mode == SessionMode.SCHEDULED or session.expires_at_ms - wall_ms <= 60_000)
             and state.intent != Intent.POWER_STOP)
 
 
-def recovery_reason(state, now_ms, wall_ms, observation, playback=None, player_package=None):
+def recovery_context_allowed(state, now_ms, wall_ms):
     session = live_session(state, now_ms, wall_ms)
-    if (session is None or session.phase != Phase.ACTIVE or state.intent != Intent.NONE
-            or state.snapshot.rollout != Rollout.ENABLED or state.snapshot.session_mode == SessionMode.TEST
-            or not observer_fresh(state, now_ms) or state.fault_fence != FaultFence.CLEAR
-            or session.id == state.blocked_session_id or now_ms < state.phone_grace_until_ms):
+    return (session is not None and session.phase == Phase.ACTIVE and state.intent == Intent.NONE
+            and state.snapshot.session_mode != SessionMode.TEST
+            and (state.snapshot.rollout == Rollout.ENABLED or state.snapshot.session_mode == SessionMode.POWER_PROBE)
+            and (state.snapshot.session_mode != SessionMode.POWER_PROBE or session.expires_at_ms - wall_ms <= 60_000)
+            and observer_fresh(state, now_ms) and state.fault_fence == FaultFence.CLEAR
+            and session.id != state.blocked_session_id and now_ms >= state.phone_grace_until_ms)
+
+
+def recovery_reason(state, now_ms, wall_ms, observation, playback=None, player_package=None):
+    if not recovery_context_allowed(state, now_ms, wall_ms):
         return None
+    session = state.snapshot.session
     if playback is not None and playback.video_id == session.video_id and playback.playing == Playing.ENDED:
         # Completion evidence is posted to the app; do not race its next status.
         return None
@@ -362,6 +377,8 @@ def recovery_reason(state, now_ms, wall_ms, observation, playback=None, player_p
         return Recovery.POWER
     if observation.activity == Activity.INACTIVE:
         return Recovery.INPUT
+    if state.snapshot.session_mode == SessionMode.POWER_PROBE:
+        return None  # Explicit power/input observations are the only probe authority.
     if state.snapshot.authentication != Authentication.CLEAR:
         return None
     if playback is not None and playback.video_id == session.video_id:
@@ -401,15 +418,20 @@ def parse_observation(text):
             activities.append(Activity.ACTIVE if values[0].lower() == "true" else Activity.INACTIVE)
     activity = activities[0] if len(activities) == 1 else Activity.UNKNOWN
     power = Power.UNKNOWN
+    onn_power = Power.UNKNOWN
+    tv_power = Power.UNKNOWN
     if marker:
         wake = re.findall(r"mWakefulness\s*[:=]\s*(Awake|Asleep|Dozing|Dreaming)\b", power_text)
         if len(wake) == 1:
             power = Power.ASLEEP if wake[0] in ("Asleep", "Dozing") else Power.AWAKE
+            onn_power = Power.AWAKE if wake[0] == "Awake" else Power.ASLEEP if wake[0] in ("Asleep", "Dozing") else Power.UNKNOWN
         tv = re.findall(r"(?m)^\s*mTvPowerStatus\s*[:=]\s*(\d+)\s*$", hdmi)
         tv += re.findall(r"(?m)^\s*CEC:\s*logical_address:\s*0x00\s+device_type:\s*0\b[^\n]*?power_status:\s*(\d+)\b", hdmi)
         if len(tv) == 1 and tv[0] in ("1", "3"):
             power = Power.ASLEEP
-    return Observation(activity, power)
+        if len(tv) == 1:
+            tv_power = Power.AWAKE if tv[0] == "0" else Power.ASLEEP if tv[0] in ("1", "3") else Power.UNKNOWN
+    return Observation(activity, power, onn_power, tv_power)
 
 
 def parse_player(xml, wall_ms):

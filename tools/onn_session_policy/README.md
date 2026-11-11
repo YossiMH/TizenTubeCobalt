@@ -41,13 +41,23 @@ bounded test while rollout remains prepared, only when expiring within 60 second
 it never wakes, changes input, launches, or resumes playback. Missing rollout
 authorization defaults to prepared. These commands do not enable app rollout.
 
+The protected `session_mode: "power_probe"` is a separate disposable probe of at
+most sixty seconds. With fresh observer proof, active phase, and explicit
+`--recovery-mode enabled`, it permits wake and one-touch-play only after a fresh
+asleep or inactive-source observation. It skips media sampling and never calls
+app recovery or launches playback. Phone intent, observer loss, retry limits,
+and expiry still stop it. It can remain under prepared rollout throughout; it
+does not authorize scheduled enforcement.
+
 The default native binary path without `--native-path` is
 `/data/local/tmp/onn-policy/onn_input_guard`. The date-specific path above matches
 the currently built integration binary; deployment should choose a stable path.
 
-Run under the existing Termux service supervisor for reboot persistence. The
-controller runs in the foreground, handles SIGINT/SIGTERM, holds a private
-single-instance lock, and does not detach or create a second watchdog process.
+The [disabled startup package](supervision/README.md) supplies a separate owned
+TermuxBoot supervisor for installation after acceptance. Its staged configuration
+does not start anything, and no new Boot hook is installed. The controller runs
+in the foreground, handles SIGINT/SIGTERM, and retains its private single-instance
+lock. The existing tunnel supervisor and wake lock remain separately owned.
 
 ## Assistant controls
 
@@ -71,6 +81,25 @@ normal schedule and rollout state. Starting the controller again does not create
 a playback session.
 
 ## State and timing
+
+Protocol 2 adds an ordered `STATUS` / `DRAIN <nonce>` check before every wake,
+one-touch-play, and app-recovery command. The reader consumes preceding phone
+events before accepting the marker, then rechecks session/mode/generation and
+fresh state. Busy, unavailable, timed-out, or older helpers permit no command.
+This covers queued input; future input still cancels remaining commands.
+
+The actual Samsung TV can finish waking after Android's one-touch-play shell
+callback deadline. Only the exact exit-1 callback-deadline outcome permits up to
+six seconds of passive confirmation: explicit TV power ON, Onn exactly Awake,
+and local active source are all required. Reads are fresh and bounded, with
+session and phone checks before/after. No extra wake or CEC command is sent.
+`power_probe_confirmed` retains the original command-error classification and
+means observed restored state, distinct from `power_probe_requested`.
+Scheduled playback still requires normal authentication and a fresh input
+barrier before app recovery. Other command errors remain failures.
+
+The complete November 11 live power test and its preceding failures are recorded
+in [power-recovery-tests-20261111.json](power-recovery-tests-20261111.json).
 
 - Only fresh, live canonical state can authorize hardware grabbing. Failed
   requests retain a snapshot labeled `cache`, which cannot authorize actions.
@@ -194,7 +223,7 @@ All requests use `Authorization: Bearer <private token>` on the local app port
 ```
 
 Phases: `inactive`, `active`, `phone_paused`, `phone_stopped`, `completed`.
-Rollout: `prepared`, `enabled`. Session mode: `scheduled`, `test`.
+Rollout: `prepared`, `enabled`. Session mode: `scheduled`, `test`, `power_probe`.
 Authentication: `unknown`, `clear`, `required`. Other app diagnostic fields are
 ignored without changing the canonical app data.
 

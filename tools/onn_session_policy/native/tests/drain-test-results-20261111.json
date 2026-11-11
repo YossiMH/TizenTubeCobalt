@@ -1,0 +1,124 @@
+{
+  "date": "2026-11-11",
+  "change": "Protocol-v2 ordered DRAIN phone-input barrier",
+  "protocol": {
+    "command": "DRAIN <nonce>",
+    "nonce": "ASCII decimal integer 1..2147483647; no signs or extra whitespace",
+    "marker": {
+      "kind": "drain",
+      "nonce": 42,
+      "result": "clear|busy|unavailable"
+    },
+    "input_bound": "At most four batches of 32 input_event records per currently known verified phone descriptor",
+    "completion": "Zero-time poll after all bounded reads; preceding key events and marker share the ordered output pipe"
+  },
+  "red_before_implementation": {
+    "test": "test_queued_power_precedes_marker",
+    "exit_code": 134,
+    "assertion": "status && down && up && marker",
+    "cause": "Original apply_command treated DRAIN as invalid; queued phone power was not emitted before a marker"
+  },
+  "verification": [
+    {
+      "environment": "cloud Linux",
+      "check": "Strict C11 build (-Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -O2)",
+      "result": "passed"
+    },
+    {
+      "environment": "cloud Linux",
+      "check": "Existing pure policy tests",
+      "result": "passed"
+    },
+    {
+      "environment": "cloud Linux",
+      "check": "Real anonymous-pipe DRAIN functional tests",
+      "result": "passed"
+    },
+    {
+      "environment": "cloud Linux",
+      "check": "AddressSanitizer and UndefinedBehaviorSanitizer real-pipe tests",
+      "result": "passed",
+      "options": "ASAN_OPTIONS=detect_leaks=0"
+    },
+    {
+      "environment": "actual Onn Termux",
+      "check": "Strict clang production build and both pure-policy/real-pipe test executables",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "environment": "repository",
+      "check": "git diff --check -- tools/onn_session_policy/native",
+      "result": "passed"
+    }
+  ],
+  "scenarios": [
+    "STATUS then phone POWER down/up then matching clear marker in actual stdout pipe",
+    "Empty existing phone acknowledges clear",
+    "129-record queue exceeds128-record bound and returns busy; next drain emits remaining POWER before clear",
+    "Every known phone descriptor read, including last device slot",
+    "Wrong vendor/product never supplies a phone barrier or consumes its queued event",
+    "A disconnected phone denies clear even while another phone remains",
+    "HUP at exact batch limit returns unavailable",
+    "SYN_DROPPED stops helper without a clear acknowledgement",
+    "Closed old poll slot never consumes controller stdin",
+    "Malformed, overflowing, or nonpositive nonce disarms without marker"
+  ],
+  "source_sha256": {
+    "policy.h": "ee21fa976ec8d311b7623f46c80a7d6b6eaee7ee5c74794d5a6e7fc02eb6311a",
+    "policy.c": "a320653d134bba782c18d9162b6c8047076ab2b16cf15d7b1346eb516f5486bb",
+    "onn_input_guard.c": "1263ebb09f2a3e71dc2941fd023923f72ae5c948fec71f42120ab2a4612c7f3d",
+    "tests/test_policy.c": "035fadf73b2e9b8bde44b5a9cb08101307344f3b4ff1b6d522a106010bc4492a",
+    "tests/test_drain.c": "4fdbaba8389a15ec1e888e51b12c3e8cb2d5a827c82287913a8be423ef038fe0"
+  },
+  "staging": {
+    "candidate_path": "/data/local/tmp/onn-policy-20261110/onn_input_guard_drain_20261111_c0f306bbc079",
+    "candidate_sha256": "c0f306bbc07979b72c4db15484a71400856223299532f101e2afec191be775f4",
+    "installed_sha256": "0056bbc0e330c97a4661d5228ed902ae81d6a6ffafaf4f419e859616d60297f9",
+    "candidate_launched": false
+  },
+  "limits": [
+    "No real evdev writes or injected hardware/phone events were attempted.",
+    "No actual device grab or controlled helper launch was performed during these tests.",
+    "A clear marker is a point-in-time snapshot of currently known verified phone descriptors; later keys or newly connected devices still require controller generation/mode/session rechecks."
+  ],
+  "root_passive_device_verification": {
+    "reported_by": "root after independent actual-Onn check",
+    "deployment": "Root backed up the previous native helper and atomically installed the candidate.",
+    "installed_sha256": "c0f306bbc07979b72c4db15484a71400856223299532f101e2afec191be775f4",
+    "commands": [
+      "STATUS",
+      "DRAIN 314",
+      "QUIT"
+    ],
+    "observed": {
+      "ready_version": 2,
+      "lease": "disarmed",
+      "volume": "absent",
+      "drain_nonce": 314,
+      "drain_result": "clear",
+      "stopped_result": 0,
+      "observed_keys": 0
+    },
+    "hardware_effects": "No lease, grab, or TV action; passive lifecycle only.",
+    "result": "passed"
+  },
+  "cross_language_protocol_stream": {
+    "mode": "--protocol-stream",
+    "implementation": "Production read_commands/apply_command/read_device/flush_output with anonymous phone pipe; no handimplemented JSON response logic.",
+    "fixture": "Disarmed, volume absent, verified phone source/input_id7, one queued Linux KEY_POWER down event.",
+    "host": "Strict compile, default tests, and STATUS/DRAIN9001/QUIT ordering passed.",
+    "sanitizers": "Default tests and protocol stream passed ASan/UBSan with detect_leaks=0.",
+    "actual_termux": "Strict clang build, default tests, and STATUS/DRAIN9001/QUIT ordering passed.",
+    "ordering": [
+      "ready",
+      "status",
+      "key",
+      "drain",
+      "stopped"
+    ],
+    "timeout_seconds": 10,
+    "termux_executable": "/data/data/com.termux/files/home/onn-policy-native-drain-20261111/test_drain",
+    "production_binary_changed": false
+  }
+}

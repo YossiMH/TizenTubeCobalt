@@ -29,6 +29,7 @@ typedef enum { SLOT_EMPTY, SLOT_OPEN } SlotPhase;
 typedef enum { BRIDGE_ABSENT, BRIDGE_STARTING, BRIDGE_READY } BridgePhase;
 typedef enum { RUN_CONTINUE, RUN_STOP } RunPhase;
 typedef enum { MODE_CONTROLLED, MODE_OBSERVE } RunMode;
+typedef enum { DRAIN_CLEAR, DRAIN_BUSY, DRAIN_UNAVAILABLE } DrainResult;
 
 typedef struct {
     SlotPhase phase;
@@ -287,6 +288,8 @@ static void discover(Runtime *r) {
 
 static void read_device(Runtime *r, unsigned slot) {
     Device *d = &r->devices[slot];
+    /* DRAIN can close a phone before the main loop reaches its old poll slot. */
+    if (d->phase != SLOT_OPEN) return;
     struct input_event events[32];
     ssize_t bytes;
     unsigned batches = 0;
@@ -327,9 +330,61 @@ static void read_device(Runtime *r, unsigned slot) {
         close_device(r, slot, "read_closed");
 }
 
+static uint32_t parse_drain_nonce(const char *command) {
+    if (strncmp(command, "DRAIN ", 6) != 0) return 0;
+    uint32_t nonce = 0;
+    for (const char *at = command + 6; *at != '\0'; ++at) {
+        if (*at < '0' || *at > '9') return 0;
+        uint32_t digit = (uint32_t)(*at - '0');
+        if (nonce > ((uint32_t)INT32_MAX - digit) / 10) return 0;
+        nonce = nonce * 10 + digit;
+    }
+    return nonce;
+}
+
+static void drain_phone_inputs(Runtime *r, uint32_t nonce) {
+    struct pollfd fds[MAX_DEVICES];
+    unsigned slots[MAX_DEVICES];
+    nfds_t count = 0;
+    for (unsigned i = 0; i < MAX_DEVICES; ++i) {
+        Device *d = &r->devices[i];
+        if (d->phase != SLOT_OPEN || d->source != SOURCE_PHONE) continue;
+        slots[count] = i;
+        fds[count++] = (struct pollfd){d->fd, POLLIN, 0};
+    }
+    DrainResult result = count == 0 ? DRAIN_UNAVAILABLE : DRAIN_CLEAR;
+    for (nfds_t i = 0; i < count; ++i) {
+        read_device(r, slots[i]);
+        /* A terminal input/output failure cannot acknowledge a safe barrier. */
+        if (r->phase == RUN_STOP) return;
+        Device *d = &r->devices[slots[i]];
+        if (d->phase != SLOT_OPEN || d->source != SOURCE_PHONE || d->fd != fds[i].fd) {
+            fds[i].fd = -1;
+            result = DRAIN_UNAVAILABLE;
+        }
+    }
+    /* read_device is bounded to 4 x 32 records per device. An unread backlog,
+     * disappearance, poll failure, or missing source never acknowledges clear.
+     * This is an ordered point-in-time barrier, not a promise about later keys. */
+    if (poll(fds, count, 0) < 0) {
+        result = DRAIN_UNAVAILABLE;
+    } else {
+        for (nfds_t i = 0; i < count; ++i) {
+            if ((fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0)
+                result = DRAIN_UNAVAILABLE;
+            else if ((fds[i].revents & POLLIN) != 0 && result == DRAIN_CLEAR)
+                result = DRAIN_BUSY;
+        }
+    }
+    const char *name = result == DRAIN_CLEAR ? "clear" :
+                       result == DRAIN_BUSY ? "busy" : "unavailable";
+    emit(r, "{\"kind\":\"drain\",\"nonce\":%" PRIu32 ",\"result\":\"%s\"}", nonce, name);
+}
+
 static void apply_command(Runtime *r, const char *command) {
     int64_t ttl, end;
     char extra;
+    uint32_t nonce = parse_drain_nonce(command);
     if (strcmp(command, "DISARM") == 0) {
         release_grabs(r, "controller_disarm");
         r->lease = (Lease){0};
@@ -340,6 +395,8 @@ static void apply_command(Runtime *r, const char *command) {
         emit(r, "{\"kind\":\"status\",\"lease\":\"%s\",\"volume\":\"%s\",\"boottime_ms\":%" PRId64 "}",
              r->lease.phase == LEASE_ARMED ? "armed" : "disarmed",
              r->bridge_phase == BRIDGE_READY ? "ready" : "absent", clock_ms(CLOCK_BOOTTIME));
+    } else if (nonce != 0) {
+        drain_phone_inputs(r, nonce);
     } else if (sscanf(command, "ARM %" SCNd64 " %" SCNd64 " %c", &ttl, &end, &extra) == 2) {
         r->lease = lease_arm(r->lease, clock_ms(CLOCK_BOOTTIME), clock_ms(CLOCK_REALTIME), ttl, end);
         if (r->lease.phase != LEASE_ARMED) {
@@ -486,7 +543,7 @@ static int run(RunMode mode, int64_t duration_ms) {
         int input_flags = fcntl(STDIN_FILENO, F_GETFL);
         if (input_flags < 0 || fcntl(STDIN_FILENO, F_SETFL, input_flags | O_NONBLOCK) < 0) return 33;
     }
-    emit(&r, "{\"kind\":\"ready\",\"version\":1,\"mode\":\"%s\",\"pid\":%ld,\"max_lease_ms\":15000}",
+    emit(&r, "{\"kind\":\"ready\",\"version\":2,\"mode\":\"%s\",\"pid\":%ld,\"max_lease_ms\":15000}",
          mode == MODE_CONTROLLED ? "controlled" : "observe", (long)getpid());
     while (r.phase == RUN_CONTINUE) {
         int64_t now = clock_ms(CLOCK_BOOTTIME);

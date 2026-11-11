@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "activation": "disabled",
+  "python": "/data/data/com.termux/files/home/onn-policy-20261110/venv/bin/python",
+  "entry": "/data/data/com.termux/files/home/onn-policy-20261110/controller/onn_session_controller.py",
+  "adb": "/data/data/com.termux/files/usr/bin/adb",
+  "serial": "emulator-5554",
+  "native": "/data/local/tmp/onn-policy-20261110/onn_input_guard",
+  "controller_state": "/data/data/com.termux/files/home/onn-policy-20261110/integration-state",
+  "token_file": "/data/data/com.termux/files/home/onn-policy-20261110/integration-state/controller.token",
+  "supervisor_state": "/data/data/com.termux/files/home/onn-policy-20261110/supervision-state",
+  "recovery_mode": "observe",
+  "media_source": "auto"
+}

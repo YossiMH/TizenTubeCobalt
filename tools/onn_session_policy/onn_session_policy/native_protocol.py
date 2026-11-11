@@ -125,7 +125,7 @@ def event(state, value, now_ms):
         native_boot = value.get("boottime_ms")
         if (state.request_ms is None or not 0 <= now_ms - state.request_ms <= STATUS_REPLY_TIMEOUT_MS
                 or type(native_boot) is not int or native_boot < 0
-                or (state.native_boot_ms is not None and native_boot <= state.native_boot_ms)
+                or (state.native_boot_ms is not None and native_boot < state.native_boot_ms)
                 or value.get("lease") not in ("armed", "disarmed")
                 or value.get("volume") not in ("ready", "absent")):
             return lost(state, MonitorFault.PROTOCOL)

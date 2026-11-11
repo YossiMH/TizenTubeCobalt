@@ -25,10 +25,40 @@ class AdapterError(RuntimeError):
     """Messages are fixed classifications; remote bodies and secrets stay private."""
 
 
+class AndroidCommandError(AdapterError):
+    def __init__(self, failure_type, exit_code=None, output_status="unknown"):
+        super().__init__("android_command_failed")
+        self.failure_type = failure_type
+        self.exit_code = exit_code
+        self.output_status = output_status
+
+
+def hdmi_output_status(output):
+    """Fixed AOSP shell outcomes only; no command text enters diagnostics."""
+    if b"One Touch Play timed out." in output:
+        return "hdmi_callback_deadline"
+    for ending, status in ((b"Communication Failed", "hdmi_communication_failed"),
+                           (b"Source not available", "hdmi_source_unavailable"),
+                           (b"Target not available", "hdmi_target_unavailable"),
+                           (b"Incorrect mode", "hdmi_incorrect_mode"),
+                           (b"Timeout", "hdmi_result_timeout"),
+                           (b"Exception", "hdmi_exception"),
+                           (b"Success", "hdmi_result_success")):
+        if output.strip().endswith(b"done (" + ending + b")"):
+            return status
+    return "unknown"
+
+
 class GuardPhase(str, Enum):
     STOPPED = "stopped"
     RUNNING = "running"
     FAILED = "failed"
+
+
+class DrainCapability(str, Enum):
+    UNKNOWN = "unknown"
+    SUPPORTED = "supported"
+    UNSUPPORTED = "unsupported"
 
 
 class NativeHealth(str, Enum):
@@ -159,17 +189,23 @@ class Android:
     async def shell(self, *arguments, timeout=4.0):
         process = await asyncio.create_subprocess_exec(*self.prefix, "shell", *arguments,
             stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL)
+            stderr=asyncio.subprocess.PIPE)
         try:
-            output, _ = await asyncio.wait_for(process.communicate(), timeout)
+            output, error_output = await asyncio.wait_for(process.communicate(), timeout)
             if process.returncode != 0:
-                raise AdapterError("android_command_failed")
-            if len(output) > 1_048_576:
+                status = hdmi_output_status(output + error_output) if arguments == ("cmd", "hdmi_control", "onetouchplay") else "unknown"
+                raise AndroidCommandError("exit_status", process.returncode, status)
+            if len(output) > 1_048_576 or len(error_output) > 1_048_576:
                 raise AdapterError("android_response_too_large")
             return output.decode("utf-8", "replace")
-        except (asyncio.TimeoutError, asyncio.CancelledError):
+        except asyncio.TimeoutError as exc:
             if process.returncode is None:
                 process.kill()  # This exact subprocess belongs to this adapter.
+            await process.wait()
+            raise AndroidCommandError("process_deadline") from exc
+        except asyncio.CancelledError:
+            if process.returncode is None:
+                process.kill()
             await process.wait()
             raise
 
@@ -209,6 +245,11 @@ class NativeGuard:
         self._session_id = None
         self._session_end_ms = None
         self._command_lease = LeasePhase.UNKNOWN
+        self._drain_capability = DrainCapability.UNKNOWN
+        self._barrier_lock = asyncio.Lock()
+        self._status_processed = asyncio.Event()
+        self._drain_nonce = 0
+        self._drain_waiter = None
 
     @staticmethod
     def _now():
@@ -261,6 +302,46 @@ class NativeGuard:
         if self.phase == GuardPhase.RUNNING:
             await self._apply_monitor_result(watchdog(self.monitor, self._now()))
 
+    async def recovery_barrier(self, timeout=4.0):
+        """Fresh STATUS then bounded phone DRAIN; the reader consumes keys first.
+
+        STATUS alone is not an input barrier: native commands precede its input
+        batch. DRAIN's matching nonce is emitted after phone fd reads and an
+        empty zero-time poll. No command is authorized by elapsed time alone.
+        """
+        async with self._barrier_lock:
+            deadline = asyncio.get_running_loop().time() + timeout
+            waiter = None
+            try:
+                while True:
+                    async with self._lock:
+                        if (self.phase != GuardPhase.RUNNING or not monitor_live(self.monitor, self._now())
+                                or self._drain_capability != DrainCapability.SUPPORTED):
+                            return False
+                        if self.monitor.request_ms is None:
+                            self._drain_nonce = self._drain_nonce % 2_147_483_647 + 1
+                            waiter = asyncio.get_running_loop().create_future()
+                            self._drain_waiter = (self._drain_nonce, waiter)
+                            self.monitor = requested(self.monitor, self._now())
+                            await self._send_locked(f"STATUS\nDRAIN {self._drain_nonce}")
+                            break
+                        self._status_processed.clear()
+                    remaining = deadline - asyncio.get_running_loop().time()
+                    await asyncio.wait_for(self._status_processed.wait(), max(0, remaining))
+                remaining = deadline - asyncio.get_running_loop().time()
+                result = await asyncio.wait_for(asyncio.shield(waiter), max(0, remaining))
+                return (result == "clear" and self.monitor.request_ms is None
+                        and self.phase == GuardPhase.RUNNING and monitor_live(self.monitor, self._now()))
+            except asyncio.TimeoutError:
+                self.phase = GuardPhase.FAILED
+                await self.on_fault("native_recovery_barrier_timeout")
+                return False
+            finally:
+                if self._drain_waiter is not None and self._drain_waiter[1] is waiter:
+                    self._drain_waiter = None
+                if waiter is not None and not waiter.done():
+                    waiter.cancel()
+
     async def _send_locked(self, command):
         if self._process is None or self._process.returncode is not None:
             raise AdapterError("native_process_missing")
@@ -305,7 +386,16 @@ class NativeGuard:
                     value = json.loads(line)
                 except (ValueError, TypeError):
                     continue
+                if isinstance(value, dict) and value.get("kind") == "ready":
+                    version = value.get("version")
+                    self._drain_capability = DrainCapability.SUPPORTED if type(version) is int and version >= 2 else DrainCapability.UNSUPPORTED
                 await self._apply_monitor_result(monitor_event(self.monitor, value, self._now()))
+                if isinstance(value, dict) and value.get("kind") == "status":
+                    self._status_processed.set()
+                if isinstance(value, dict) and value.get("kind") == "drain" and self._drain_waiter is not None:
+                    nonce, future = self._drain_waiter
+                    if type(value.get("nonce")) is int and value["nonce"] == nonce and not future.done():
+                        future.set_result(value.get("result", "unavailable"))
                 if self.phase != GuardPhase.RUNNING:
                     return
             if self._process is process and self.phase == GuardPhase.RUNNING:
@@ -329,6 +419,12 @@ class NativeGuard:
         self._session_id, self._session_end_ms = None, None
         self._command_lease = LeasePhase.UNKNOWN
         self.monitor = MonitorState()
+        self._drain_capability = DrainCapability.UNKNOWN
+        self._status_processed.set()
+        if self._drain_waiter is not None:
+            _, future = self._drain_waiter
+            if not future.done():
+                future.set_result("unavailable")
         self.phase = GuardPhase.STOPPED
         if process is not None:
             if process.returncode is None:

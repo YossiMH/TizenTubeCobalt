@@ -110,6 +110,35 @@ class PolicyTests(unittest.TestCase):
         state = replace(state, snapshot=replace(snapshot, session=replace(snapshot.session, expires_at_ms=NOW+60_001)))
         self.assertFalse(guard_required(state, 1001, NOW))
 
+    def test_prepared_power_probe_only_explicit_power_or_input_can_recover(self):
+        from onn_session_policy.policy import Rollout, SessionMode
+        state = live()
+        snapshot = replace(state.snapshot, rollout=Rollout.PREPARED, session_mode=SessionMode.POWER_PROBE,
+                           session=replace(state.snapshot.session, expires_at_ms=NOW+60_000))
+        state = replace(state, snapshot=snapshot)
+        self.assertTrue(guard_required(state,1001,NOW))
+        self.assertEqual(Recovery.POWER,recovery_reason(state,1001,NOW,observation(Activity.UNKNOWN,asleep=True)))
+        self.assertEqual(Recovery.INPUT,recovery_reason(state,1001,NOW,observation(Activity.INACTIVE)))
+        paused=Playback("abcdefghijk",10,Playing.PAUSED,NOW)
+        self.assertIsNone(recovery_reason(state,1001,NOW,observation(Activity.ACTIVE),paused))
+        self.assertIsNone(recovery_reason(state,1001,NOW,observation(Activity.ACTIVE),None,"other.foreground"))
+        self.assertIsNone(recovery_reason(state,1001,NOW,observation(Activity.UNKNOWN)))
+
+    def test_power_probe_expiry_phone_intent_and_source_loss_win(self):
+        from onn_session_policy.policy import Rollout, SessionMode
+        state=live()
+        snapshot=replace(state.snapshot,rollout=Rollout.PREPARED,session_mode=SessionMode.POWER_PROBE,
+                         session=replace(state.snapshot.session,expires_at_ms=NOW+60_000))
+        state=replace(state,snapshot=snapshot)
+        for blocked in (provenance_gap(state),begin_phone_key(state,InputKey(Source.PHONE,7,116,1,NOW),1000)):
+            self.assertFalse(guard_required(blocked,1001,NOW))
+            self.assertIsNone(recovery_reason(blocked,1001,NOW,observation(Activity.INACTIVE)))
+        self.assertFalse(guard_required(state,1001,NOW+60_000))
+        self.assertIsNone(recovery_reason(state,1001,NOW+60_000,observation(Activity.INACTIVE)))
+        over=replace(state,snapshot=replace(snapshot,session=replace(snapshot.session,expires_at_ms=NOW+60_001)))
+        self.assertFalse(guard_required(over,1001,NOW))
+        self.assertIsNone(recovery_reason(over,1001,NOW,observation(Activity.INACTIVE)))
+
     def test_authentication_blocks_playback_launch_but_allows_power_observation(self):
         from onn_session_policy.policy import Authentication
         state = live()
@@ -260,6 +289,16 @@ mWakefulness=Awake'''
         self.assertEqual(Power.ASLEEP, parse_observation("<ONN_POLICY_POWER>\nmWakefulness=Asleep").power)
         self.assertEqual(Power.ASLEEP, parse_observation("mTvPowerStatus: 1\n<ONN_POLICY_POWER>\nmWakefulness=Awake").power)
         self.assertEqual(Power.UNKNOWN, parse_observation("mWakefulness=Awake").power)
+
+    def test_power_confirmation_requires_three_explicit_current_states(self):
+        from onn_session_policy.policy import restored_power_state
+        sample='HdmiCecLocalDevice #4:\n  mDeviceType: 4\n  isActiveSource(): true\nmTvPowerStatus: 0\n<ONN_POLICY_POWER>\nmWakefulness=Awake\n'
+        self.assertTrue(restored_power_state(parse_observation(sample)))
+        for invalid in (sample.replace('mTvPowerStatus: 0',''),sample.replace('mTvPowerStatus: 0','mTvPowerStatus: 1'),
+                        sample.replace('mTvPowerStatus: 0','mTvPowerStatus: 2'),sample.replace('isActiveSource(): true','isActiveSource(): false'),
+                        sample.replace('mWakefulness=Awake','mWakefulness=Dreaming'),sample.replace('mWakefulness=Awake','mWakefulness=Asleep'),
+                        sample.replace('mTvPowerStatus: 0','mTvPowerStatus: 0\nmTvPowerStatus: 0'),sample.replace('<ONN_POLICY_POWER>','')):
+            self.assertFalse(restored_power_state(parse_observation(invalid)))
 
     def test_real_hdmi_fixture_ignores_historical_active_source_lines(self):
         fixture = Path(__file__).parent / "fixtures" / "hdmi_playback4.txt"

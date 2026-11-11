@@ -1,0 +1,188 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-11-10T17:45:07Z",
+  "state": "prepared_installed_not_enabled",
+  "source_base": "b39e2eb90e64009397e0af86f6f3bb27d1697ddb",
+  "installed": [
+    {
+      "package": "dev.yossi.onnkeyguard",
+      "version_code": 6,
+      "version_name": "3.0-prepared",
+      "sha256": "1a68f6ee226d139e829107fd20730e720ddb156981b17afbd1acedbb63a1d5a5"
+    },
+    {
+      "package": "dev.yossi.morningsesame",
+      "version_code": 10,
+      "version_name": "10.0",
+      "sha256": "082c765a3e8579e8b17057f37341f6be7c3c779da3c8c4a1cf654cf04a3d0a44"
+    }
+  ],
+  "signing_certificate_sha256": "2603b0cf10c08a140658cc7c0289d3e413e94e4297da4403dce4b85fd6b16fb8",
+  "native_binary_sha256": "0056bbc0e330c97a4661d5228ed902ae81d6a6ffafaf4f419e859616d60297f9",
+  "tests": {
+    "java_pure_assertions": {
+      "audio": 161,
+      "session": 222,
+      "protocol_identity_key_pairs": 59,
+      "observer_provenance": 42,
+      "total": 484
+    },
+    "morning_assertions": 135,
+    "controller_actual_termux": {
+      "passed": 40,
+      "skipped": 0,
+      "python": "3.14.6",
+      "websocket_client": "1.9.2"
+    },
+    "independent_review": "PASS for prepared deployment",
+    "production_wiring_checks": [
+      {
+        "check": "initial_prepared",
+        "result": "pass"
+      },
+      {
+        "check": "no_existing_active_session",
+        "result": "pass"
+      },
+      {
+        "check": "private_token_acquired",
+        "result": "pass"
+      },
+      {
+        "check": "unauthenticated_http_rejected",
+        "result": "pass",
+        "http_status": 401
+      },
+      {
+        "check": "authenticated_http_available",
+        "result": "pass"
+      },
+      {
+        "check": "private_control_socket_started",
+        "result": "pass"
+      },
+      {
+        "check": "passive_native_observer_ready",
+        "result": "pass"
+      },
+      {
+        "check": "prepared_has_no_live_session",
+        "result": "pass"
+      },
+      {
+        "check": "rollout_remains_prepared",
+        "result": "pass"
+      },
+      {
+        "check": "bounded_test_session_started",
+        "result": "pass"
+      },
+      {
+        "check": "native_physical_grab_reported",
+        "result": "pass"
+      },
+      {
+        "check": "simulated_phone_power_policy_accepted",
+        "result": "pass"
+      },
+      {
+        "check": "simulated_phone_power_stops_session",
+        "result": "pass"
+      },
+      {
+        "check": "native_release_reported_after_phone_policy_stop",
+        "result": "pass"
+      },
+      {
+        "check": "second_bounded_test_session_started",
+        "result": "pass"
+      },
+      {
+        "check": "second_native_grab_reported",
+        "result": "pass"
+      },
+      {
+        "check": "assistant_override_terminal",
+        "result": "pass"
+      },
+      {
+        "check": "native_release_reported_after_assistant_override",
+        "result": "pass"
+      }
+    ],
+    "production_wiring_result": "pass"
+  },
+  "cleanup": {
+    "owned_controller_exited": true,
+    "control_socket_removed": true,
+    "native_process_absent": true,
+    "fresh_native_probe_exit": 0,
+    "probe_grab": {
+      "kind": "probe_grab",
+      "result": "passed_and_released",
+      "input_id": 7
+    },
+    "probe_volume": {
+      "kind": "probe_volume",
+      "result": "created_ready_destroyed",
+      "keys_sent": 0
+    }
+  },
+  "final_state": {
+    "rollout": "prepared",
+    "session_mode": "test",
+    "authentication": "unknown",
+    "audio_adapter": "unverified",
+    "native_lease_status": "stopped",
+    "input_observer_status": "lost",
+    "last_recovery": {
+      "result": "none",
+      "reason": ""
+    }
+  },
+  "final_session": {
+    "id": "wiring-assistant-1794332583520658712",
+    "video_id": "EP2tuoBV184",
+    "phase": "phone_stopped",
+    "expires_at_ms": 1794332593644,
+    "duration_seconds": 10,
+    "position_seconds": null,
+    "observed_duration_seconds": null,
+    "reason": "assistant_override"
+  },
+  "input_dispatch": [
+    "DispatchEnabled: true",
+    "DispatchFrozen: false"
+  ],
+  "wakefulness": [
+    "mWakefulness=Asleep"
+  ],
+  "status_latency_ms": {
+    "samples": 30,
+    "median": 8.99,
+    "max": 26.46
+  },
+  "memory_pss_kib": {
+    "key_guard_before": 6082,
+    "key_guard_after": 7631,
+    "morning_before": 4755,
+    "morning_after": 5657
+  },
+  "next_normal_alarm_local": "2026-11-11 07:00:00",
+  "limits": [
+    "No real hardware or smartphone keypress tested",
+    "No volume change tested",
+    "No power/input/playback recovery tested",
+    "No PIN entered",
+    "No streaming-app audio adapter tested",
+    "Google TV normal profile PIN authentication is still required for app inspection",
+    "Netflix/Disney+/Prime audio UI adapters are absent",
+    "Samsung SmartThings/direct-TV phone paths have not been classified",
+    "Loopback latency and memory samples do not establish real remote responsiveness or long-term stability",
+    "Daily enforcement and recovery remain disabled; no boot supervision installed for the new controller"
+  ],
+  "test_correction": {
+    "first_wiring_attempt": "Failed before controller start due to the test function shadowing Python http.client; renamed helper to http_request and reran successfully",
+    "runtime_changed_for_correction": false
+  }
+}

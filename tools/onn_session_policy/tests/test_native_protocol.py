@@ -40,12 +40,14 @@ class NativeProtocolTests(unittest.TestCase):
             state = event(started(1000),{**PHONE,**change},1001).state
             self.assertFalse(state.phone_inputs)
 
-    def test_stale_reply_unsolicited_reply_and_duplicate_boot_are_rejected(self):
+    def test_stale_unsolicited_and_backwards_clock_reply_are_rejected(self):
         state = event(started(1000),PHONE,1001).state
         self.assertEqual(MonitorFault.PROTOCOL,event(state,reply(),1002).fault)
         self.assertEqual(MonitorFault.PROTOCOL,event(requested(state,1002),reply(),5003).fault)
         state = proven()
-        self.assertEqual(MonitorFault.PROTOCOL,event(requested(state,4003),reply(),4004).fault)
+        self.assertEqual(MonitorFault.PROTOCOL,event(requested(state,4003),reply(0),4004).fault)
+        # Two causally solicited replies may share the same millisecond clock.
+        self.assertEqual(Proof.NATIVE_STATUS,event(requested(state,4003),reply(),4004).proof)
 
     def test_regular_fresh_statuses_are_new_proof_even_without_state_change(self):
         state = proven()

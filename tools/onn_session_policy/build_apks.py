@@ -71,7 +71,7 @@ def main() -> None:
     args.output.mkdir(parents=True, exist_ok=True)
     targets = {
         "morning": ("MorningSesame-v10", root / "tools/morning_sesame_wake_helper"),
-        "guard": ("OnnKeyGuard-v6", root / "tools/onn_key_guard"),
+        "guard": ("OnnKeyGuard-v7", root / "tools/onn_key_guard"),
     }
     selected = targets if args.target == "all" else {args.target: targets[args.target]}
     results = [build(root, args.build_tools.resolve(), args.android_jar.resolve(),

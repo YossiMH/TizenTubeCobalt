@@ -16,6 +16,9 @@ clang -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -O2 \
 clang -std=c11 -Wall -Wextra -Werror -pedantic -O2 -I. \
   tests/test_policy.c policy.c -o test_policy
 ./test_policy
+clang -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -O2 -I. \
+  tests/test_drain.c policy.c -o test_drain
+./test_drain
 ```
 
 The resulting ARM Android PIE depends only on system `libc.so` and `libdl.so`.
@@ -36,6 +39,7 @@ Send one complete line per command:
 | `ARM <ttl_ms> <session_end_unix_ms>` | Grants 1–15000 ms of protection, bounded by the daily session end. |
 | `DISARM` | Immediately releases hardware input and clears the current session. |
 | `STATUS` | Returns current lease and volume-device status. |
+| `DRAIN <nonce>` | Emits an ordered phone-input barrier for positive decimal nonce 1–2147483647. |
 | `QUIT` | Releases input and exits. |
 
 Renew every five seconds with the same session end. Changing a session end
@@ -46,7 +50,7 @@ deadline so a backward wall-clock change cannot extend it.
 
 JSON lines on stdout include:
 
-- `ready`: process PID, protocol version and maximum lease.
+- `ready`: process PID, protocol version (2 with `DRAIN`) and maximum lease.
 - `device`: confirmed identity and source (`physical`, `phone`, `cec`, or
   `other_power`). `input_id` means the Linux `eventN` number, not Android's
   independently assigned InputDevice ID.
@@ -55,6 +59,24 @@ JSON lines on stdout include:
   `volume_forwarded`). All phone keys are observed and passed through.
 - `volume_ready`, `grabbed`, `released`, `lease`, `disarmed`, `error`, `stopped`:
   transitions for the controller to verify and record.
+- `drain`: integer `nonce` and `result` (`clear`, `busy`, or `unavailable`),
+  following all phone-key records read for that barrier.
+
+Before a power-recovery decision, send `STATUS` then `DRAIN <nonce>` in one
+pipe write. The controller must process every preceding event and await the
+matching marker. `DRAIN` reads each currently known, verified phone descriptor
+using the normal bounded input reader (at most four batches of 32 records per
+device), then polls those descriptors with a zero timeout. An unread backlog
+returns `busy`; no phone, disappearance, EOF, or a poll error returns
+`unavailable`. Terminal input loss or output backpressure may end the helper
+without a marker. None of those outcomes authorizes recovery. An older helper
+without protocol version 2 cannot provide this barrier.
+
+`clear` describes the known descriptors at that instant. It does not promise
+that no later key or newly connected device will arrive. Recheck the controller
+mode, session generation, and fresh state immediately before each wake or HDMI
+action. Malformed nonces fail open through the normal invalid-command path;
+signs, extra whitespace, and trailing tokens are rejected.
 
 Only the observed Bluetooth identity `Onn-Remote Keyboard`, bus 5,
 vendor `0957`, product `0031` is physical. Only `virtual-remote`, bus 6,
@@ -77,6 +99,21 @@ create/destroy, without sending keys. `--monitor-ms N` (1–30000) observes only
 The permanent pure-C behavior tests cover exact identity matching, TTL and
 session expiry, clock shifts, paired volume events, disconnect cleanup, and
 phone/unknown input bypass. They run on host GCC and on the actual Onn clang.
+
+`tests/test_drain.c` uses ordinary anonymous pipes containing real Linux
+`input_event` records, the production command parser/input reader, zero-time
+polling, and an actual stdout pipe. It verifies queued power keys precede the
+barrier, bounded backlogs cannot acknowledge clear, every known phone is read,
+missing/disconnected/overflowed sources deny recovery, nonce validation, and
+safe handling of a closed device from an older poll snapshot. These tests make
+no writes to actual input devices and perform no device grabs.
+
+For cross-language reader tests, the same test executable accepts
+`--protocol-stream`. A verified-phone fixture uses an anonymous input pipe
+with one queued power key; stdin goes through the production command reader,
+parser, input reader, and output writer. `STATUS`, `DRAIN <nonce>`, and `QUIT`
+therefore exercise actual C protocol output rather than a substitute peer. The
+fixture remains disarmed, creates no volume device, and exits within ten seconds.
 
 The real-device checks require explicit coordination with the main controller:
 

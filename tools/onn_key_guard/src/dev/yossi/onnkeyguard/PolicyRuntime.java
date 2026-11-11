@@ -3,6 +3,7 @@ package dev.yossi.onnkeyguard;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -32,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 /** Main-looper policy mutations, bounded loopback IO, and private same-boot session persistence. */
 public final class PolicyRuntime {
     public enum Rollout { PREPARED, ENABLED }
-    public enum SessionMode { SCHEDULED, TEST }
     public enum Authentication { REQUIRED, CLEAR, UNKNOWN }
     private enum Lifecycle { ATTACHED, DETACHED }
     private enum ServerState { STOPPED, STARTING, LISTENING, UNAVAILABLE }
@@ -168,7 +168,7 @@ public final class PolicyRuntime {
     boolean physicalProtectionActive() {
         long now = System.currentTimeMillis();
         refreshObserverSafety(now);
-        if (sessionMode == SessionMode.TEST) return session.shouldGrabBoundedTest(now);
+        if (sessionMode.isBoundedProbe()) return sessionMode.authorizesPreparedGuard(session, now);
         return rollout == Rollout.ENABLED && session.shouldGrab(now);
     }
 
@@ -224,7 +224,8 @@ public final class PolicyRuntime {
             return statusJson();
         }
         if ("recover".equals(command)) return recover();
-        if ("test_session".equals(command)) return testSession(intent, now);
+        if ("test_session".equals(command)) return boundedSession(intent, now, SessionMode.TEST);
+        if ("power_probe".equals(command)) return boundedSession(intent, now, SessionMode.POWER_PROBE);
         if ("audio_tree".equals(command)) return inspectTree();
         if ("probe".equals(command)) {
             scanAuthentication();
@@ -235,14 +236,15 @@ public final class PolicyRuntime {
         return error("unknown_command");
     }
 
-    private JSONObject testSession(Intent intent, long now) {
+    private JSONObject boundedSession(Intent intent, long now, SessionMode mode) {
         refreshObserverSafety(now);
         if (!inputObserver.isLive(SystemClock.elapsedRealtime())) return error("input_observer_unavailable");
         int seconds = intent.getIntExtra("duration_seconds", 30);
         String videoId = intent.getStringExtra("video_id");
         String runId = intent.getStringExtra("run_generation");
-        if (runId == null) runId = "test-" + now;
-        if (seconds < 1 || seconds > 60) return error("test_duration_must_be_1_to_60_seconds");
+        if (runId == null) runId = lower(mode) + "-" + now;
+        if (seconds < 1 || seconds > 60) return error(mode == SessionMode.TEST
+                ? "test_duration_must_be_1_to_60_seconds" : "probe_duration_must_be_1_to_60_seconds");
         SesameSessionPolicy.Snapshot current = session.status(now);
         if (current.phase == SesameSessionPolicy.Phase.ACTIVE
                 || current.phase == SesameSessionPolicy.Phase.PHONE_PAUSED) return error("existing_live_session");
@@ -252,9 +254,9 @@ public final class PolicyRuntime {
                 null, null, SesameSessionPolicy.Reason.DAILY_START, now);
         if (restored != SesameSessionPolicy.RestoreResult.RESTORED) return error("invalid_test_identity");
         session = test;
-        sessionMode = SessionMode.TEST;
+        sessionMode = mode;
         recentPhoneEvents.clear();
-        lastStartResult = "test";
+        lastStartResult = lower(mode);
         persistSessionTransition(now);
         return statusJson();
     }
@@ -262,8 +264,8 @@ public final class PolicyRuntime {
     private JSONObject recover() {
         long now = System.currentTimeMillis();
         refreshObserverSafety(now);
+        if (!sessionMode.permitsMediaRecovery()) return error(lower(sessionMode) + "_has_no_playback_launch");
         if (rollout != Rollout.ENABLED) return error("prepared");
-        if (sessionMode == SessionMode.TEST) return error("test_session_has_no_playback_launch");
         if (!session.needsRecovery(now)) return error("session_not_active");
         scanAuthentication();
         if (authentication != Authentication.CLEAR) return error("authentication_" + lower(authentication));
@@ -301,7 +303,7 @@ public final class PolicyRuntime {
                 "foreground_package", foregroundPackage, "authentication", lower(authentication),
                 "audio_adapter", "unverified", "native_lease_status", nativeLeaseStatus,
                 "rollout", lower(rollout), "session_mode", lower(sessionMode),
-                "readiness", sessionMode == SessionMode.TEST ? "test" : lower(rollout),
+                "readiness", sessionMode.isBoundedProbe() ? lower(sessionMode) : lower(rollout),
                 "server_status", lower(serverState), "last_start_result", lastStartResult,
                 "input_observer_status", lower(observer.state), "input_observer_age_ms", observer.ageMs,
                 "input_observer_max_age_ms", InputObserverPolicy.MAX_PROOF_AGE_MS,
@@ -387,8 +389,7 @@ public final class PolicyRuntime {
                     optionalNumber(saved, "observed_duration_seconds"),
                     SesameSessionPolicy.Reason.fromValue(saved.getString("reason")), System.currentTimeMillis());
             if (result != SesameSessionPolicy.RestoreResult.REJECTED) {
-                sessionMode = "test".equals(saved.optString("session_mode", "scheduled"))
-                        ? SessionMode.TEST : SessionMode.SCHEDULED;
+                sessionMode = SessionMode.valueOf(saved.optString("session_mode", "scheduled").toUpperCase(Locale.ROOT));
                 // A process gap has no retained proof or complete phone-event history.
                 // Keep the original run ID terminal instead of reviving an unobserved session.
                 session.inputObserverLost(System.currentTimeMillis());
@@ -489,25 +490,44 @@ public final class PolicyRuntime {
         if (attachedService == null) return error("accessibility_service_detached");
         AccessibilityNodeInfo root = attachedService.getRootInActiveWindow();
         if (root == null) return error("no_active_tree");
+        int windowId = root.getWindowId();
         ArrayDeque<AccessibilityNodeInfo> queue = new ArrayDeque<AccessibilityNodeInfo>();
+        ArrayDeque<Integer> parents = new ArrayDeque<Integer>();
         queue.add(root);
+        parents.add(Integer.valueOf(-1));
         JSONArray nodes = new JSONArray();
+        Rect bounds = new Rect();
+        int omittedChildSlots = 0;
         long deadline = SystemClock.uptimeMillis() + 350L;
         while (!queue.isEmpty() && nodes.length() < 250 && SystemClock.uptimeMillis() <= deadline) {
             AccessibilityNodeInfo node = queue.removeFirst();
+            int parentIndex = parents.removeFirst().intValue();
+            int index = nodes.length();
             try {
-                nodes.put(object("package", bounded(text(node.getPackageName()), 160),
+                node.getBoundsInScreen(bounds);
+                nodes.put(object("index", index, "parent_index", parentIndex,
+                        "window_id", node.getWindowId(),
+                        "package", bounded(text(node.getPackageName()), 160),
                         "class", bounded(text(node.getClassName()), 200),
                         "resource", bounded(node.getViewIdResourceName(), 200),
                         "text", node.isPassword() ? "[redacted]" : bounded(text(node.getText()), 256),
                         "content_description", node.isPassword() ? "[redacted]"
                                 : bounded(text(node.getContentDescription()), 256),
                         "selected", node.isSelected(), "checked", node.isChecked(),
-                        "focused", node.isFocused(), "enabled", node.isEnabled(), "clickable", node.isClickable()));
-                int count = Math.min(node.getChildCount(), 250 - nodes.length() - queue.size());
+                        "focused", node.isFocused(), "enabled", node.isEnabled(), "clickable", node.isClickable(),
+                        "visible_to_user", node.isVisibleToUser(), "checkable", node.isCheckable(),
+                        "focusable", node.isFocusable(),
+                        "bounds_in_screen", object("left", bounds.left, "top", bounds.top,
+                                "right", bounds.right, "bottom", bounds.bottom)));
+                int childCount = node.getChildCount();
+                int count = Math.min(childCount, 250 - nodes.length() - queue.size());
+                omittedChildSlots += childCount - count;
                 for (int i = 0; i < count; i++) {
                     AccessibilityNodeInfo child = node.getChild(i);
-                    if (child != null) queue.addLast(child);
+                    if (child != null) {
+                        queue.addLast(child);
+                        parents.addLast(Integer.valueOf(index));
+                    }
                 }
             } finally {
                 node.recycle();
@@ -515,9 +535,10 @@ public final class PolicyRuntime {
         }
         int remaining = queue.size();
         while (!queue.isEmpty()) queue.removeFirst().recycle();
+        parents.clear();
         return object("schema", 1, "audio_adapter", "unverified", "foreground_package", foregroundPackage,
-                "authentication", lower(authentication), "nodes", nodes, "bounded", true,
-                "truncated", remaining > 0 || nodes.length() >= 250);
+                "authentication", lower(authentication), "window_id", windowId, "nodes", nodes, "bounded", true,
+                "truncated", omittedChildSlots > 0 || remaining > 0 || nodes.length() >= 250);
     }
 
     private static JSONArray inputDevices() {

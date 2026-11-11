@@ -1,6 +1,6 @@
 # Onn key guard policy runtime
 
-Version 3.0-prepared keeps daily enforcement in `rollout=prepared` until an explicit DUMP administrative command enables it. Streaming audio adapters are `unverified`; the compiled Hebrew preference policy makes no app selections.
+Version 3.1-prepared (Android version code 7) keeps daily enforcement in `rollout=prepared` until an explicit DUMP administrative command enables it. Streaming audio adapters are `unverified`; the compiled Hebrew preference policy makes no app selections.
 
 ## Input provenance and session admission
 
@@ -28,6 +28,8 @@ am broadcast -a dev.yossi.onnkeyguard.POLICY_ADMIN \
 ```
 
 The ID is a syntactic policy fixture; this command launches no video. `test_session` requires a currently proven live observer and a duration from 1 through 60 seconds. It authorizes physical filtering only for that exact finite TEST session; no persistent enable is needed. TEST always refuses playback recovery. Automatic expiry releases protection even when the test client loses transport. An explicit `override` or `disable_session` also releases it immediately. Fresh observer proof remains mandatory throughout the test. Test sessions may bypass the daily prestart-intent/warmup fence because the DUMP command is explicit assistant authorization.
+
+For an explicit power/input recovery test, the separate DUMP command `power_probe` accepts the same arguments and exact 1–60 second bound. It reports `session_mode=power_probe` and `readiness=power_probe` while rollout remains prepared. This mode authorizes the controller's power-on/active-input restoration and physical filtering only. It never launches, resumes, or unlocks media; the application's `recover` command positively requires SCHEDULED mode. TEST retains its existing no-recovery behavior. Phone power, assistant override, observer loss, and the original exact deadline terminate either probe. Actual power tests require the controller's matching POWER_PROBE implementation; merely creating the session does not issue TV commands.
 
 The app exposes status and bounded events on authenticated loopback port 8768. Retrieve its private bearer token only through the DUMP `controller_token` command and keep it out of logs. `audio_tree` is a bounded DUMP-only diagnostic and does not click or change settings.
 

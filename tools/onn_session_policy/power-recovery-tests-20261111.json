@@ -1,0 +1,617 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "reports": {
+    "power-probe-before-v7.json": {
+      "schema": 1,
+      "test": "finite_prepared_power_probe",
+      "checks": [
+        {
+          "check": "known_tv_initially_on",
+          "result": "pass"
+        },
+        {
+          "check": "initial_prepared",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_active_session",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_live_observer",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_control_socket",
+          "result": "pass"
+        },
+        {
+          "check": "observer_live",
+          "result": "pass"
+        },
+        {
+          "check": "finite_power_probe_available",
+          "result": "fail"
+        }
+      ],
+      "limits": [
+        "Assistant text query is not a spoken-command test",
+        "ADB volume input is not a physical or smartphone button",
+        "No protected profile authentication or streaming playback is attempted"
+      ],
+      "result": "fail",
+      "failure": "finite_power_probe_available",
+      "cleanup": {
+        "owned_controller_exited": true,
+        "rollout": "prepared",
+        "session_phase": "phone_stopped"
+      }
+    },
+    "power-probe-after-v7.json": {
+      "schema": 1,
+      "test": "finite_prepared_power_probe",
+      "checks": [
+        {
+          "check": "known_tv_initially_on",
+          "result": "pass"
+        },
+        {
+          "check": "initial_prepared",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_active_session",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_live_observer",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_control_socket",
+          "result": "pass"
+        },
+        {
+          "check": "observer_live",
+          "result": "pass"
+        },
+        {
+          "check": "finite_power_probe_available",
+          "result": "pass"
+        },
+        {
+          "check": "native_grab_reported",
+          "result": "pass"
+        }
+      ],
+      "limits": [
+        "Assistant text query is not a spoken-command test",
+        "ADB volume input is not a physical or smartphone button",
+        "No protected profile authentication or streaming playback is attempted"
+      ],
+      "original": {
+        "tv_volume": 24,
+        "tv_mute": 0,
+        "android_music_volume": 25
+      },
+      "result": "fail",
+      "failure": "HTTPError",
+      "cleanup": {
+        "own_probe_stopped": true,
+        "owned_controller_exited": true,
+        "restore_error": "HTTPError",
+        "rollout": "prepared",
+        "session_phase": "phone_stopped"
+      }
+    },
+    "power-only-after-v7.json": {
+      "schema": 1,
+      "test": "finite_prepared_power_probe",
+      "checks": [
+        {
+          "check": "known_tv_initially_on",
+          "result": "pass"
+        },
+        {
+          "check": "initial_prepared",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_active_session",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_live_observer",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_control_socket",
+          "result": "pass"
+        },
+        {
+          "check": "observer_live",
+          "result": "pass"
+        },
+        {
+          "check": "finite_power_probe_available",
+          "result": "pass"
+        },
+        {
+          "check": "native_grab_reported",
+          "result": "pass"
+        },
+        {
+          "check": "probe_still_active_for_sleep_test",
+          "result": "pass"
+        },
+        {
+          "check": "observed_standby_recovered_automatically",
+          "result": "pass"
+        }
+      ],
+      "scope": "power_only",
+      "limits": [
+        "Assistant text query is not a spoken-command test",
+        "ADB volume input is not a physical or smartphone button",
+        "No protected profile authentication or streaming playback is attempted",
+        "Power-only run sends no volume/mute or Assistant command"
+      ],
+      "original": {
+        "tv_volume": 24,
+        "tv_mute": 0,
+        "android_music_volume": 25
+      },
+      "assistant_text_power": {
+        "result": "not_requested"
+      },
+      "normal_sleep_power": {
+        "result": "standby_then_on",
+        "samples": [
+          {
+            "wall_ms": 1794393968623,
+            "tv": "on",
+            "onn": "Dozing"
+          },
+          {
+            "wall_ms": 1794393969346,
+            "tv": "on",
+            "onn": "Asleep"
+          },
+          {
+            "wall_ms": 1794393970573,
+            "tv": "on",
+            "onn": "Asleep"
+          },
+          {
+            "wall_ms": 1794393972319,
+            "tv": "standby",
+            "onn": "Awake"
+          },
+          {
+            "wall_ms": 1794393973024,
+            "tv": "standby",
+            "onn": "Awake"
+          },
+          {
+            "wall_ms": 1794393973844,
+            "tv": "on",
+            "onn": "Awake"
+          }
+        ]
+      },
+      "explicit_tv_off_observed": true,
+      "result": "fail",
+      "failure": "owned_controller_recorded_probe_recovery_timeout",
+      "cleanup": {
+        "own_probe_stopped": true,
+        "owned_controller_exited": true,
+        "volume_restored": true,
+        "mute_restored": true,
+        "rollout": "prepared",
+        "session_phase": "phone_stopped"
+      }
+    },
+    "power-only-diagnostic-v7.json": {
+      "schema": 1,
+      "test": "finite_prepared_power_probe",
+      "checks": [
+        {
+          "check": "known_tv_initially_on",
+          "result": "pass"
+        },
+        {
+          "check": "initial_prepared",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_active_session",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_live_observer",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_control_socket",
+          "result": "pass"
+        },
+        {
+          "check": "observer_live",
+          "result": "pass"
+        },
+        {
+          "check": "finite_power_probe_available",
+          "result": "pass"
+        },
+        {
+          "check": "native_grab_reported",
+          "result": "pass"
+        },
+        {
+          "check": "probe_still_active_for_sleep_test",
+          "result": "pass"
+        },
+        {
+          "check": "observed_standby_recovered_automatically",
+          "result": "pass"
+        }
+      ],
+      "scope": "power_only",
+      "limits": [
+        "Assistant text query is not a spoken-command test",
+        "ADB volume input is not a physical or smartphone button",
+        "No protected profile authentication or streaming playback is attempted",
+        "Power-only run sends no volume/mute or Assistant command"
+      ],
+      "original": {
+        "tv_volume": 24,
+        "tv_mute": 0,
+        "android_music_volume": 25
+      },
+      "assistant_text_power": {
+        "result": "not_requested"
+      },
+      "normal_sleep_power": {
+        "result": "standby_then_on",
+        "samples": [
+          {
+            "wall_ms": 1794394316473,
+            "tv": "on",
+            "onn": "Dozing"
+          },
+          {
+            "wall_ms": 1794394317080,
+            "tv": "on",
+            "onn": "Dozing"
+          },
+          {
+            "wall_ms": 1794394317762,
+            "tv": "on",
+            "onn": "Asleep"
+          },
+          {
+            "wall_ms": 1794394318670,
+            "tv": "standby",
+            "onn": "Awake"
+          },
+          {
+            "wall_ms": 1794394320134,
+            "tv": "standby",
+            "onn": "Awake"
+          },
+          {
+            "wall_ms": 1794394320672,
+            "tv": "standby",
+            "onn": "Awake"
+          },
+          {
+            "wall_ms": 1794394321170,
+            "tv": "on",
+            "onn": "Awake"
+          }
+        ]
+      },
+      "explicit_tv_off_observed": true,
+      "result": "fail",
+      "failure": "owned_controller_recorded_probe_recovery_timeout",
+      "cleanup": {
+        "own_probe_stopped": true,
+        "owned_controller_exited": true,
+        "volume_restored": true,
+        "mute_restored": true,
+        "rollout": "prepared",
+        "session_phase": "phone_stopped"
+      }
+    },
+    "power-only-confirmed-v7.json": {
+      "schema": 1,
+      "test": "finite_prepared_power_probe",
+      "checks": [
+        {
+          "check": "known_tv_initially_on",
+          "result": "pass"
+        },
+        {
+          "check": "initial_prepared",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_active_session",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_live_observer",
+          "result": "pass"
+        },
+        {
+          "check": "no_existing_control_socket",
+          "result": "pass"
+        },
+        {
+          "check": "observer_live",
+          "result": "pass"
+        },
+        {
+          "check": "finite_power_probe_available",
+          "result": "pass"
+        },
+        {
+          "check": "native_grab_reported",
+          "result": "pass"
+        },
+        {
+          "check": "probe_still_active_for_sleep_test",
+          "result": "pass"
+        },
+        {
+          "check": "observed_standby_recovered_automatically",
+          "result": "pass"
+        },
+        {
+          "check": "explicit_tv_standby_observed",
+          "result": "pass"
+        },
+        {
+          "check": "owned_controller_recorded_probe_recovery",
+          "result": "pass"
+        },
+        {
+          "check": "app_recorded_probe_recovery",
+          "result": "pass"
+        },
+        {
+          "check": "only_power_probe_recovery_reported",
+          "result": "pass"
+        },
+        {
+          "check": "rollout_stayed_prepared",
+          "result": "pass"
+        }
+      ],
+      "scope": "power_only",
+      "limits": [
+        "Assistant text query is not a spoken-command test",
+        "ADB volume input is not a physical or smartphone button",
+        "No protected profile authentication or streaming playback is attempted",
+        "Power-only run sends no volume/mute or Assistant command"
+      ],
+      "original": {
+        "tv_volume": 24,
+        "tv_mute": 0,
+        "android_music_volume": 25
+      },
+      "assistant_text_power": {
+        "result": "not_requested"
+      },
+      "normal_sleep_power": {
+        "result": "standby_then_on",
+        "samples": [
+          {
+            "wall_ms": 1794394639146,
+            "tv": "on",
+            "onn": "Dozing"
+          },
+          {
+            "wall_ms": 1794394639753,
+            "tv": "on",
+            "onn": "Dozing"
+          },
+          {
+            "wall_ms": 1794394640456,
+            "tv": "on",
+            "onn": "Asleep"
+          },
+          {
+            "wall_ms": 1794394641407,
+            "tv": "standby",
+            "onn": "Asleep"
+          },
+          {
+            "wall_ms": 1794394642683,
+            "tv": "standby",
+            "onn": "Awake"
+          },
+          {
+            "wall_ms": 1794394643192,
+            "tv": "standby",
+            "onn": "Awake"
+          },
+          {
+            "wall_ms": 1794394643751,
+            "tv": "on",
+            "onn": "Awake"
+          }
+        ]
+      },
+      "explicit_tv_off_observed": true,
+      "controller_recoveries": [
+        {
+          "event": "recovery",
+          "wall_ms": 1794394645755,
+          "result": "power_probe_confirmed",
+          "reason": "power",
+          "operation": "one_touch_play",
+          "failure_type": "exit_status",
+          "exit_code": 1,
+          "output_status": "hdmi_callback_deadline"
+        }
+      ],
+      "probe_final": {
+        "rollout": "prepared",
+        "session_mode": "power_probe",
+        "authentication": "required",
+        "last_recovery": {
+          "result": "power_probe_confirmed",
+          "reason": "power"
+        }
+      },
+      "result": "pass",
+      "cleanup": {
+        "own_probe_stopped": true,
+        "owned_controller_exited": true,
+        "volume_restored": true,
+        "mute_restored": true,
+        "rollout": "prepared",
+        "session_phase": "phone_stopped"
+      }
+    }
+  },
+  "controller_logs": {
+    "before-diagnostics.jsonl": [
+      {
+        "event": "controller_started",
+        "wall_ms": 1794393961288,
+        "recovery_mode": "enabled"
+      },
+      {
+        "event": "session_status",
+        "wall_ms": 1794393961327,
+        "state_source": "live",
+        "phase": "phone_stopped"
+      },
+      {
+        "event": "session_status",
+        "wall_ms": 1794393966302,
+        "state_source": "live",
+        "phase": "active"
+      },
+      {
+        "event": "recovery",
+        "wall_ms": 1794393973362,
+        "result": "failed",
+        "reason": "power"
+      },
+      {
+        "event": "controller_stopped",
+        "wall_ms": 1794393979471
+      }
+    ],
+    "callback-diagnostic.jsonl": [
+      {
+        "event": "controller_started",
+        "wall_ms": 1794394309151,
+        "recovery_mode": "enabled"
+      },
+      {
+        "event": "session_status",
+        "wall_ms": 1794394309198,
+        "state_source": "live",
+        "phase": "phone_stopped"
+      },
+      {
+        "event": "session_status",
+        "wall_ms": 1794394314167,
+        "state_source": "live",
+        "phase": "active"
+      },
+      {
+        "event": "recovery",
+        "wall_ms": 1794394320453,
+        "result": "failed",
+        "reason": "power",
+        "operation": "one_touch_play",
+        "failure_type": "exit_status",
+        "exit_code": 1,
+        "output_status": "hdmi_callback_deadline"
+      },
+      {
+        "event": "controller_stopped",
+        "wall_ms": 1794394326783
+      }
+    ],
+    "power-probe-controller.jsonl": [
+      {
+        "event": "controller_started",
+        "wall_ms": 1794394631905,
+        "recovery_mode": "enabled"
+      },
+      {
+        "event": "session_status",
+        "wall_ms": 1794394631950,
+        "state_source": "live",
+        "phase": "phone_stopped"
+      },
+      {
+        "event": "session_status",
+        "wall_ms": 1794394636919,
+        "state_source": "live",
+        "phase": "active"
+      },
+      {
+        "event": "recovery",
+        "wall_ms": 1794394645755,
+        "result": "power_probe_confirmed",
+        "reason": "power",
+        "operation": "one_touch_play",
+        "failure_type": "exit_status",
+        "exit_code": 1,
+        "output_status": "hdmi_callback_deadline"
+      },
+      {
+        "event": "controller_stopped",
+        "wall_ms": 1794394646403
+      }
+    ]
+  },
+  "final_state": {
+    "rollout": "prepared",
+    "session_mode": "power_probe",
+    "session": {
+      "id": "power-probe-1794394629416784006",
+      "video_id": "EP2tuoBV184",
+      "phase": "phone_stopped",
+      "expires_at_ms": 1794394692233,
+      "duration_seconds": 60,
+      "position_seconds": null,
+      "observed_duration_seconds": null,
+      "reason": "assistant_override"
+    },
+    "authentication": "required",
+    "audio_adapter": "unverified",
+    "native_lease_status": "stopped",
+    "input_observer_status": "lost",
+    "last_recovery": {
+      "result": "power_probe_confirmed",
+      "reason": "power"
+    },
+    "input_dispatch": [
+      "DispatchEnabled: true",
+      "DispatchFrozen: false"
+    ],
+    "accessibility": "dev.yossi.onnkeyguard/.KeyGuardService:com.danielealbano.androidremotecontrolmcp/.services.accessibility.McpAccessibilityService",
+    "native_pids": "",
+    "boot_entries": [
+      "00-openai-tunnel"
+    ],
+    "supervision_activation": "disabled",
+    "control_socket_exists": false,
+    "initial_power_state_restored": "Asleep",
+    "ui_before_sleep": "ENTER GOOGLE PIN / ProfileLockWrapperActivity"
+  },
+  "notes": [
+    "Network mute command returned HTTPError before volume/Assistant checks. Separate readback verified original TV volume24, mute0, Android music25; no repeated network setters were attempted afterward.",
+    "Final pass covers actual TV standby/on and active Onn source during a finite power-only probe. It does not establish physical/phone buttons, voice commands, streaming playback, or audio preference adapters.",
+    "Final local wait was interrupted, but the remote job completed normally; root independently read the saved pass report, stopped-controller log, and absent native PID."
+  ]
+}
