@@ -1,0 +1,58 @@
+{
+  "base_apk_sha256": "4bfbeebfde3d308bd9dfd4039d0d759f80bbd1618efac59d56bc062a3fdb1f53",
+  "base_dex_sha256": "1f62decea3e1d59732adf794647da0bad6696a678c4c3966d02e3a7b3d583c1c",
+  "candidate_dex_sha256": "b09b50cce6562f0ff0e2f7b6619f3350ffa08e7dd87451439bbad60fd51ece95",
+  "existing_classes": 73,
+  "added_classes": [
+    "dev/yossi/morningsesame/MorningChannelPage.smali",
+    "dev/yossi/morningsesame/MorningChannelSource.smali",
+    "dev/yossi/morningsesame/MorningEpisodePolicy.smali",
+    "dev/yossi/morningsesame/MorningSelectionRepair.smali",
+    "dev/yossi/morningsesame/MorningStartHistory.smali"
+  ],
+  "existing_methods": 344,
+  "changed_existing_methods": 5,
+  "unchanged_existing_methods": 339,
+  "changed_methods": [
+    {
+      "class": "AlarmReceiver",
+      "signature": ".method private static selectAndVerify(Landroid/content/Context;Ljava/lang/String;)V",
+      "old_sha256": "9fc299d13e04a1945a4b851d628fdea2987147178fb53cec11f5d335b609a60b"
+    },
+    {
+      "class": "WakeAndPlayActivity",
+      "signature": ".method private fetchCandidates()Ljava/util/Map;",
+      "old_sha256": "7e6c285d38259d5b7637e713794cd318a7baf62855a4d580c3bacafc36a48709"
+    },
+    {
+      "class": "RunCoordinator",
+      "signature": ".method static declared-synchronized confirmPlayed(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)V",
+      "old_sha256": "7d9b0d6b2eba512ef37690a603d3a450f4031b03d0af4a37b9317c90b19d1803"
+    },
+    {
+      "class": "DiagnosticArchive",
+      "signature": ".method static constructor <clinit>()V",
+      "old_sha256": "53faece3bae235b51704311620bb04933db365d7007b65d43a233c33ff813a1a"
+    },
+    {
+      "class": "WakeAndPlayActivity",
+      "signature": ".method private fetchCandidatesWithRetry()Ljava/util/Map;",
+      "old_sha256": "3c5cb1006bfb5f22b44d64b1f5135ec2da0ff1a7ac0508188baf8965c41fbb2e"
+    }
+  ],
+  "retained_payloads": {
+    "resources.arsc": "1fa3cb291285348ec1b33c85e7317d989467707f4791c4e5302f2d312d1e18c8",
+    "AndroidManifest.xml": "d0dae7cffdce30200fe3e69f9ef5a5ebaa3f02f0c9a008f2b0a9beeecae6f35c"
+  },
+  "new_source_sha256": {
+    "MorningEpisodePolicy": "a383cfcb9a4caa04d8e8a0365538387391e85a089c16987ae95a2409fef16a81",
+    "MorningStartHistory": "c359f08b78a0186f9e7a8689d0157e344f22a770f356b2153cfb3dfb1a727fd7",
+    "MorningSelectionRepair": "ffaf0caf74b6f288fa14d3bcdfaf6f6a7787354ba5cb8e308bfd1271b63b490c",
+    "MorningChannelPage": "e464685eabdd37ec2e4aa341bda008a14cc24f12b93b3cdf6dc54b6d83217120",
+    "MorningChannelSource": "8b0757aababf223d8b23fbf4a6b3be9553be0ab99d9ebde2af2cdfa5dae20b84"
+  },
+  "unsigned_apk": "/workspace/scratch/ad6504a6995f/selection_fix/build-ready/MorningSesame-selection-repair-unsigned.apk",
+  "unsigned_apk_sha256": "d3350680b697dac33ce195f2f74049a9b622f62e5e1704ff67a2d769198733e3",
+  "signed": false,
+  "installed": false
+}

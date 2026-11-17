@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "verified_at_utc": "2026-11-17T07:14:11.037655+00:00",
+  "status": "installed_and_bounded_device_acceptance_passed",
+  "signed_and_installed": {
+    "morning": "e9353160b28c323581ae82504507c73df2030123a2a2e90303683af276e40a8f",
+    "guard": "b86e4d42e8533291c316bc4ae98bf09d3d94e9453b00ad996ea09a9c077104e6"
+  },
+  "signing_certificate_sha256": "2603b0cf10c08a140658cc7c0289d3e413e94e4297da4403dce4b85fd6b16fb8",
+  "installed_controller_sources": {
+    "controller.py": "67b7c0e79cba8fb7e60763b7862ab7e939a07d36742745818e1ff37f8a063342",
+    "media.py": "9640a77e1e839d7ddd90c77961cbdb138c72c39c0d0c28aa5392a8945d4eb10c",
+    "policy.py": "f13b45e9f8565c6ab15d4dd7d1097071f9c93b4531867b3c5de2df72017697e7"
+  },
+  "player_sha256": "299bcd8c478d739a086d692c78f82d0f481b14d92a417ead92e43c5b2da66290",
+  "legacy_player_route": "/1fe2154764b819ad81036d04882cca104f3c28787.js",
+  "device_tests": {
+    "controller": {
+      "run": 66,
+      "passed": 66,
+      "skipped": 0
+    },
+    "exact_asset_and_etag": true,
+    "fullscreen_visual_review": true,
+    "screenshot_sha256": "352ea1a913f39731d76e3b03b5ad41a93d3337d789867f867b2377d538f99ebe",
+    "physical_input_lease_armed_with_actual_device_grab": true,
+    "phone_dismissal": "synthetic_authenticated_phone_key_passed",
+    "natural_diagnostic_expiry": "passed",
+    "lease_and_grabs_released": true,
+    "original_episode_and_configuration_preserved": true,
+    "normal_alarm_local": "2026-11-17T07:00:00-08:00",
+    "onn_sleep_restored": true
+  },
+  "not_directly_observed": [
+    "Actual handset key presses through the full remote-to-device path",
+    "Spoken Google Home/Assistant commands",
+    "First natural scheduled morning run after this installation"
+  ],
+  "scope_notes": [
+    "Existing physical/voice protection was extended to the banner; native input classification was retained.",
+    "The first capture was black because the Onn was asleep; a separate brief awake capture verified the rendered banner, then the original sleep state was restored.",
+    "Volume settings and the existing episode schedule were retained.",
+    "Exact installed baselines were preserved as rollback APKs and original controller modules on the device."
+  ]
+}

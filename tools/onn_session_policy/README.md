@@ -1,5 +1,23 @@
 # Onn Sesame session controller
 
+## November 17 school-banner integration
+
+The Python package and native C sources in this directory match the recovered
+controller baseline plus the reviewed banner integration. The controller consumes
+the app's separate canonical `school_banner` authorization, requires a visible
+overlay and fresh phone-source proof, and allows only power/input restoration
+during the banner. An accepted phone action suppresses restrictions immediately.
+The player lease is finite, is rechecked after debugger forwarding, and clears
+in order after phone intent. A same-run episode-to-banner transition cancels
+remaining episode recovery actions.
+
+A waiting banner can retain actual-end observation after the episode's original
+protection deadline; that does not renew expired episode recovery authority.
+Status exposes the exact native lease state and physical grab inventory for
+acceptance. See [integration/deployment status](../morning_school_banner_20261117/README.md)
+and the 20 added regressions in `tests/test_school_banner.py`.
+
+
 Python 3.10+ controller intended to run in private Termux storage. The Android
 policy app owns the daily session and authorization state. This process is an
 adapter: it supervises one native input helper, relays positively identified
@@ -103,7 +121,8 @@ in [power-recovery-tests-20261111.json](power-recovery-tests-20261111.json).
 
 - Only fresh, live canonical state can authorize hardware grabbing. Failed
   requests retain a snapshot labeled `cache`, which cannot authorize actions.
-- Grabbing requires phase `active` or `phone_paused`, an unexpired session,
+- Grabbing requires phase `active`, `phone_paused`, or a separately authorized
+  `school_banner`, an unexpired session,
   enabled rollout (or a protected test of at most sixty seconds), a proven live
   input observer, and no locally observed phone
   power stop or unresolved provenance fault.

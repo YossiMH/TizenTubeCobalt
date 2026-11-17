@@ -9,23 +9,52 @@ import time
 
 from .adapters import AdapterError, AndroidCommandError, GuardPhase, NativeGuard, NativeHealth, private_directory, read_player
 from .media import CobaltMediaReader, MediaSource
+from .debugger_forward import CobaltForward
 from .native_protocol import observer_live as native_observer_live
 from .policy import (
-    Authentication, Availability, FaultFence, Intent, Observer, Phase, Playback, PolicyState, Recovery, Rollout, SessionMode, Source, VOLUME_CODES,
+    Authentication, Availability, FaultFence, Intent, Observer, Phase, Playback, Playing, PolicyState, Recovery, Rollout, SessionMode, Source, STATUS_MAX_AGE_MS, OBSERVATION_MAX_AGE_MS, VOLUME_CODES,
     apply_status, begin_phone_key, failed_status, guard_required, live_session,
     mark_phone_posted, parse_observation, parse_player, recovery_reason,
-    observe_phone_playback, observer_fresh, observer_proven, provenance_gap,
-    record_recovery, recovery_context_allowed, restored_power_state, terminal_stop_confirmed,
+    observe_phone_playback, observer_fresh, observer_proven, parse_status, provenance_gap,
+    record_recovery, recovery_context_allowed, restored_power_state, school_waiting_context_allowed, startup_context_allowed, StartupGrantState, terminal_stop_confirmed,
 )
 
 
 ACTIVE_POLL_SECONDS = 4.0
-IDLE_POLL_SECONDS = 5.0
+IDLE_POLL_SECONDS = 1.0
+PLAYBACK_CONFIRM_SECONDS = 4.0
+
+
+def advancing_playback(first, second, video_id, minimum_wall_ms, now_wall_ms):
+    """Two actual, fresh samples from this recovery; cached state cannot pass."""
+    if not all(isinstance(sample, Playback) and sample.video_id == video_id
+               and sample.playing == Playing.PLAYING
+               and sample.sample_wall_ms >= minimum_wall_ms
+               and -1000 <= now_wall_ms - sample.sample_wall_ms <= OBSERVATION_MAX_AGE_MS
+               for sample in (first, second)):
+        return False
+    return (second.sample_wall_ms - first.sample_wall_ms >= 200
+            and second.position_seconds - first.position_seconds >= 0.2)
+
 
 
 class RecoveryMode(str, Enum):
     OBSERVE = "observe"
     ENABLED = "enabled"
+
+
+class PinScope(str, Enum):
+    SCHEDULED = "scheduled"
+    MANUAL = "manual"
+    STARTUP = "startup"
+
+
+class PinAuthentication(str, Enum):
+    SUCCEEDED = "succeeded"
+    STOPPED = "stopped"
+    DENIED = "denied"
+    DEADLINE = "deadline"
+    UNAVAILABLE = "unavailable"
 
 
 class Confirmation(str, Enum):
@@ -75,7 +104,13 @@ class Controller:
         self._posted_health_generation = 0
         self._proof_min_generation = 0
         self.media = CobaltMediaReader(config.debugger_port)
+        self._school_lease_armed = False
         self.media_evidence_source = "unobserved"
+        self.debugger_forward = CobaltForward(android.prefix, config.debugger_port)
+        self._last_forward_state = None
+        self._media_lock = asyncio.Lock()
+        self._latest_playback = None
+        self._latest_playback_session = None
         self.recovery_task = None
         self._last_native_start_ms = -10_000
         self._last_notice = None
@@ -102,7 +137,7 @@ class Controller:
 
     async def on_native_fault(self, reason):
         self._provenance_gap(reason)
-        log(reason)
+        log(reason, **(self.guard.last_error if reason == "native_input_error" else {}))
         self.guard_wakeup.set()
 
     async def on_native_health(self, health):
@@ -164,6 +199,7 @@ class Controller:
                     task.cancel()
                 await asyncio.gather(*tasks, stop_task, *([self.recovery_task] if self.recovery_task else []), return_exceptions=True)
                 await self.guard.close()
+                await self._update_school_lease(clear=True)
                 self.media.close()
                 try:
                     await self.client.event({"type": "native_health", "status": NativeHealth.STOPPED.value})
@@ -201,15 +237,21 @@ class Controller:
                 await self._disarm()
                 log("status_unavailable", state_source=self.state.availability.value)
             self.guard_wakeup.set()
+            startup = self.state.snapshot.startup_authentication if self.state.snapshot else None
+            if (self.config.recovery_mode == RecoveryMode.ENABLED and startup is not None
+                    and startup.state == StartupGrantState.PENDING
+                    and (self.recovery_task is None or self.recovery_task.done())
+                    and startup_context_allowed(self.state, mono_ms(), wall_ms(), startup.run_id)):
+                self.recovery_task = asyncio.create_task(self._recover_startup(startup.run_id))
             notice = (self.state.availability, self.state.snapshot.session.phase if self.state.snapshot else None)
             if notice != self._last_notice:
                 log("session_status", state_source=self.state.availability.value,
                     phase=notice[1].value if notice[1] else "unknown")
                 self._last_notice = notice
             current = self.state.snapshot.session if self.state.snapshot else None
-            # Idle polling is loopback HTTP only. A new scheduled session must
-            # not wait thirty seconds before native protection can begin.
-            interval = ACTIVE_POLL_SECONDS if current and current.phase in (Phase.ACTIVE, Phase.PHONE_PAUSED) else IDLE_POLL_SECONDS
+            # Idle polling is loopback HTTP only. One-second reads notice a
+            # signature-owned five-second startup grant while it is still fresh.
+            interval = ACTIVE_POLL_SECONDS if current and current.phase in (Phase.ACTIVE, Phase.PHONE_PAUSED, Phase.SCHOOL_BANNER) else IDLE_POLL_SECONDS
             await self._pause(max(0.05, interval - (mono_ms() - cycle_started) / 1000), self.status_wakeup)
 
     async def _phone_loop(self):
@@ -221,6 +263,8 @@ class Controller:
                         await self.client.event(event)
                         self.state = mark_phone_posted(self.state, generation)
                         self.status_wakeup.set()
+                        if event.get("value") in (1, 2) and event.get("linux_code") not in VOLUME_CODES:
+                            await self._update_school_lease(clear=True)
                         break
                     except (AdapterError, ValueError, OSError) as exc:
                         # Retry this same key before later keys. Releases cannot
@@ -302,35 +346,156 @@ class Controller:
                     log("provenance_terminal_stop", result="pending")
             await self._pause(1, self.fault_wakeup)
 
+    def _playback_identity(self):
+        session = self.state.snapshot.session if self.state.snapshot else None
+        if session is None:
+            return None
+        if session.phase in (Phase.ACTIVE, Phase.PHONE_PAUSED):
+            return session.id
+        banner = self.state.snapshot.school_banner
+        if banner is not None and banner.phase == "waiting" and banner.expires_at_ms > wall_ms():
+            return banner.run_id
+        return None
+
+    def _playback_status(self):
+        identity = self._playback_identity()
+        sample = self._latest_playback
+        if (identity is None or identity != self._latest_playback_session
+                or sample is None
+                or not -1000 <= wall_ms() - sample.sample_wall_ms <= OBSERVATION_MAX_AGE_MS):
+            self._latest_playback = None
+            self._latest_playback_session = None
+            return None
+        return sample.event()
+
+    async def _read_cdp(self):
+        return await self._run_cdp(self.media.sample)
+
+    async def _run_cdp(self, function, *args):
+        # Drain a cancelled caller's bounded operation before reusing the socket.
+        # Any accepted media lease remains finite and is cleared on shutdown.
+        task = asyncio.create_task(asyncio.to_thread(function, *args))
+        try:
+            return await asyncio.shield(task)
+        except asyncio.CancelledError:
+            while not task.done():
+                try:
+                    await asyncio.shield(task)
+                except asyncio.CancelledError:
+                    continue
+                except Exception:
+                    break
+            if task.done() and not task.cancelled():
+                task.exception()
+            raise
+
+    async def _update_school_lease(self, clear=False):
+        """Renew only after fresh app/native proof; parent intent clears in order."""
+        def requested():
+            now, wall = mono_ms(), wall_ms()
+            snapshot = self.state.snapshot
+            banner = snapshot.school_banner if snapshot else None
+            if (clear or banner is None or banner.diagnostic
+                    or banner.phase not in ("waiting", "active")
+                    or not (recovery_context_allowed(self.state, now, wall)
+                            or school_waiting_context_allowed(self.state, now, wall))
+                    or not native_observer_live(self.guard.monitor, now)
+                    or self.guard.phase != GuardPhase.RUNNING):
+                return None
+            return min(wall + 12_000, banner.expires_at_ms), banner.video_id, banner.phase == "waiting"
+
+        desired = requested()
+        if desired is None and not self._school_lease_armed:
+            return
+        try:
+            async with self._media_lock:
+                desired = requested()
+                if desired is not None:
+                    if not await self.guard.recovery_barrier():
+                        desired = None
+                    else:
+                        desired = requested()
+                if desired is None and not self._school_lease_armed:
+                    return
+                if not await self.debugger_forward.ensure(mono_ms()):
+                    return
+                desired = requested()
+                if desired is None and not self._school_lease_armed:
+                    return
+                args = desired if desired is not None else (0, "", False)
+                accepted = await self._run_cdp(self.media.set_school_banner, *args)
+                if accepted:
+                    self._school_lease_armed = desired is not None
+        except (AdapterError, OSError, ValueError, asyncio.TimeoutError):
+            # The existing page lease expires after at most twelve seconds.
+            log("school_media_lease_unavailable")
+
+    async def _sample_cdp(self):
+        if not await self.debugger_forward.ensure(mono_ms()):
+            self.media.close()
+            raise AdapterError("cdp_forward_unavailable")
+        try:
+            return await self._read_cdp()
+        except (AdapterError, OSError, ValueError):
+            self.debugger_forward.transport_failed(mono_ms())
+            raise
+
     async def _sample_player(self):
-        if self.config.media_source == MediaSource.DIAL:
-            result = await read_player(self.config.player_port)
-            evidence, source = parse_player(result, wall_ms()), "dial"
-        elif self.config.media_source == MediaSource.CDP:
-            evidence, source = await asyncio.to_thread(self.media.sample), "cdp"
-        else:
-            results = await asyncio.gather(asyncio.to_thread(self.media.sample),
-                read_player(self.config.player_port), return_exceptions=True)
-            if isinstance(results[0], Playback):
-                evidence, source = results[0], "cdp"
-            else:
-                evidence = parse_player(results[1], wall_ms()) if isinstance(results[1], str) else None
+        # The observer and bounded recovery proof share exactly one CDP reader.
+        async with self._media_lock:
+            identity = self._playback_identity()
+            if self.config.media_source == MediaSource.DIAL:
+                result = await read_player(self.config.player_port)
+                evidence = parse_player(result, wall_ms())
                 source = "dial" if evidence is not None else "unavailable"
-        if source != self.media_evidence_source:
-            self.media_evidence_source = source
-            log("media_source", source=source)
-        return evidence
+            elif self.config.media_source == MediaSource.CDP:
+                evidence = await self._sample_cdp()
+                source = "cdp" if evidence is not None else "unavailable"
+            else:
+                results = await asyncio.gather(self._sample_cdp(),
+                    read_player(self.config.player_port), return_exceptions=True)
+                if isinstance(results[0], Playback):
+                    evidence, source = results[0], "cdp"
+                else:
+                    evidence = parse_player(results[1], wall_ms()) if isinstance(results[1], str) else None
+                    source = "dial" if evidence is not None else "unavailable"
+            # Discard the returned observation as well as its cache if the run
+            # ended or changed while the bounded I/O was in flight.
+            if identity is None or identity != self._playback_identity():
+                evidence = None
+            if (identity is not None and isinstance(evidence, Playback)):
+                self._latest_playback = evidence
+                self._latest_playback_session = identity
+            self._playback_status()  # Expire old evidence without changing its timestamp.
+            forward_state = self.debugger_forward.state
+            if (self.config.media_source != MediaSource.DIAL
+                    and forward_state != self._last_forward_state):
+                self._last_forward_state = forward_state
+                log("debugger_forward", state=forward_state.value)
+            if source != self.media_evidence_source:
+                self.media_evidence_source = source
+                log("media_source", source=source)
+            return evidence
 
     async def _observe_loop(self):
         while not self.stop_requested.is_set():
             cycle_started = mono_ms()
+            await self._update_school_lease()
             session = live_session(self.state, mono_ms(), wall_ms())
-            if (session is not None and session.phase == Phase.ACTIVE
+            waiting = school_waiting_context_allowed(self.state, mono_ms(), wall_ms())
+            if session is None and waiting:
+                session = self.state.snapshot.session
+            if (session is not None and (session.phase in (Phase.ACTIVE, Phase.SCHOOL_BANNER) or waiting)
                     and observer_fresh(self.state, mono_ms())
                     and self.state.fault_fence == FaultFence.CLEAR
                     and native_observer_live(self.guard.monitor, mono_ms())):
                 observed_at = mono_ms()
-                if self.state.snapshot.session_mode == SessionMode.POWER_PROBE:
+                if waiting and session.phase == Phase.COMPLETED:
+                    try:
+                        results = [None, await self._sample_player()]
+                    except (AdapterError, OSError, asyncio.TimeoutError) as exc:
+                        results = [None, exc]
+                elif self.state.snapshot.session_mode == SessionMode.POWER_PROBE or session.phase == Phase.SCHOOL_BANNER:
                     try:
                         results = [await self.android.observation(), None]
                     except (AdapterError, OSError, asyncio.TimeoutError) as exc:
@@ -341,7 +506,9 @@ class Controller:
                 playback = results[1] if isinstance(results[1], Playback) else None
                 if playback is not None:
                     try:
-                        await self.client.event(playback.event())
+                        playback_event = playback.event()
+                        playback_event["run_id"] = session.id
+                        await self.client.event(playback_event)
                         self.state = observe_phone_playback(self.state, playback, mono_ms(), wall_ms(), self.config.player_package)
                         self.status_wakeup.set()
                     except (AdapterError, ValueError, OSError):
@@ -360,19 +527,118 @@ class Controller:
                             log("recovery_observed", reason=reason.value)
             await self._pause(max(0.05, 4 - (mono_ms() - cycle_started) / 1000))
 
-    def _may_continue(self, identity, generation, session_mode=None):
+    def _may_continue(self, identity, generation, session_mode=None, expected_phase=None):
         now = mono_ms()
         session = live_session(self.state, now, wall_ms())
         return (recovery_context_allowed(self.state, now, wall_ms())
                 and not self.stop_requested.is_set()
                 and session.id == identity and self.state.phone_generation == generation
                 and (session_mode is None or self.state.snapshot.session_mode == session_mode)
+                and (expected_phase is None or session.phase == expected_phase)
                 and native_observer_live(self.guard.monitor, now) and self.guard.phase == GuardPhase.RUNNING)
 
-    async def _confirm_power_state(self, identity, generation, session_mode):
+    async def _fenced_admin(self, command, allowed, deadline):
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0 or not allowed():
+            raise asyncio.TimeoutError
+        if not await self.guard.recovery_barrier(timeout=min(2.0, remaining)) or not allowed():
+            raise AdapterError("native_barrier_unproven")
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            raise asyncio.TimeoutError
+        return await asyncio.wait_for(self.android.admin(command), remaining)
+
+    async def _authenticate(self, allowed, scope=PinScope.SCHEDULED, expires_wall_ms=None):
+        """One attempt, five seconds total, with a real phone drain before each digit."""
+        remaining = 5.0 if expires_wall_ms is None else min(5.0, max(0.0, (expires_wall_ms - wall_ms()) / 1000))
+        deadline = asyncio.get_running_loop().time() + remaining
+        command = {PinScope.MANUAL:"authenticate_once", PinScope.SCHEDULED:"authenticate_begin",
+                   PinScope.STARTUP:"authenticate_startup_begin"}[scope]
+        try:
+            while allowed():
+                response = await self._fenced_admin(command, allowed, deadline)
+                if response.get("ok") is False:
+                    return PinAuthentication.DENIED
+                state = response.get("state")
+                if state == "succeeded":
+                    return PinAuthentication.SUCCEEDED
+                if state == "stopped":
+                    return PinAuthentication.STOPPED
+                if state not in ("entering", "awaiting_result"):
+                    return PinAuthentication.DENIED
+                # Let window events and phone deliveries run between individual actions.
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    return PinAuthentication.DEADLINE
+                await self._pause(min(0.12, remaining))
+                command = "authenticate_step"
+            return PinAuthentication.STOPPED
+        except asyncio.TimeoutError:
+            return PinAuthentication.DEADLINE
+
+    async def _probe_recovery_status(self, allowed):
+        generation, observer_generation = self.state.phone_generation, self.state.observer_generation
+        result = await self._fenced_admin("probe", allowed, asyncio.get_running_loop().time() + 4.0)
+        self.state = apply_status(self.state, parse_status(result), mono_ms(), generation, observer_generation)
+        return allowed()
+
+    async def _recover_startup(self, run_id):
+        """Only authenticate the genuine alarm grant; the helper owns subsequent normal startup."""
+        generation = self.state.phone_generation
+        def allowed():
+            now = mono_ms()
+            return (not self.stop_requested.is_set() and self.state.phone_generation == generation
+                    and startup_context_allowed(self.state, now, wall_ms(), run_id)
+                    and native_observer_live(self.guard.monitor, now) and self.guard.phase == GuardPhase.RUNNING)
+        result = PinAuthentication.STOPPED
+        try:
+            if allowed():
+                grant = self.state.snapshot.startup_authentication
+                result = await self._authenticate(allowed, PinScope.STARTUP, grant.expires_at_ms)
+        except asyncio.CancelledError:
+            raise
+        except (AdapterError, OSError, ValueError):
+            result = PinAuthentication.UNAVAILABLE
+        finally:
+            log("startup_authentication", result=result.value)
+            self.status_wakeup.set()
+
+    def _manual_authentication_allowed(self, generation):
+        now = mono_ms()
+        snapshot = self.state.snapshot
+        return (not self.stop_requested.is_set() and self.state.phone_generation == generation
+                and self.state.posted_generation >= generation and now >= self.state.phone_grace_until_ms
+                and self.state.availability == Availability.LIVE and 0 <= now - self.state.fetched_at_ms <= STATUS_MAX_AGE_MS
+                and snapshot is not None and snapshot.session.phase not in (Phase.ACTIVE, Phase.PHONE_PAUSED, Phase.SCHOOL_BANNER)
+                and observer_fresh(self.state, now) and self.state.fault_fence == FaultFence.CLEAR
+                and native_observer_live(self.guard.monitor, now) and self.guard.phase == GuardPhase.RUNNING)
+
+    async def _manual_authenticate_once(self):
+        """Explicit private-socket test: authentication only, no session, rollout or playback changes."""
+        generation = self.state.phone_generation
+        def allowed():
+            return self._manual_authentication_allowed(generation)
+        try:
+            observer_generation = self.state.observer_generation
+            snapshot = await self.client.status()
+            self.state = apply_status(self.state, snapshot, mono_ms(), generation, observer_generation)
+            if not allowed():
+                return {"schema":1, "result":PinAuthentication.DENIED.value}
+            if not await self._probe_recovery_status(allowed):
+                return {"schema":1, "result":PinAuthentication.STOPPED.value}
+            result = await self._authenticate(allowed, PinScope.MANUAL)
+            return {"schema":1, "result":result.value}
+        except asyncio.TimeoutError:
+            return {"schema":1, "result":PinAuthentication.DEADLINE.value}
+        except (AdapterError, OSError, ValueError):
+            return {"schema":1, "result":PinAuthentication.UNAVAILABLE.value}
+        finally:
+            self.status_wakeup.set()
+
+    async def _confirm_power_state(self, identity, generation, session_mode, expected_phase=None):
         """Six seconds of passive proof only; no additional power/CEC command."""
         deadline = asyncio.get_running_loop().time() + 6.0
-        while self._may_continue(identity, generation, session_mode):
+        while self._may_continue(identity, generation, session_mode, expected_phase):
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
                 return False
@@ -381,7 +647,7 @@ class Controller:
                 sample = await asyncio.wait_for(self.android.observation(), min(5.0, remaining))
             except (AdapterError, OSError, asyncio.TimeoutError):
                 return False
-            if (not self._may_continue(identity, generation, session_mode)
+            if (not self._may_continue(identity, generation, session_mode, expected_phase)
                     or mono_ms() - started_at > 5000 or asyncio.get_running_loop().time() > deadline):
                 return False
             if restored_power_state(parse_observation(sample)):
@@ -391,30 +657,74 @@ class Controller:
                 await self._pause(min(0.5, remaining))
         return False
 
+    async def _confirm_resumed_playback(self, identity, generation, session_mode):
+        """Four seconds of read-only proof after wake/authentication."""
+        minimum_wall_ms = wall_ms()
+        deadline = asyncio.get_running_loop().time() + PLAYBACK_CONFIRM_SECONDS
+        first = None
+        while self._may_continue(identity, generation, session_mode, Phase.ACTIVE):
+            snapshot = self.state.snapshot
+            if (snapshot.authentication != Authentication.CLEAR
+                    or snapshot.foreground_package != self.config.player_package):
+                return False
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                return False
+            try:
+                sample = await asyncio.wait_for(self._sample_player(), remaining)
+            except (AdapterError, OSError, asyncio.TimeoutError):
+                return False
+            if (not self._may_continue(identity, generation, session_mode, Phase.ACTIVE)
+                    or asyncio.get_running_loop().time() > deadline):
+                return False
+            if (self.state.snapshot.authentication != Authentication.CLEAR
+                    or self.state.snapshot.foreground_package != self.config.player_package):
+                return False
+            if advancing_playback(first, sample, snapshot.session.video_id,
+                                  minimum_wall_ms, wall_ms()):
+                return True
+            if (isinstance(sample, Playback) and sample.playing == Playing.PLAYING
+                    and sample.video_id == snapshot.session.video_id
+                    and sample.sample_wall_ms >= minimum_wall_ms):
+                if first is None or sample.position_seconds < first.position_seconds:
+                    first = sample
+            else:
+                first = None
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining > 0:
+                await self._pause(min(0.35, remaining))
+        return False
+
     async def _recover(self, reason):
         identity = self.state.snapshot.session.id
         generation = self.state.phone_generation
         session_mode = self.state.snapshot.session_mode
+        expected_phase = self.state.snapshot.session.phase
+        def allowed():
+            return self._may_continue(identity, generation, session_mode, expected_phase)
         result = "cancelled"
         operation = "context"
         diagnostics = {}
         confirmation = Confirmation.NONE
         try:
-            if not self._may_continue(identity, generation, session_mode):
+            if not allowed():
                 return
             if session_mode == SessionMode.POWER_PROBE and reason not in (Recovery.POWER, Recovery.INPUT):
                 return
+            banner_recovery = self.state.snapshot.session.phase == Phase.SCHOOL_BANNER
+            if banner_recovery and reason not in (Recovery.POWER, Recovery.INPUT):
+                return
             if reason in (Recovery.POWER, Recovery.INPUT):
                 operation = "native_barrier_before_wake"
-                if not await self.guard.recovery_barrier() or not self._may_continue(identity, generation, session_mode):
+                if not await self.guard.recovery_barrier() or not allowed():
                     result = "native_barrier_unproven"
                     return
                 operation = "wake"
                 await self.android.wake()
-                if not self._may_continue(identity, generation, session_mode):
+                if not allowed():
                     return
                 operation = "native_barrier_before_cec"
-                if not await self.guard.recovery_barrier() or not self._may_continue(identity, generation, session_mode):
+                if not await self.guard.recovery_barrier() or not allowed():
                     result = "native_barrier_unproven"
                     return
                 operation = "one_touch_play"
@@ -424,27 +734,45 @@ class Controller:
                     if not (exc.failure_type == "exit_status" and exc.exit_code == 1
                             and exc.output_status == "hdmi_callback_deadline"):
                         raise
-                    if not await self._confirm_power_state(identity, generation, session_mode):
+                    if not await self._confirm_power_state(identity, generation, session_mode, expected_phase):
                         raise
                     confirmation = Confirmation.STATE
                     diagnostics = {"failure_type":exc.failure_type, "exit_code":exc.exit_code,
                                    "output_status":exc.output_status}
-                if not self._may_continue(identity, generation, session_mode):
+                if not allowed():
                     return
-            if session_mode == SessionMode.POWER_PROBE:
+            if banner_recovery:
+                result = "school_banner_power_restored"
+            elif session_mode == SessionMode.POWER_PROBE:
                 result = "power_probe_confirmed" if confirmation == Confirmation.STATE else "power_probe_requested"
-            elif self.state.snapshot.authentication != Authentication.CLEAR:
-                result = "auth_required" if self.state.snapshot.authentication == Authentication.REQUIRED else "auth_unknown"
-            elif self._may_continue(identity, generation, session_mode):
-                # App owns target/video/resume logic; no blind am start/deeplink.
-                operation = "native_barrier_before_app"
-                if (not await self.guard.recovery_barrier() or not self._may_continue(identity, generation, session_mode)
-                        or self.state.snapshot.authentication != Authentication.CLEAR):
-                    result = "native_barrier_unproven"
+            elif allowed():
+                # Wake can reveal a PIN screen after the original status. Read the
+                # current bounded tree before deciding whether authentication is needed.
+                operation = "probe_authentication"
+                if not await self._probe_recovery_status(allowed):
                     return
+                if self.state.snapshot.authentication != Authentication.CLEAR:
+                    operation = "normal_pin_entry"
+                    authenticated = await self._authenticate(allowed)
+                    if authenticated != PinAuthentication.SUCCEEDED:
+                        result = "authentication_" + authenticated.value
+                        return
+                    operation = "confirm_authentication"
+                    if not await self._probe_recovery_status(allowed):
+                        return
+                if self.state.snapshot.authentication != Authentication.CLEAR:
+                    result = "authentication_unconfirmed"
+                    return
+                if reason in (Recovery.POWER, Recovery.INPUT):
+                    operation = "confirm_resumed_playback"
+                    if await self._confirm_resumed_playback(identity, generation, session_mode):
+                        result = "playback_resumed"
+                        return
+                    if not allowed():
+                        return
                 operation = "app_recover"
-                await self.android.admin("recover")
-                result = "requested"
+                reply = await self._fenced_admin("recover", allowed, asyncio.get_running_loop().time() + 4.0)
+                result = "requested" if reply.get("ok") is True else "app_rejected"
         except asyncio.CancelledError:
             result = "phone_or_state_cancelled"
             raise
@@ -471,9 +799,14 @@ class Controller:
                 "session_phase": session.phase.value if session else "unknown",
                 "session_id": session.id if session else None, "phone_intent": self.state.intent.value,
                 "native_process": self.guard.phase.value,
+                "native_lease": self.guard.monitor.lease.value,
+                "native_physical_grabs": list(self.guard.monitor.physical_grabs),
                 "native_health": self.native_health.value, "media_evidence_source": self.media_evidence_source,
                 "input_observer": self.state.observer.value, "provenance_fence": self.state.fault_fence.value,
-                "recovery_mode": self.config.recovery_mode.value}
+                "recovery_mode": self.config.recovery_mode.value,
+                "debugger_forward": self.debugger_forward.state.value,
+                "playback": self._playback_status(),
+                "recovery_in_progress": bool(self.recovery_task is not None and not self.recovery_task.done())}
 
     async def _control(self, reader, writer):
         try:
@@ -488,6 +821,15 @@ class Controller:
             elif command == "refresh":
                 self.status_wakeup.set()
                 response = {"schema": 1, "result": "status_refresh_requested"}
+            elif command == "authenticate-once":
+                if self.recovery_task is not None and not self.recovery_task.done():
+                    response = {"schema":1, "result":"recovery_in_progress"}
+                else:
+                    self.recovery_task = asyncio.create_task(self._manual_authenticate_once())
+                    try:
+                        response = await self.recovery_task
+                    except asyncio.CancelledError:
+                        response = {"schema":1, "result":"phone_or_state_cancelled"}
             else:
                 response = {"schema": 1, "error": "unknown_control_command"}
             writer.write((json.dumps(response) + "\n").encode())
@@ -504,7 +846,7 @@ async def control_request(directory, command):
     try:
         writer.write((command + "\n").encode("ascii"))
         await writer.drain()
-        return json.loads(await asyncio.wait_for(reader.readline(), 5))
+        return json.loads(await asyncio.wait_for(reader.readline(), 10 if command == "authenticate-once" else 5))
     finally:
         writer.close()
         await writer.wait_closed()

@@ -1,0 +1,10 @@
+{
+  "base_sha256": "1fe2154764b819ad81036d04882cca104f3c28787b789b8b465cdfc23546a3a3",
+  "candidate_sha256": "299bcd8c478d739a086d692c78f82d0f481b14d92a417ead92e43c5b2da66290",
+  "candidate_bytes": 79998,
+  "new_assertions": 81,
+  "legacy_media_startup_assertions": 7,
+  "legacy_progress_payload_assertions": 14,
+  "legacy_morning_playback": "passed",
+  "installed": false
+}

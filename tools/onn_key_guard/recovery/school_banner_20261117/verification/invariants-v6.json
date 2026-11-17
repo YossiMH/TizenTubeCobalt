@@ -1,0 +1,131 @@
+{
+  "base_apk_sha256": "2a63048d454e7b66407e42de5bdce1d46586399bba9ccee4169727d36601190f",
+  "base_dex_sha256": "418eb9989575390a8833159fde1af27d21812fc8423bd885ab6822f137099f3c",
+  "changed_methods": [
+    {
+      "class": "dev/yossi/onnkeyguard/KeyGuardService.smali",
+      "method": "onDestroy()V",
+      "before_sha256": "c353f4f1fe48bff948313ab73b5429f9cc68d455af9e478c1df965ddb6ac6098",
+      "after_source_sha256": "68eb12ea5f8ae1b3b9e856d77240d070cb9b0d3721daf98881f58230ecb0d8c2",
+      "before_instructions": 11,
+      "after_instructions": 12
+    },
+    {
+      "class": "dev/yossi/onnkeyguard/KeyGuardService.smali",
+      "method": "onServiceConnected()V",
+      "before_sha256": "6e8fa1170dfe0b8416726346e36b46d23d0920ef49c8837deae8fad9dfcf0696",
+      "after_source_sha256": "1f0face47da7513dc0f904875602006b6964ea3602f23c8b863d2c577b9bc3cb",
+      "before_instructions": 25,
+      "after_instructions": 26
+    },
+    {
+      "class": "dev/yossi/onnkeyguard/KeyGuardService.smali",
+      "method": "onUnbind(Landroid/content/Intent;)Z",
+      "before_sha256": "30301fc4b9f95450db7e068e5f5f293740e947e7c1b968d953e654184d1d8b42",
+      "after_source_sha256": "e13c19ec008e33f1e6db7c3053d98e8c73364c1a637cff4f887a09e2abeb948a",
+      "before_instructions": 9,
+      "after_instructions": 10
+    },
+    {
+      "class": "dev/yossi/onnkeyguard/PolicyRuntime.smali",
+      "method": "handleEvent(Lorg/json/JSONObject;)Lorg/json/JSONObject;",
+      "before_sha256": "1ba2d04c6d0eee950a06c6814e38f32f538c2a5bda9e159ce97c3e8ea83e297d",
+      "after_source_sha256": "d381e99eb98a6c3887088c9efd33501a42dbf529e27a0b22b72351be8a63e335",
+      "before_instructions": 313,
+      "after_instructions": 314
+    },
+    {
+      "class": "dev/yossi/onnkeyguard/PolicyRuntime.smali",
+      "method": "persistSessionTransition(J)V",
+      "before_sha256": "dae65c88719cbde50bfeea131b4153b18f48b732304e8bd3732ab6202e6403b9",
+      "after_source_sha256": "53042c36c46c3f2808802563088a85d684d77ea4d937e25c9a0f540d79f9876f",
+      "before_instructions": 50,
+      "after_instructions": 51
+    },
+    {
+      "class": "dev/yossi/onnkeyguard/PolicyRuntime.smali",
+      "method": "statusJson()Lorg/json/JSONObject;",
+      "before_sha256": "e975667ad577c889231ffb8a2cf8887bdc4ae1ef6ae6cbc01167fcbd787d7a74",
+      "after_source_sha256": "ab103d0b014f251cbdfe789344b27ef1333ff323fe95e15cd85b13df4d30233d",
+      "before_instructions": 95,
+      "after_instructions": 97
+    },
+    {
+      "class": "dev/yossi/onnkeyguard/PolicyRuntime.smali",
+      "method": "admin(Landroid/content/Intent;)Lorg/json/JSONObject;",
+      "before_sha256": "9e0430b4d6d3f6a21f057f7ae5da755bff351e71bbef579adb15652679426531",
+      "after_source_sha256": "5e24c296a5372776feb6257ae94cb6f2bf33a40494f10a6e474086fe5b0ea4cc",
+      "before_instructions": 268,
+      "after_instructions": 285
+    },
+    {
+      "class": "dev/yossi/onnkeyguard/PolicyRuntime.smali",
+      "method": "physicalProtectionActive()Z",
+      "before_sha256": "1f263f792b2af28a9137749ef7cd5bb1137899750e94fd35181dcbd3e8935cf5",
+      "after_source_sha256": "904730e4e1ffa5058013c36fd6bb46642e46726bc1fc54a046101f68105850a9",
+      "before_instructions": 23,
+      "after_instructions": 29
+    },
+    {
+      "class": "dev/yossi/onnkeyguard/SesameSessionPolicy.smali",
+      "method": "observePlayback(Ljava/lang/String;DDLdev/yossi/onnkeyguard/SesameSessionPolicy$PlaybackPhase;J)V",
+      "before_sha256": "d8eed4f2fbcd4dbab3fd06b1ebf21727033470330aa0fe530147a59eb74c8da2",
+      "after_source_sha256": "82cb867b4c88f87c358f356b15a2f8063ed6ff4fb931b5f1f6bd5f8ff1a86f25",
+      "before_instructions": 113,
+      "after_instructions": 112
+    },
+    {
+      "class": "dev/yossi/onnkeyguard/PlayerScriptAsset.smali",
+      "method": "<init>([BLjava/lang/String;)V",
+      "before_sha256": "0a504afc954a2e2c875be7e02d80bea082ee16b0fc64c9cc3b9a762e93665bcd",
+      "after_source_sha256": "f1b17d971de853ba704b0b31001417430894637b48322aa4fcda1482595968b5",
+      "before_instructions": 43,
+      "after_instructions": 28
+    }
+  ],
+  "existing_classes": 100,
+  "existing_methods": 556,
+  "unchanged_existing_methods": 546,
+  "changed_existing_methods": 10,
+  "added_existing_class_methods": [
+    "PolicyRuntime.syncSchoolBanner(J)V"
+  ],
+  "added_classes": [
+    "dev/yossi/onnkeyguard/SchoolBannerPolicy$1.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerPolicy$AudioRecovery.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerPolicy$Phase.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerPolicy$Snapshot.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerPolicy.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$1.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$2.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$3.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$4.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$5.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$6.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime.smali"
+  ],
+  "new_source_sha256": {
+    "SchoolBannerPolicy.java": "b204334fd1b52320e311a565060a149df6d0014138186eed5cf22feceb6d80da",
+    "SchoolBannerRuntime.java": "4a4cf471fff18a33d4f03bc93e4832897450b037e30a651a5cb51b97f008b0db"
+  },
+  "existing_register_counts_unchanged": true,
+  "all_untouched_methods_canonically_verified": true,
+  "stable_player_request_path": "/1fe2154764b819ad81036d04882cca104f3c28787.js",
+  "candidate_dex": {
+    "sha256": "5dae22b5dcfad6996559480b2deb6f6067b469a4315fa6ef12c232f4fe03c32c",
+    "bytes": 150892,
+    "sha1_signature_valid": true,
+    "adler32_checksum_valid": true
+  },
+  "retained_apk_payloads": {
+    "AndroidManifest.xml": "10ead3cdc94ac065da30e7dae9c25451e56848658a97d3c33c7646d804d19133",
+    "res/xml/keyguard_service.xml": "a6cb176fa6690af0762f8929207422ed25dc9ca38d39e1c5923396d976372951",
+    "resources.arsc": "4af60925371adde37c9fb2a4e68a82264657e3e583f0336ec1e7340e21c37bdd",
+    "assets/player.js": "1fe2154764b819ad81036d04882cca104f3c28787b789b8b465cdfc23546a3a3",
+    "assets/player.sha256": "60c6c0e1ea1f88301ff982664130db4639ab4554faa40f1c24ff0a3a21918f33"
+  },
+  "unsigned_apk": "/workspace/scratch/ad6504a6995f/banner_fix/build-v6/OnnKeyGuard-v8-school-banner-unsigned.apk",
+  "unsigned_apk_sha256": "55e2b45f3e44d440a25f441a38ad5259a18878fca44bb178bf36294a99159f65",
+  "signed": false,
+  "installed": false
+}

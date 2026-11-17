@@ -1,0 +1,54 @@
+{
+  "status": "host verification complete; device deployment pending",
+  "selection_assertions": 135,
+  "banner_policy_checks": 109,
+  "player_route_checks": 19,
+  "new_player_assertions": 81,
+  "legacy_player_tests": "all passed",
+  "controller_tests_run": 66,
+  "controller_tests_passed": 65,
+  "controller_tests_skipped": 1,
+  "controller_skip_reason": "existing AF_UNIX host restriction",
+  "apk_rebuild_comparison": [
+    {
+      "component": "selection",
+      "all_disassembled_classes_identical": true,
+      "class_count": 78,
+      "source_hashes_identical": true,
+      "reference_unsigned_apk_sha256": "d3350680b697dac33ce195f2f74049a9b622f62e5e1704ff67a2d769198733e3",
+      "staged_rebuild_unsigned_apk_sha256": "4c4589d7b6d653768496b0e36c5e19698230e8d531b1a392b10576671bcd9067",
+      "all_builder_invariants_passed": true
+    },
+    {
+      "component": "guard",
+      "all_disassembled_classes_identical": true,
+      "class_count": 112,
+      "source_hashes_identical": true,
+      "reference_unsigned_apk_sha256": "55e2b45f3e44d440a25f441a38ad5259a18878fca44bb178bf36294a99159f65",
+      "staged_rebuild_unsigned_apk_sha256": "fa885e2fe19ddab78d2eb4a526279383b9aead435faa5e6417bd7036acac6e9f",
+      "all_builder_invariants_passed": true
+    }
+  ],
+  "asset_integration": {
+    "guard_patch_sha256": "55e2b45f3e44d440a25f441a38ad5259a18878fca44bb178bf36294a99159f65",
+    "guard_integrated_unsigned_sha256": "1eb53ee3f86c83432916917dc5239033b614a8e081a4fcb41d6528b826b14e92",
+    "player_sha256": "299bcd8c478d739a086d692c78f82d0f481b14d92a417ead92e43c5b2da66290",
+    "changed_payloads": [
+      "assets/player.js",
+      "assets/player.sha256"
+    ],
+    "unchanged_nonplayer_payloads": {
+      "AndroidManifest.xml": "10ead3cdc94ac065da30e7dae9c25451e56848658a97d3c33c7646d804d19133",
+      "res/xml/keyguard_service.xml": "a6cb176fa6690af0762f8929207422ed25dc9ca38d39e1c5923396d976372951",
+      "resources.arsc": "4af60925371adde37c9fb2a4e68a82264657e3e583f0336ec1e7340e21c37bdd",
+      "classes.dex": "5dae22b5dcfad6996559480b2deb6f6067b469a4315fa6ef12c232f4fe03c32c",
+      "assets/school_banner_revision.json": "36028fb004e9259f4d082557b50a41ccad6ae1d77025fef933cbf221f0be184d"
+    },
+    "bytes": 96957,
+    "signed": false,
+    "installed": false
+  },
+  "native_build": "strict warning build passed",
+  "native_policy_tests": "passed",
+  "native_drain_inotify_tests": "passed"
+}

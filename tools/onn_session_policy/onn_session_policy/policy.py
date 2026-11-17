@@ -26,6 +26,7 @@ class Phase(str, Enum):
     PHONE_PAUSED = "phone_paused"
     PHONE_STOPPED = "phone_stopped"
     COMPLETED = "completed"
+    SCHOOL_BANNER = "school_banner"
 
 
 class Availability(str, Enum):
@@ -66,6 +67,7 @@ class Playing(str, Enum):
 
 
 class Recovery(str, Enum):
+    AUTHENTICATION = "authentication"
     POWER = "power"
     INPUT = "input"
     PLAYBACK = "playback"
@@ -86,6 +88,23 @@ class SessionMode(str, Enum):
     SCHEDULED = "scheduled"
     TEST = "test"
     POWER_PROBE = "power_probe"
+
+
+class StartupGrantState(str, Enum):
+    NONE = "none"
+    PENDING = "pending"
+    CONSUMED = "consumed"
+    SUCCEEDED = "succeeded"
+    STOPPED = "stopped"
+    EXPIRED = "expired"
+
+
+@dataclass(frozen=True)
+class StartupGrant:
+    state: StartupGrantState
+    run_id: str | None
+    issued_wall_ms: int
+    expires_at_ms: int
 
 
 class Observer(str, Enum):
@@ -110,6 +129,15 @@ class Session:
 
 
 @dataclass(frozen=True)
+class SchoolBanner:
+    phase: str
+    run_id: str
+    video_id: str
+    expires_at_ms: int
+    diagnostic: bool = False
+
+
+@dataclass(frozen=True)
 class Snapshot:
     session: Session
     foreground_package: str | None
@@ -117,6 +145,8 @@ class Snapshot:
     authentication: Authentication = Authentication.UNKNOWN
     rollout: Rollout = Rollout.PREPARED
     session_mode: SessionMode = SessionMode.SCHEDULED
+    startup_authentication: StartupGrant | None = None
+    school_banner: SchoolBanner | None = None
 
 
 @dataclass(frozen=True)
@@ -213,17 +243,58 @@ def parse_status(value):
         phase = Phase(s.get("phase"))
     except (TypeError, ValueError) as exc:
         raise ValueError("invalid session phase") from exc
+    if phase == Phase.SCHOOL_BANNER:
+        raise ValueError("school banner requires separate canonical authorization")
     session = Session(_text(s.get("id"), "id"), _text(s.get("video_id"), "video_id", 32),
                       phase, _integer(s.get("expires_at_ms"), "expires_at_ms"),
                       _number(s.get("duration_seconds"), "duration_seconds"),
                       _number(s.get("position_seconds"), "position_seconds"))
     if phase in (Phase.ACTIVE, Phase.PHONE_PAUSED) and (not session.id or not session.video_id):
         raise ValueError("live session missing identity")
+    banner = None
+    raw_banner = value.get("school_banner")
+    if raw_banner is not None:
+        if not isinstance(raw_banner, dict):
+            raise ValueError("invalid school banner")
+        banner_phase = raw_banner.get("phase", "inactive")
+        if banner_phase not in ("inactive", "waiting", "active", "awaiting_observer", "dismissed", "expired", "skipped"):
+            raise ValueError("invalid school banner phase")
+        diagnostic = raw_banner.get("diagnostic", False)
+        if type(diagnostic) is not bool:
+            raise ValueError("invalid school banner diagnostic")
+        if banner_phase in ("waiting", "active", "awaiting_observer"):
+            run_id = _text(raw_banner.get("run_id"), "banner run")
+            video_id = _text(raw_banner.get("video_id", ""), "banner video", 32) or ""
+            expiry = _integer(raw_banner.get("expires_at_ms"), "banner expiry")
+            if not run_id or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", run_id):
+                raise ValueError("invalid banner identity")
+            if not diagnostic and not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+                raise ValueError("invalid banner video")
+            banner = SchoolBanner(banner_phase, run_id, video_id, expiry, diagnostic)
+            if banner_phase == "active":
+                if raw_banner.get("protection_ready") is not True or raw_banner.get("overlay_visible") is not True:
+                    raise ValueError("unproven active banner")
+                # The authenticated app keeps episode state intact. Normalize its
+                # independently authorized overlay into the control session only.
+                identity = "diagnostic-banner:" + str(expiry) if diagnostic else run_id
+                session = Session(identity, video_id, Phase.SCHOOL_BANNER, expiry, None, None)
     authentication = Authentication(value.get("authentication", "unknown"))
+    startup = value.get("startup_authentication")
+    grant = None
+    if startup is not None:
+        if not isinstance(startup, dict):
+            raise ValueError("invalid startup grant")
+        grant = StartupGrant(StartupGrantState(startup.get("state", "none")),
+            _text(startup.get("run_id"), "startup run"),
+            _integer(startup.get("issued_wall_ms", -1), "startup issue", -1),
+            _integer(startup.get("expires_at_ms", 0), "startup expiry"))
+        if grant.state in (StartupGrantState.PENDING, StartupGrantState.CONSUMED):
+            if not grant.run_id or grant.issued_wall_ms < 0 or not 0 < grant.expires_at_ms - grant.issued_wall_ms <= 5000:
+                raise ValueError("invalid finite startup grant")
     return Snapshot(session, _text(value.get("foreground_package"), "foreground_package"),
                     _text(value.get("native_lease_status", "unknown"), "native_lease_status") or "unknown",
                     authentication, Rollout(value.get("rollout", "prepared")),
-                    SessionMode(value.get("session_mode", "scheduled")))
+                    SessionMode(value.get("session_mode", "scheduled")), grant, banner)
 
 
 def parse_native_key(line):
@@ -342,29 +413,65 @@ def live_session(state, now_ms, wall_ms):
 
 def guard_required(state, now_ms, wall_ms):
     session = live_session(state, now_ms, wall_ms)
-    return (session is not None and session.phase in (Phase.ACTIVE, Phase.PHONE_PAUSED)
+    return (session is not None and session.phase in (Phase.ACTIVE, Phase.PHONE_PAUSED, Phase.SCHOOL_BANNER)
             and observer_fresh(state, now_ms) and state.fault_fence == FaultFence.CLEAR
             and session.id != state.blocked_session_id
             and (state.snapshot.rollout == Rollout.ENABLED or state.snapshot.session_mode in (SessionMode.TEST, SessionMode.POWER_PROBE))
             and (state.snapshot.session_mode == SessionMode.SCHEDULED or session.expires_at_ms - wall_ms <= 60_000)
-            and state.intent != Intent.POWER_STOP)
+            and state.intent != Intent.POWER_STOP
+            and (session.phase != Phase.SCHOOL_BANNER or state.intent == Intent.NONE)
+            and (not state.snapshot.school_banner or not state.snapshot.school_banner.diagnostic
+                 or 0 < session.expires_at_ms - wall_ms <= 60_000))
+
+
+def startup_context_allowed(state, now_ms, wall_ms, run_id):
+    snapshot = state.snapshot
+    if state.availability != Availability.LIVE or snapshot is None or not 0 <= now_ms - state.fetched_at_ms <= STATUS_MAX_AGE_MS:
+        return False
+    grant = snapshot.startup_authentication
+    return (grant is not None and grant.run_id == run_id
+            and grant.state in (StartupGrantState.PENDING, StartupGrantState.CONSUMED)
+            and grant.issued_wall_ms <= wall_ms + 1000 and wall_ms < grant.expires_at_ms
+            and snapshot.rollout == Rollout.ENABLED
+            and snapshot.session.phase not in (Phase.ACTIVE, Phase.PHONE_PAUSED, Phase.SCHOOL_BANNER)
+            and observer_fresh(state, now_ms) and state.fault_fence == FaultFence.CLEAR
+            and state.posted_generation >= state.phone_generation and now_ms >= state.phone_grace_until_ms)
 
 
 def recovery_context_allowed(state, now_ms, wall_ms):
     session = live_session(state, now_ms, wall_ms)
-    return (session is not None and session.phase == Phase.ACTIVE and state.intent == Intent.NONE
+    return (session is not None and session.phase in (Phase.ACTIVE, Phase.SCHOOL_BANNER) and state.intent == Intent.NONE
             and state.snapshot.session_mode != SessionMode.TEST
             and (state.snapshot.rollout == Rollout.ENABLED or state.snapshot.session_mode == SessionMode.POWER_PROBE)
             and (state.snapshot.session_mode != SessionMode.POWER_PROBE or session.expires_at_ms - wall_ms <= 60_000)
             and observer_fresh(state, now_ms) and state.fault_fence == FaultFence.CLEAR
-            and session.id != state.blocked_session_id and now_ms >= state.phone_grace_until_ms)
+            and session.id != state.blocked_session_id and now_ms >= state.phone_grace_until_ms
+            and (not state.snapshot.school_banner or not state.snapshot.school_banner.diagnostic))
+
+
+def school_waiting_context_allowed(state, now_ms, wall_ms):
+    """Retain end observation after the episode timeout, without recovery authority."""
+    snapshot = state.snapshot
+    if (state.availability != Availability.LIVE or snapshot is None
+            or not 0 <= now_ms - state.fetched_at_ms <= STATUS_MAX_AGE_MS):
+        return False
+    banner = snapshot.school_banner
+    return (banner is not None and banner.phase == "waiting" and not banner.diagnostic
+            and wall_ms < banner.expires_at_ms
+            and banner.run_id == snapshot.session.id and banner.video_id == snapshot.session.video_id
+            and snapshot.session.phase in (Phase.ACTIVE, Phase.COMPLETED)
+            and snapshot.rollout == Rollout.ENABLED and snapshot.session_mode == SessionMode.SCHEDULED
+            and state.intent == Intent.NONE and state.fault_fence == FaultFence.CLEAR
+            and observer_fresh(state, now_ms) and snapshot.session.id != state.blocked_session_id
+            and state.posted_generation >= state.phone_generation
+            and now_ms >= state.phone_grace_until_ms)
 
 
 def recovery_reason(state, now_ms, wall_ms, observation, playback=None, player_package=None):
     if not recovery_context_allowed(state, now_ms, wall_ms):
         return None
     session = state.snapshot.session
-    if playback is not None and playback.video_id == session.video_id and playback.playing == Playing.ENDED:
+    if session.phase != Phase.SCHOOL_BANNER and playback is not None and playback.video_id == session.video_id and playback.playing == Playing.ENDED:
         # Completion evidence is posted to the app; do not race its next status.
         return None
     if now_ms < state.cooldown_until_ms:
@@ -377,9 +484,15 @@ def recovery_reason(state, now_ms, wall_ms, observation, playback=None, player_p
         return Recovery.POWER
     if observation.activity == Activity.INACTIVE:
         return Recovery.INPUT
+    if session.phase == Phase.SCHOOL_BANNER:
+        return None  # The banner restores only power/input; it never resumes TV.
     if state.snapshot.session_mode == SessionMode.POWER_PROBE:
         return None  # Explicit power/input observations are the only probe authority.
     if state.snapshot.authentication != Authentication.CLEAR:
+        if state.snapshot.foreground_package == "com.google.android.apps.tv.launcherx":
+            # This only authorizes a fresh bounded app probe. The app must positively
+            # recognize its exact Google PIN keypad before any credential action.
+            return Recovery.AUTHENTICATION
         return None
     if playback is not None and playback.video_id == session.video_id:
         age = wall_ms - playback.sample_wall_ms

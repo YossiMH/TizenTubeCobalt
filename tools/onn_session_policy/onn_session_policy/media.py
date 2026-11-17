@@ -1,4 +1,4 @@
-"""Optional, read-only Cobalt CDP media observation; no player mutation."""
+"""Bounded Cobalt observations and an expiring school-banner media lease."""
 from enum import Enum
 import http.client
 import ipaddress
@@ -12,7 +12,7 @@ from .adapters import AdapterError, MAX_HTTP_BODY
 from .policy import OBSERVATION_MAX_AGE_MS, Playback, Playing
 
 
-MEDIA_EXPRESSION = """JSON.stringify((function(){var a=window.__ttAllowedOnly,s=a&&a.state,m=s&&s.morningMedia;return m&&a.routeVideoId()===s.morningTrackedVideo?{video_id:s.morningTrackedVideo,position_seconds:Number(m.currentTime),duration_seconds:Number(m.duration),playing:m.ended?'ended':m.paused?'paused':'playing',sample_wall_ms:Date.now()}:null})())"""
+MEDIA_EXPRESSION = """JSON.stringify((function(){var a=window.__ttAllowedOnly,s=a&&a.state,m=s&&s.morningMedia,e=s&&s.morningLastEnded,n=Date.now();if(e&&e.playing==='ended'&&n-e.sample_wall_ms>=0&&n-e.sample_wall_ms<=5000)return e;return m&&a.routeVideoId()===s.morningTrackedVideo?{video_id:s.morningTrackedVideo,position_seconds:Number(m.currentTime),duration_seconds:Number(m.duration),playing:m.ended?'ended':m.paused?'paused':'playing',sample_wall_ms:n}:null})())"""
 
 
 class MediaSource(str, Enum):
@@ -140,6 +140,28 @@ class CobaltMediaReader:
         raise AdapterError("cdp_target_unavailable")
 
     def sample(self, wall_ms=None):
+        response, request_id = self._evaluate(MEDIA_EXPRESSION)
+        current = time.time_ns() // 1_000_000 if wall_ms is None else wall_ms
+        return parse_cdp_response(response, request_id, current)
+
+    def set_school_banner(self, deadline_ms, video_id="", awaiting_end=False):
+        """Only this finite lease API is writable; zero releases without resuming."""
+        now = time.time_ns() // 1_000_000
+        if type(deadline_ms) is not int or type(awaiting_end) is not bool:
+            raise ValueError("invalid school lease")
+        if deadline_ms != 0 and (not 0 < deadline_ms - now <= 15_000
+                or not isinstance(video_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id)):
+            raise ValueError("invalid school lease")
+        arguments = json.dumps([deadline_ms, video_id, awaiting_end], separators=(",", ":"))
+        expression = ("(function(){var a=window.__ttAllowedOnly;return !!(a&&"
+            "typeof a.setSchoolBannerLease==='function'&&a.setSchoolBannerLease.apply(a,"
+            + arguments + "));})()")
+        response, _ = self._evaluate(expression)
+        value = response.get("result", {}).get("result", {})
+        return (not response.get("error") and not response.get("result", {}).get("exceptionDetails")
+                and value.get("type") == "boolean" and value.get("value") is True)
+
+    def _evaluate(self, expression):
         try:
             import websocket  # Optional pinned websocket-client, never a model.
         except ImportError as exc:
@@ -156,7 +178,7 @@ class CobaltMediaReader:
             request_id = self._request_id
             self._socket.settimeout(self._remaining(deadline))
             self._socket.send(json.dumps({"id": request_id, "method": "Runtime.evaluate", "params": {
-                "expression": MEDIA_EXPRESSION, "returnByValue": True}}))
+                "expression": expression, "returnByValue": True}}))
             while True:
                 self._socket.settimeout(self._remaining(deadline))
                 raw = self._socket.recv()
@@ -164,8 +186,7 @@ class CobaltMediaReader:
                     raise AdapterError("cdp_response_invalid")
                 response = json.loads(raw)
                 if isinstance(response, dict) and response.get("id") == request_id:
-                    current = time.time_ns() // 1_000_000 if wall_ms is None else wall_ms
-                    return parse_cdp_response(response, request_id, current)
+                    return response, request_id
         except (OSError, ValueError, AdapterError, websocket.WebSocketException) as exc:
             self.close()
             self._url = None

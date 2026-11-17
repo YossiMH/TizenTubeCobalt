@@ -49,6 +49,25 @@ def hdmi_output_status(output):
     return "unknown"
 
 
+def native_error_diagnostics(value):
+    """Only known native classifications and bounded numeric errno enter logs."""
+    result = {}
+    operation = value.get("operation")
+    if operation in ("input_topology", "grab", "discover", "input_overflow",
+                     "volume_write", "volume_create", "volume_ready_timeout"):
+        result["operation"] = operation
+    reason = value.get("reason")
+    if operation == "input_topology" and reason in (
+            "device_capacity", "device_created_without_observed_history",
+            "watch_read_failed", "watch_record_invalid", "watch_history_lost",
+            "phone_removed_or_unclassified_transient", "watch_backlog"):
+        result["reason"] = reason
+    number = value.get("errno")
+    if type(number) is int and 1 <= number <= 4095:
+        result["errno"] = number
+    return result
+
+
 class GuardPhase(str, Enum):
     STOPPED = "stopped"
     RUNNING = "running"
@@ -210,7 +229,8 @@ class Android:
             raise
 
     async def admin(self, command):
-        if command not in ("controller_token", "status", "override", "recover", "probe"):
+        if command not in ("controller_token", "status", "override", "recover", "probe",
+                           "authenticate_begin", "authenticate_once", "authenticate_startup_begin", "authenticate_step", "authenticate_cancel"):
             raise AdapterError("unsupported_admin_command")
         result = await self.shell("am", "broadcast", "-a", ADMIN_ACTION, "-n",
                                   ADMIN_COMPONENT, "--es", "command", command)
@@ -250,6 +270,7 @@ class NativeGuard:
         self._status_processed = asyncio.Event()
         self._drain_nonce = 0
         self._drain_waiter = None
+        self.last_error = {}
 
     @staticmethod
     def _now():
@@ -266,6 +287,7 @@ class NativeGuard:
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
             self.phase = GuardPhase.RUNNING
             self.monitor = started(self._now())
+            self.last_error = {}
             self._command_lease = LeasePhase.UNKNOWN
             await self._set_health(NativeHealth.STARTING)
             self._reader = asyncio.create_task(self._read(self._process))
@@ -388,7 +410,9 @@ class NativeGuard:
                     continue
                 if isinstance(value, dict) and value.get("kind") == "ready":
                     version = value.get("version")
-                    self._drain_capability = DrainCapability.SUPPORTED if type(version) is int and version >= 2 else DrainCapability.UNSUPPORTED
+                    self._drain_capability = DrainCapability.SUPPORTED if type(version) is int and version >= 3 else DrainCapability.UNSUPPORTED
+                if isinstance(value, dict) and value.get("kind") == "error":
+                    self.last_error = native_error_diagnostics(value)
                 await self._apply_monitor_result(monitor_event(self.monitor, value, self._now()))
                 if isinstance(value, dict) and value.get("kind") == "status":
                     self._status_processed.set()

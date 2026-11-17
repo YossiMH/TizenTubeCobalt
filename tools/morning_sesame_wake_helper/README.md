@@ -1,4 +1,21 @@
-# Morning Sesame version 9
+# Morning Sesame helper
+
+## Current selection repair (November 17, 2026)
+
+The installed helper used for this repair is **version code 12 / version 12.0**.
+Its startup and phone-intent fencing is newer than the version 9 full-source
+snapshot below. The reviewed [selection repair](recovery/selection_repair_20261117/README.md)
+adds newest-first selection with duration strictly over 40 minutes, at most 25%
+watched, durable observed progress, recent-start protection, and bounded channel
+pagination. The historical longest-remaining fallback described below is removed
+by that repair.
+
+Edit the readable recovery sources and rebuild through the pinned patcher.
+Rebuilding the entire APK from the older source snapshot would discard installed
+fencing repairs. See [integration and deployment status](../morning_school_banner_20261117/README.md).
+This repair is installed; see the shared deployment evidence for bounded device acceptance and remaining direct physical observations.
+
+## Historical version 9 source description
 
 
 ## Windows build workspace

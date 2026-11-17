@@ -15,6 +15,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/file.h>
+#include <sys/inotify.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -30,6 +31,7 @@ typedef enum { BRIDGE_ABSENT, BRIDGE_STARTING, BRIDGE_READY } BridgePhase;
 typedef enum { RUN_CONTINUE, RUN_STOP } RunPhase;
 typedef enum { MODE_CONTROLLED, MODE_OBSERVE } RunMode;
 typedef enum { DRAIN_CLEAR, DRAIN_BUSY, DRAIN_UNAVAILABLE } DrainResult;
+typedef enum { TOPOLOGY_UNWATCHED, TOPOLOGY_WATCHING, TOPOLOGY_PENDING, TOPOLOGY_LOST } TopologyPhase;
 
 typedef struct {
     SlotPhase phase;
@@ -43,6 +45,12 @@ typedef struct {
 } Device;
 
 typedef struct {
+    SlotPhase phase;
+    unsigned input_id;
+    InputSource source;
+} TopologyNode;
+
+typedef struct {
     Device devices[MAX_DEVICES];
     Lease lease;
     VolumeState volume;
@@ -50,6 +58,14 @@ typedef struct {
     int bridge_fd;
     int signal_fd;
     int lock_fd;
+    int topology_fd;
+    int topology_watch;
+    TopologyPhase topology_phase;
+    unsigned topology_pending[MAX_DEVICES];
+    unsigned topology_pending_count;
+    int64_t topology_pending_deadline_ms;
+    TopologyNode topology_nodes[MAX_DEVICES];
+    const char *input_directory;
     int64_t bridge_created_ms;
     int64_t next_discovery_ms;
     int64_t end_ms;
@@ -61,6 +77,8 @@ typedef struct {
     char command[COMMAND_SIZE];
     size_t command_length;
 } Runtime;
+
+static void check_topology(Runtime *r);
 
 static int64_t clock_ms(clockid_t which) {
     struct timespec now;
@@ -177,6 +195,147 @@ static void release_grabs(Runtime *r, const char *reason) {
     }
 }
 
+static void lose_topology(Runtime *r, const char *reason) {
+    if (r->topology_phase == TOPOLOGY_LOST) return;
+    r->topology_phase = TOPOLOGY_LOST;
+    release_grabs(r, reason);
+    r->lease = (Lease){0};
+    emit(r, "{\"kind\":\"error\",\"operation\":\"input_topology\",\"reason\":\"%s\"}", reason);
+    r->phase = RUN_STOP;
+    r->result = 37;
+}
+
+/* The watch is installed before the initial snapshot. A connection can create,
+ * use, and remove an evdev node between directory scans. Its queued notification
+ * invalidates provenance even if no node remains to discover. */
+static int watch_topology(Runtime *r, const char *directory) {
+    r->input_directory = directory;
+    r->topology_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+    if (r->topology_fd < 0) return -1;
+    r->topology_watch = inotify_add_watch(r->topology_fd, directory,
+            IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE_SELF | IN_MOVE_SELF);
+    if (r->topology_watch < 0) {
+        int saved = errno;
+        (void)close(r->topology_fd);
+        r->topology_fd = -1;
+        errno = saved;
+        return -1;
+    }
+    r->topology_phase = TOPOLOGY_WATCHING;
+    return 0;
+}
+
+static void remember_topology_node(Runtime *r, unsigned input_id, InputSource source) {
+    unsigned available = MAX_DEVICES;
+    for (unsigned i = 0; i < MAX_DEVICES; ++i) {
+        TopologyNode *node = &r->topology_nodes[i];
+        if (node->phase == SLOT_OPEN && node->input_id == input_id) { node->source = source; return; }
+        if (node->phase == SLOT_EMPTY && available == MAX_DEVICES) available = i;
+    }
+    if (available == MAX_DEVICES) { lose_topology(r, "device_capacity"); return; }
+    r->topology_nodes[available] = (TopologyNode){SLOT_OPEN, input_id, source};
+}
+
+static int inspect_created_node(Runtime *r, unsigned input_id) {
+    char path[256], name[80];
+    if (snprintf(path, sizeof(path), "%s/event%u", r->input_directory, input_id) >= (int)sizeof(path))
+        return 0;
+    int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) return -1;
+    struct input_id id;
+    memset(name, 0, sizeof(name));
+    int result = ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name);
+    if (result >= 0) result = ioctl(fd, EVIOCGID, &id);
+    (void)close(fd);
+    if (result < 0) return 0;
+    InputSource source = classify_device(name, id.bustype, id.vendor, id.product);
+    if (source == SOURCE_PHONE) return 0;
+    /* Assistant's separately identified virtual-search keyboard never receives
+     * a phone override merely because its input device has appeared. */
+    remember_topology_node(r, input_id, source);
+    r->next_discovery_ms = 0;
+    return r->phase == RUN_STOP ? 0 : 1;
+}
+
+static void resolve_topology(Runtime *r) {
+    unsigned pending = 0;
+    for (unsigned i = 0; i < r->topology_pending_count; ++i) {
+        unsigned input_id = r->topology_pending[i];
+        int classified = inspect_created_node(r, input_id);
+        if (classified == 1) continue;
+        /* Android may apply a new node's permissions asynchronously.
+         * No STATUS or DRAIN proof is issued during this bounded interval. */
+        if (classified < 0 && clock_ms(CLOCK_BOOTTIME) < r->topology_pending_deadline_ms) {
+            r->topology_pending[pending++] = input_id;
+            continue;
+        }
+        lose_topology(r, "device_created_without_observed_history");
+        return;
+    }
+    r->topology_pending_count = pending;
+    r->topology_phase = pending == 0 ? TOPOLOGY_WATCHING : TOPOLOGY_PENDING;
+}
+
+static void check_topology(Runtime *r) {
+    if (r->topology_phase == TOPOLOGY_UNWATCHED || r->topology_phase == TOPOLOGY_LOST) return;
+    union { struct inotify_event alignment; char bytes[4096]; } buffer;
+    for (unsigned batch = 0; batch < 4; ++batch) {
+        ssize_t size = read(r->topology_fd, buffer.bytes, sizeof(buffer.bytes));
+        if (size < 0 && errno == EINTR) continue;
+        if (size < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            resolve_topology(r);
+            return;
+        }
+        if (size <= 0) { lose_topology(r, "watch_read_failed"); return; }
+        size_t offset = 0;
+        while (offset < (size_t)size) {
+            if ((size_t)size - offset < sizeof(struct inotify_event)) {
+                lose_topology(r, "watch_record_invalid"); return;
+            }
+            const struct inotify_event *event = (const struct inotify_event *)(buffer.bytes + offset);
+            size_t length = sizeof(*event) + event->len;
+            if (length > (size_t)size - offset) { lose_topology(r, "watch_record_invalid"); return; }
+            if ((event->mask & (IN_Q_OVERFLOW | IN_IGNORED | IN_DELETE_SELF | IN_MOVE_SELF)) != 0 ||
+                    event->wd != r->topology_watch) {
+                lose_topology(r, "watch_history_lost"); return;
+            }
+            unsigned input_id;
+            char extra;
+            if (event->len != 0 && memchr(event->name, '\0', event->len) != NULL &&
+                    sscanf(event->name, "event%u%c", &input_id, &extra) == 1) {
+                if ((event->mask & (IN_DELETE | IN_MOVED_FROM)) != 0) {
+                    unsigned known = MAX_DEVICES;
+                    for (unsigned i = 0; i < MAX_DEVICES; ++i) {
+                        TopologyNode *node = &r->topology_nodes[i];
+                        if (node->phase == SLOT_OPEN && node->input_id == input_id) { known = i; break; }
+                    }
+                    if (known == MAX_DEVICES || r->topology_nodes[known].source == SOURCE_PHONE) {
+                        lose_topology(r, "phone_removed_or_unclassified_transient"); return;
+                    }
+                    r->topology_nodes[known].phase = SLOT_EMPTY;
+                    r->next_discovery_ms = 0;
+                }
+                if ((event->mask & (IN_CREATE | IN_MOVED_TO)) != 0) {
+                    /* A reused event number is a new generation. An old
+                     * non-phone identity cannot authorize its later deletion. */
+                    for (unsigned i = 0; i < MAX_DEVICES; ++i)
+                        if (r->topology_nodes[i].phase == SLOT_OPEN && r->topology_nodes[i].input_id == input_id)
+                            r->topology_nodes[i].phase = SLOT_EMPTY;
+                    if (r->topology_pending_count >= MAX_DEVICES) {
+                        lose_topology(r, "watch_backlog"); return;
+                    }
+                    if (r->topology_pending_count == 0)
+                        r->topology_pending_deadline_ms = clock_ms(CLOCK_BOOTTIME) + 2000;
+                    r->topology_pending[r->topology_pending_count++] = input_id;
+                }
+            }
+            offset += length;
+        }
+    }
+    /* An unbounded hotplug stream cannot starve leases or phone actions. */
+    lose_topology(r, "watch_backlog");
+}
+
 static void close_device(Runtime *r, unsigned slot, const char *reason) {
     Device *d = &r->devices[slot];
     if (d->phase != SLOT_OPEN) return;
@@ -262,6 +421,8 @@ static void discover(Runtime *r) {
             (void)close(fd); continue;
         }
         InputSource source = classify_device(name, id.bustype, id.vendor, id.product);
+        remember_topology_node(r, event_id, source);
+        if (r->phase == RUN_STOP) { (void)close(fd); break; }
         if (source == SOURCE_BRIDGE) {
             if (r->bridge_phase == BRIDGE_STARTING &&
                 clock_ms(CLOCK_BOOTTIME) - r->bridge_created_ms >= 500) {
@@ -343,7 +504,9 @@ static uint32_t parse_drain_nonce(const char *command) {
 }
 
 static void drain_phone_inputs(Runtime *r, uint32_t nonce) {
-    struct pollfd fds[MAX_DEVICES];
+    check_topology(r);
+    if (r->phase == RUN_STOP) return;
+    struct pollfd fds[MAX_DEVICES + 1];
     unsigned slots[MAX_DEVICES];
     nfds_t count = 0;
     for (unsigned i = 0; i < MAX_DEVICES; ++i) {
@@ -352,7 +515,7 @@ static void drain_phone_inputs(Runtime *r, uint32_t nonce) {
         slots[count] = i;
         fds[count++] = (struct pollfd){d->fd, POLLIN, 0};
     }
-    DrainResult result = count == 0 ? DRAIN_UNAVAILABLE : DRAIN_CLEAR;
+    DrainResult result = count == 0 || r->topology_phase != TOPOLOGY_WATCHING ? DRAIN_UNAVAILABLE : DRAIN_CLEAR;
     for (nfds_t i = 0; i < count; ++i) {
         read_device(r, slots[i]);
         /* A terminal input/output failure cannot acknowledge a safe barrier. */
@@ -366,7 +529,10 @@ static void drain_phone_inputs(Runtime *r, uint32_t nonce) {
     /* read_device is bounded to 4 x 32 records per device. An unread backlog,
      * disappearance, poll failure, or missing source never acknowledges clear.
      * This is an ordered point-in-time barrier, not a promise about later keys. */
-    if (poll(fds, count, 0) < 0) {
+    check_topology(r);
+    if (r->phase == RUN_STOP) return;
+    fds[count] = (struct pollfd){r->topology_fd, POLLIN, 0};
+    if (poll(fds, count + 1, 0) < 0) {
         result = DRAIN_UNAVAILABLE;
     } else {
         for (nfds_t i = 0; i < count; ++i) {
@@ -375,6 +541,8 @@ static void drain_phone_inputs(Runtime *r, uint32_t nonce) {
             else if ((fds[i].revents & POLLIN) != 0 && result == DRAIN_CLEAR)
                 result = DRAIN_BUSY;
         }
+        if (fds[count].revents != 0 || r->topology_phase != TOPOLOGY_WATCHING)
+            result = DRAIN_UNAVAILABLE;
     }
     const char *name = result == DRAIN_CLEAR ? "clear" :
                        result == DRAIN_BUSY ? "busy" : "unavailable";
@@ -385,6 +553,8 @@ static void apply_command(Runtime *r, const char *command) {
     int64_t ttl, end;
     char extra;
     uint32_t nonce = parse_drain_nonce(command);
+    check_topology(r);
+    if (r->phase == RUN_STOP) return;
     if (strcmp(command, "DISARM") == 0) {
         release_grabs(r, "controller_disarm");
         r->lease = (Lease){0};
@@ -392,6 +562,10 @@ static void apply_command(Runtime *r, const char *command) {
     } else if (strcmp(command, "QUIT") == 0) {
         r->phase = RUN_STOP;
     } else if (strcmp(command, "STATUS") == 0) {
+        if (r->topology_phase != TOPOLOGY_WATCHING) {
+            emit(r, "{\"kind\":\"status_pending\",\"reason\":\"input_topology\"}");
+            return;
+        }
         emit(r, "{\"kind\":\"status\",\"lease\":\"%s\",\"volume\":\"%s\",\"boottime_ms\":%" PRId64 "}",
              r->lease.phase == LEASE_ARMED ? "armed" : "disarmed",
              r->bridge_phase == BRIDGE_READY ? "ready" : "absent", clock_ms(CLOCK_BOOTTIME));
@@ -522,10 +696,16 @@ static int run(RunMode mode, int64_t duration_ms) {
     r.bridge_fd = -1;
     r.signal_fd = -1;
     r.lock_fd = -1;
+    r.topology_fd = -1;
     r.mode = mode;
     if (mode == MODE_CONTROLLED) {
         r.lock_fd = singleton_lock();
         if (r.lock_fd < 0) { fprintf(stderr, "guard already running or lock unavailable: %s\n", strerror(errno)); return 36; }
+    }
+    if (watch_topology(&r, "/dev/input") < 0) {
+        fprintf(stderr, "input topology watch unavailable: %s\n", strerror(errno));
+        if (r.lock_fd >= 0) (void)close(r.lock_fd);
+        return 38;
     }
     r.end_ms = duration_ms > 0 ? clock_ms(CLOCK_BOOTTIME) + duration_ms : INT64_MAX;
     sigset_t signals;
@@ -543,7 +723,7 @@ static int run(RunMode mode, int64_t duration_ms) {
         int input_flags = fcntl(STDIN_FILENO, F_GETFL);
         if (input_flags < 0 || fcntl(STDIN_FILENO, F_SETFL, input_flags | O_NONBLOCK) < 0) return 33;
     }
-    emit(&r, "{\"kind\":\"ready\",\"version\":2,\"mode\":\"%s\",\"pid\":%ld,\"max_lease_ms\":15000}",
+    emit(&r, "{\"kind\":\"ready\",\"version\":3,\"mode\":\"%s\",\"pid\":%ld,\"max_lease_ms\":15000}",
          mode == MODE_CONTROLLED ? "controlled" : "observe", (long)getpid());
     while (r.phase == RUN_CONTINUE) {
         int64_t now = clock_ms(CLOCK_BOOTTIME);
@@ -554,6 +734,8 @@ static int run(RunMode mode, int64_t duration_ms) {
             emit(&r, "{\"kind\":\"disarmed\",\"reason\":\"lease_expired\"}");
         }
         r.lease = next;
+        check_topology(&r);
+        if (r.phase == RUN_STOP) break;
         if (now >= r.next_discovery_ms) {
             discover(&r);
             r.next_discovery_ms = now + (r.bridge_phase == BRIDGE_STARTING ? 50 : 1000);
@@ -565,14 +747,15 @@ static int run(RunMode mode, int64_t duration_ms) {
         try_grabs(&r);
         flush_output(&r);
         if (r.phase == RUN_STOP) break;
-        struct pollfd fds[MAX_DEVICES + 3];
+        struct pollfd fds[MAX_DEVICES + 4];
         unsigned slots[MAX_DEVICES];
-        nfds_t count = 3;
+        nfds_t count = 4;
         fds[0] = (struct pollfd){mode == MODE_CONTROLLED ? STDIN_FILENO : -1, POLLIN, 0};
         fds[1] = (struct pollfd){r.signal_fd, POLLIN, 0};
         fds[2] = (struct pollfd){r.output_length != 0 ? STDOUT_FILENO : -1, POLLOUT, 0};
+        fds[3] = (struct pollfd){r.topology_fd, POLLIN, 0};
         for (unsigned i = 0; i < MAX_DEVICES; ++i) if (r.devices[i].phase == SLOT_OPEN) {
-            slots[count - 3] = i;
+            slots[count - 4] = i;
             fds[count++] = (struct pollfd){r.devices[i].fd, POLLIN, 0};
         }
         int64_t poll_deadline = r.next_discovery_ms < r.end_ms ? r.next_discovery_ms : r.end_ms;
@@ -586,18 +769,21 @@ static int run(RunMode mode, int64_t duration_ms) {
         int timeout_ms = remaining <= 0 ? 0 : remaining > 1000 ? 1000 : (int)remaining;
         int waited = poll(fds, count, timeout_ms);
         if (waited < 0 && errno != EINTR) { r.phase = RUN_STOP; r.result = 35; break; }
-        /* Controller state changes precede input handling in every batch. */
+        /* Hotplug history precedes every controller proof or recovery barrier. */
+        if (fds[3].revents != 0) check_topology(&r);
+        if (r.phase == RUN_STOP) break;
         if ((fds[0].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) read_commands(&r);
         if ((fds[1].revents & POLLIN) != 0) r.phase = RUN_STOP;
         if (r.phase == RUN_STOP) break;
-        for (nfds_t i = 3; i < count; ++i) {
-            if ((fds[i].revents & POLLIN) != 0) read_device(&r, slots[i - 3]);
+        for (nfds_t i = 4; i < count; ++i) {
+            if ((fds[i].revents & POLLIN) != 0) read_device(&r, slots[i - 4]);
             if ((fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0)
-                close_device(&r, slots[i - 3], "poll_closed");
+                close_device(&r, slots[i - 4], "poll_closed");
             if (r.phase == RUN_STOP) break;
         }
     }
     release_grabs(&r, "process_exit");
+    if (r.topology_fd >= 0) (void)close(r.topology_fd);
     bridge_destroy(&r);
     for (unsigned i = 0; i < MAX_DEVICES; ++i)
         if (r.devices[i].phase == SLOT_OPEN) (void)close(r.devices[i].fd);

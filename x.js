@@ -7,7 +7,7 @@ var MORNING_CHANNEL='UC7DM7591Xkt1M2D3fs_wAlg',MORNING_PARAMS='EgZ2aWRlb3PyBgQKA
 function statusText(){if(S.booting)return'Restricted YouTube - Loading your liked videos and subscriptions...';if(S.loggedIn===true&&(S.errors.length||!S.ready))return'Restricted YouTube - Protecting you: list unavailable, retrying';if(S.ready&&S.loggedIn===true)return'Restricted YouTube - Ready: '+S.liked.size+' liked, '+S.subs.size+' subscribed';if(S.loggedIn===false&&S.ready)return'Restricted YouTube - Signed out: all videos blocked';if(!S.ready)return'Restricted YouTube - Protecting you: list unavailable, retrying';return'Restricted YouTube - Starting...'}
 function addPageStyle(d,id,css){if(!d||!d.createElement)return null;try{if(d.getElementById){var old=d.getElementById(id);if(old)return old}}catch(e){}var st=d.createElement('style');st.id=id;if(st.setAttribute)st.setAttribute('id',id);try{var q=d.querySelector&&d.querySelector('style[nonce],script[nonce]'),n=q&&(q.nonce||(q.getAttribute&&q.getAttribute('nonce')));if(n&&st.setAttribute)st.setAttribute('nonce',n)}catch(e){}st.textContent=css;var r=d.head||d.body||d.documentElement;if(r&&r.appendChild)try{r.appendChild(st)}catch(e){}return st}
 function renderStatus(){var t=statusText(),d=w.document;if(!d||!d.createElement)return t;var e=S.statusEl;if(!e){addPageStyle(d,'tt-allowed-only-style','#tt-allowed-only-status{position:fixed;top:12px;right:12px;z-index:2147483647;padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.82);color:#fff;font:600 18px/1.25 Arial,sans-serif;pointer-events:none;max-width:52vw;white-space:normal;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,.45)}');e=d.createElement('div');S.statusEl=e;e.id='tt-allowed-only-status';if(e.setAttribute){e.setAttribute('id','tt-allowed-only-status');e.setAttribute('role','status')}e.textContent=t;var r=d.body||d.documentElement;if(r&&e.parentNode!==r&&r.appendChild)try{r.appendChild(e)}catch(x){}}else if(e.textContent!==t)e.textContent=t;return t}
-function statusTick(){try{cfg();guard();if(!S.ready&&S.ctx)ensure();renderStatus()}catch(e){}}function watchStatus(){if(S.statusWatcher||typeof w.setInterval!='function')return;S.statusWatcher=w.setInterval(statusTick,1500)}
+function statusTick(){try{cfg();guard();if(!S.ready&&S.ctx)ensure();renderStatus();pumpMorningStatus()}catch(e){}}function watchStatus(){if(S.statusWatcher||typeof w.setInterval!='function')return;S.statusWatcher=w.setInterval(statusTick,1500)}
 function obj(x){return x&&typeof x=='object'}
 function walk(x,fn,path){path=path||[];if(!obj(x))return;fn(x,path);if(Array.isArray(x)){for(var i=0;i<x.length;i++)walk(x[i],fn,path.concat(i))}else Object.keys(x).forEach(function(k){walk(x[k],fn,path.concat(k))})}
 function uc(x){return typeof x=='string'&&/^UC[\w-]+$/.test(x)?x:null}
@@ -53,7 +53,7 @@ function sweepDom(){if(!S.allowedNames.size&&(!S.ready||S.subs.size>0))return 0;
 function cont(x){var a=[];function add(c){if(typeof c=='string'&&c&&a.indexOf(c)<0)a.push(c)}walk(x,function(o,p){var k=p.length?String(p[p.length-1]):'';if(k=='continuationItemRenderer'){add(o.continuationEndpoint&&o.continuationEndpoint.continuationCommand&&o.continuationEndpoint.continuationCommand.token);add(o.continuationEndpoint&&o.continuationEndpoint.nextContinuationData&&o.continuationEndpoint.nextContinuationData.continuation)}if(o.nextContinuationData)add(o.nextContinuationData.continuation)});return a}
 function json(s){try{return typeof s=='string'&&s?JSON.parse(s):null}catch(e){return null}}
 function authed(){try{return Object.keys(S.hdr).some(function(k){return k.toLowerCase()=='authorization'&&!!S.hdr[k]})||(S.ctx&&S.ctx.user&&(S.ctx.user.onBehalfOfUser||S.ctx.user.delegatedThirdPartyIdentity||S.ctx.user.authenticatedUser))}catch(e){return false}}
-function cfg(){try{var y=w.ytcfg;if(!y)return;var get=typeof y.get=='function'?function(k){return y.get(k)}:function(k){return y.data_&&y.data_[k]};S.ctx=S.ctx||get('INNERTUBE_CONTEXT');S.key=S.key||get('INNERTUBE_API_KEY');var li=get('LOGGED_IN'),signed=authed();if(signed)S.loggedIn=true;else if(li===true)S.loggedIn=true;else if(li===false)S.loggedIn=false;if(S.loggedIn!==null&&S.loggedIn!==S.lastLoggedIn){S.lastLoggedIn=S.loggedIn;S.ready=false;S.p=null;S.liked.clear();S.subs.clear();S.playlist.clear();S.savedPlaylists.clear();S.savedPlaylistContinuations.clear();S.savedLibraryContinuations.clear();S.music.clear();S.purchased.clear();S.accountVideos.clear();S.v2c.clear();S.allowedNames.clear();S.morningProgress=null;S.errors=[];S.retries=0;S.stripped=0;S.booting=false;S.mediaGate='pending';S.ctx=null;S.key=null;renderStatus()}}catch(e){}}
+function cfg(){try{var y=w.ytcfg;if(!y)return;var get=typeof y.get=='function'?function(k){return y.get(k)}:function(k){return y.data_&&y.data_[k]};S.ctx=S.ctx||get('INNERTUBE_CONTEXT');S.key=S.key||get('INNERTUBE_API_KEY');var li=get('LOGGED_IN'),signed=authed();if(signed)S.loggedIn=true;else if(li===true)S.loggedIn=true;else if(li===false)S.loggedIn=false;if(S.loggedIn!==null&&S.loggedIn!==S.lastLoggedIn){S.lastLoggedIn=S.loggedIn;S.ready=false;S.p=null;S.liked.clear();S.subs.clear();S.playlist.clear();S.savedPlaylists.clear();S.savedPlaylistContinuations.clear();S.savedLibraryContinuations.clear();S.music.clear();S.purchased.clear();S.accountVideos.clear();S.v2c.clear();S.allowedNames.clear();S.morningProgress=null;S.morningProgressAt=0;S.morningAccountProgress=undefined;S.morningAccountProgressAt=0;S.morningStatusUntilElapsed=0;S.errors=[];S.retries=0;S.stripped=0;S.booting=false;S.mediaGate='pending';S.ctx=null;S.key=null;renderStatus()}}catch(e){}}
 function url(x){try{return new URL(typeof x=='string'?x:x&&x.url||'',w.location&&w.location.href||'https://www.youtube.com/')}catch(e){return null}}
 function isapi(u){return u&&u.pathname.indexOf('/youtubei/v1/')>=0}
 function filtapi(u){return isapi(u)&&/(browse|search|next|player|reel|queue|get_mobile_playback|notification)/.test(u.pathname)}
@@ -66,33 +66,233 @@ async function pages(ep,b,collect,max,base){var q=[b],seen=new Set,n=0;while(q.l
 async function optionalPages(ep,b,collect,max,base){try{return await pages(ep,b,collect,max,base)}catch(e){return 0}}
 function resumePercent(x){var r=null;walk(x,function(o){if(r!==null)return;var q=o&&o.thumbnailOverlayResumePlaybackRenderer,n=q&&Number(q.percentDurationWatched);if(Number.isFinite(n))r=Math.max(0,Math.min(100,n))});return r}
 function collectMorningProgress(x,t){t=t||{};walk(x,function(o,p){var k=p.length?String(p[p.length-1]):'';if(k!=='tileRenderer'||o.contentType!=='TILE_CONTENT_TYPE_VIDEO')return;var v=vid(o);if(!v||Object.prototype.hasOwnProperty.call(t,v))return;var n=resumePercent(o);t[v]=n===null?0:n});return t}
+// Account resume markers can lag or disappear. Keep independently observed
+// progress across page/app restarts without treating a successful launch as a watch.
+var MORNING_LOCAL_KEY='ttMorningObservedProgressV1',MORNING_LOCAL_LIMIT=2048;
+var morningMediaTracking=new WeakMap,morningObservedMedia=new WeakSet;
+function morningVideoId(v){return typeof v==='string'&&/^[\w-]{11}$/.test(v)}
+function morningPercent(p){return typeof p==='number'&&Number.isFinite(p)&&p>=0&&p<=100}
+function pruneMorningLocal(records){
+  var keys=Object.keys(records);
+  if(keys.length<=MORNING_LOCAL_LIMIT)return;
+  keys.sort(function(a,b){return records[b].updated_at_ms-records[a].updated_at_ms||a.localeCompare(b)});
+  for(var i=MORNING_LOCAL_LIMIT;i<keys.length;i++)delete records[keys[i]];
+}
+function loadMorningLocal(){
+  if(S.morningLocalRecords)return S.morningLocalRecords;
+  var records=Object.create(null),now=Date.now();
+  try{
+    var raw=w.localStorage&&w.localStorage.getItem(MORNING_LOCAL_KEY);
+    if(raw&&raw.length<=524288){
+      var data=JSON.parse(raw),entries=data&&data.schema===1&&data.entries;
+      if(entries&&typeof entries==='object'&&!Array.isArray(entries))Object.keys(entries).forEach(function(v){
+        var r=entries[v];
+        if(morningVideoId(v)&&r&&morningPercent(r.percent)&&typeof r.updated_at_ms==='number'
+            &&Number.isFinite(r.updated_at_ms)&&r.updated_at_ms>0&&r.updated_at_ms<=now+1000)
+          records[v]={percent:r.percent,updated_at_ms:r.updated_at_ms};
+      });
+    }
+    S.morningLocalStorage=w.localStorage?'available':'unavailable';
+  }catch(e){S.morningLocalStorage='unavailable'}
+  pruneMorningLocal(records);S.morningLocalRecords=records;return records;
+}
+function localMorningPercentages(){
+  var records=loadMorningLocal(),values=Object.create(null);
+  Object.keys(records).forEach(function(v){values[v]=records[v].percent});return values;
+}
+function mergeMorningProgress(account){
+  var result=Object.create(null),local=localMorningPercentages();
+  if(account&&typeof account==='object')Object.keys(account).forEach(function(v){
+    if(morningVideoId(v)&&morningPercent(account[v]))result[v]=account[v];
+  });
+  Object.keys(local).forEach(function(v){result[v]=Math.max(result[v]||0,local[v])});
+  if(Object.keys(result).length)result.__local_observed=local;
+  return result;
+}
+function freshMorningAccount(now){
+  var age=now-Number(S.morningAccountProgressAt);
+  return S.morningAccountProgress&&Number.isFinite(age)&&age>=-1000&&age<=300000
+    ?S.morningAccountProgress:null;
+}
+function persistMorningLocal(force){
+  var now=Date.now(),elapsed=w.performance.now();
+  if(!force&&Number.isFinite(S.morningLocalPersistElapsed)
+      &&elapsed-S.morningLocalPersistElapsed<15000)return;
+  try{
+    if(!w.localStorage)return;
+    w.localStorage.setItem(MORNING_LOCAL_KEY,JSON.stringify({schema:1,entries:loadMorningLocal()}));
+    S.morningLocalPersistElapsed=elapsed;S.morningLocalStorage='available';
+  }catch(e){S.morningLocalStorage='unavailable'}
+}
+function recordMorningObserved(v,percent,ended){
+  if(!morningVideoId(v)||!morningPercent(percent))return false;
+  var records=loadMorningLocal(),old=records[v],previous=old?old.percent:0;
+  if(old&&percent<=previous){if(ended===true)persistMorningLocal(true);return false;}
+  records[v]={percent:Math.max(previous,percent),updated_at_ms:Date.now()};
+  pruneMorningLocal(records);
+  // Crossing the eligibility threshold and actual completion are committed
+  // synchronously; ordinary progress is batched to limit storage writes.
+  persistMorningLocal(!old||previous<=25&&percent>25||ended===true);
+  S.morningProgress=mergeMorningProgress(freshMorningAccount(Date.now()));
+  S.morningProgressAt=Date.now();
+  S.morningStatusUntilElapsed=w.performance.now()+120000;
+  return true;
+}
+function currentMorningTracking(media){
+  var r=media&&morningMediaTracking.get(media);
+  if(!r||S.ready!==true||S.loggedIn!==true||media!==S.morningMedia||r.generation!==S.morningGeneration
+      ||r.video!==S.morningTrackedVideo||routeVideoId()!==r.video||!ok(r.video))return null;
+  var source=String(media.currentSrc||media.src||'');
+  return r.source&&source!==r.source?null:r;
+}
+function observeMorningMedia(media){
+  var r=currentMorningTracking(media);if(!r||r.ended)return false;
+  var position=Number(media.currentTime),duration=Number(media.duration),previous=r.previousPosition;
+  if(!morningIsActive(r.video)||!Number.isFinite(position)||!Number.isFinite(previous)
+      ||!Number.isFinite(duration)||duration<=0||position<0||position<=previous){
+    r.previousPosition=position;return false;
+  }
+  // High-frequency timeupdate events must accumulate enough real movement;
+  // resetting the baseline on every sub-50ms event would lose all progress.
+  if(position<=previous+0.05)return false;
+  r.previousPosition=position;
+  return recordMorningObserved(r.video,Math.min(100,100*position/duration),false);
+}
+// This lease is renewed by the authenticated session controller. It cannot
+// survive a page reload or a lost controller and never resumes media on release.
+var SCHOOL_BANNER_REASON='Morning school banner is active.';
+function clearSchoolBannerLease(){
+  if(S.schoolBannerLeaseTimer!=null)w.clearTimeout(S.schoolBannerLeaseTimer);
+  S.schoolBannerLeaseTimer=null;S.schoolBannerLease=null;return true;
+}
+function schoolBannerLeaseLive(){
+  var lease=S.schoolBannerLease;
+  if(!lease)return false;
+  if(Date.now()>=lease.deadline_ms||w.performance.now()>=lease.deadline_elapsed){
+    clearSchoolBannerLease();return false;
+  }
+  return true;
+}
+function schoolBannerActive(){return schoolBannerLeaseLive()&&S.schoolBannerLease.active===true}
+function pauseSchoolMedia(){
+  var list=[],d=w.document;
+  if(S.morningMedia)list.push(S.morningMedia);
+  try{var nodes=d&&d.querySelectorAll&&d.querySelectorAll('video,audio');
+    for(var i=0;nodes&&i<nodes.length;i++)if(list.indexOf(nodes[i])<0)list.push(nodes[i]);
+  }catch(e){}
+  list.forEach(function(m){if(m&&typeof m.pause==='function')try{m.pause()}catch(e){}});
+}
+function activateSchoolBannerForEnd(v){
+  if(!schoolBannerLeaseLive()||S.schoolBannerLease.expected_video_id!==v)return false;
+  S.schoolBannerLease.active=true;S.schoolBannerLease.awaiting_end=false;pauseSchoolMedia();return true;
+}
+function setSchoolBannerLease(deadlineMs,expectedVideoId,awaitingEnd){
+  if(deadlineMs===0)return clearSchoolBannerLease();
+  var now=Date.now(),remaining=deadlineMs-now;
+  if(typeof deadlineMs!=='number'||!Number.isFinite(deadlineMs)||remaining<=0||remaining>15000
+      ||!morningVideoId(expectedVideoId)||typeof awaitingEnd!=='boolean')return false;
+  var wasActive=schoolBannerLeaseLive()&&S.schoolBannerLease.expected_video_id===expectedVideoId
+    &&S.schoolBannerLease.active===true;
+  if(S.schoolBannerLeaseTimer!=null)w.clearTimeout(S.schoolBannerLeaseTimer);
+  S.schoolBannerLease={deadline_ms:deadlineMs,deadline_elapsed:w.performance.now()+remaining,
+    expected_video_id:expectedVideoId,awaiting_end:awaitingEnd&&!wasActive,active:!awaitingEnd||wasActive};
+  var lease=S.schoolBannerLease;
+  S.schoolBannerLeaseTimer=w.setTimeout(function(){
+    if(S.schoolBannerLease===lease)clearSchoolBannerLease();
+  },remaining);
+  var ended=S.morningLastEnded;
+  if(awaitingEnd&&ended&&ended.video_id===expectedVideoId&&ended.playing==='ended'
+      &&now-ended.sample_wall_ms>=0&&now-ended.sample_wall_ms<=5000)
+    activateSchoolBannerForEnd(expectedVideoId);
+  if(schoolBannerActive())pauseSchoolMedia();
+  return true;
+}
+function noteMorningEnded(media){
+  var r=currentMorningTracking(media);
+  if(!r||r.ended||media.ended!==true)return false;
+  var position=Number(media.currentTime),duration=Number(media.duration);
+  if(!Number.isFinite(position)||position<0||!Number.isFinite(duration)||duration<=0)return false;
+  r.ended=true;
+  S.morningLastEnded={video_id:r.video,position_seconds:position,duration_seconds:duration,
+    playing:'ended',sample_wall_ms:Date.now()};
+  recordMorningObserved(r.video,100,true);
+  S.morningPlaying=null;
+  activateSchoolBannerForEnd(r.video);
+  writeMorningStatus();return true;
+}
+function schoolMediaEvent(event){
+  if(schoolBannerActive()&&event&&event.target&&typeof event.target.pause==='function')
+    try{event.target.pause()}catch(e){}
+}
+function watchMorningMediaEvents(media){
+  if(!media||typeof media.addEventListener!=='function'||morningObservedMedia.has(media))return;
+  morningObservedMedia.add(media);
+  media.addEventListener('timeupdate',function(){observeMorningMedia(media)},true);
+  media.addEventListener('ended',function(){noteMorningEnded(media)},true);
+  media.addEventListener('play',schoolMediaEvent,true);
+  media.addEventListener('playing',schoolMediaEvent,true);
+}
+function installSchoolMediaEvents(){
+  var d=w.document;if(!d||typeof d.addEventListener!=='function'||S.schoolMediaEventsDocument===d)return;
+  S.schoolMediaEventsDocument=d;
+  // Capture non-bubbling ended before YouTube's target autoplay handlers.
+  d.addEventListener('ended',function(e){if(e)noteMorningEnded(e.target)},true);
+  d.addEventListener('play',schoolMediaEvent,true);
+  d.addEventListener('playing',schoolMediaEvent,true);
+}
 // One status payload keeps account progress and playback evidence from overwriting each other.
 function morningIsActive(v) {
   var m=S.morningMedia;
   return !!m && v===S.morningTrackedVideo && routeVideoId()===v && ok(v)
     && m.paused===false && m.ended!==true && Number(m.readyState)>=2;
 }
-async function writeMorningStatus() {
-  var f=S.fetch0||(typeof w.fetch==='function'?w.fetch.bind(w):null);
-  if(!f)return false;
+function morningProgressFresh(now) {
+  var at=Number(S.morningProgressAt),age=now-at;
+  return !!S.morningProgress&&Object.keys(S.morningProgress).length>0
+    &&Number.isFinite(at)&&at>0&&age>=-1000&&age<=300000;
+}
+function morningStatusPayload(now) {
   var body='yumi=morning-sesame&ms_state=idle';
-  if(S.morningProgress&&Object.keys(S.morningProgress).length)
-    body+='&ms_progress='+encodeURIComponent(JSON.stringify(S.morningProgress));
+  if(morningProgressFresh(now))
+    body+='&ms_progress='+encodeURIComponent(JSON.stringify(S.morningAccountProgress!==undefined
+      ?mergeMorningProgress(freshMorningAccount(now)):S.morningProgress))
+      +'&ms_progress_at='+S.morningProgressAt;
   var v=S.morningPlaying;
-  if(v&&morningIsActive(v)&&Date.now()-S.morningPlayingAt<=5000) {
+  if(v&&morningIsActive(v)&&now-S.morningPlayingAt>=-1000&&now-S.morningPlayingAt<=5000) {
     body=body.replace('ms_state=idle','ms_state=playing');
     body+='&ms_playing='+encodeURIComponent(v)+'&ms_playing_at='+S.morningPlayingAt
       +'&ms_position='+S.morningPlayingPosition;
   }
+  return body;
+}
+async function writeMorningStatus() {
+  var f=S.fetch0||(typeof w.fetch==='function'?w.fetch.bind(w):null);
+  if(!f||S.morningStatusPhase==='posting')return false;
+  S.morningStatusPhase='posting';
+  S.morningStatusNextElapsed=w.performance.now()+2000;
   try {
     await f('http://localhost:8012/apps/YouTube',{method:'POST',mode:'no-cors',
-      headers:{'content-type':'application/x-www-form-urlencoded'},body:body});
+      headers:{'content-type':'application/x-www-form-urlencoded'},body:morningStatusPayload(Date.now())});
     return true;
   } catch(e) { return false; }
+  finally {S.morningStatusPhase='idle'}
+}
+function pumpMorningStatus() {
+  var elapsed=w.performance.now(),d=w.document;
+  if(!d||d.hidden||S.ready!==true||S.loggedIn!==true||S.morningStatusPhase==='posting')return;
+  if(!(elapsed<Number(S.morningStatusUntilElapsed))
+      ||elapsed<Number(S.morningStatusNextElapsed||0)||!morningProgressFresh(Date.now()))return;
+  writeMorningStatus();
 }
 async function writeMorningProgress(m) {
-  if(!m||!Object.keys(m).length)return false;
-  S.morningProgress=m;
+  if(!m||typeof m!=='object')return false;
+  var account=Object.create(null);
+  Object.keys(m).forEach(function(v){if(morningVideoId(v)&&morningPercent(m[v]))account[v]=m[v]});
+  S.morningAccountProgress=account;S.morningAccountProgressAt=Date.now();
+  S.morningProgress=mergeMorningProgress(account);
+  if(!Object.keys(S.morningProgress).length)return false;
+  S.morningProgressAt=Date.now();
+  S.morningStatusUntilElapsed=w.performance.now()+120000;
   return writeMorningStatus();
 }
 async function writeMorningPlaying(v) {
@@ -105,18 +305,23 @@ async function writeMorningPlaying(v) {
   if(advanced) {
     S.morningPlayingAt=Date.now();
     S.morningPlayingPosition=position;
+    observeMorningMedia(m);
   }
   await writeMorningStatus();
   return advanced;
 }
 function publishMorningPlaying(v,media) {
-  if(typeof v!=='string'||!/^[\w-]{11}$/.test(v)||!media)return false;
+  if(!morningVideoId(v)||!media||S.ready!==true||S.loggedIn!==true||routeVideoId()!==v||!ok(v))return false;
+  if(typeof media.tagName==='string'&&media.tagName.toUpperCase()!=='VIDEO')return false;
   var generation=(S.morningGeneration||0)+1;
   S.morningGeneration=generation;
   S.morningTrackedVideo=v;
   S.morningMedia=media;
   S.morningPreviousPosition=Number(media.currentTime);
   S.morningPlaying=null;
+  morningMediaTracking.set(media,{video:v,generation:generation,source:String(media.currentSrc||media.src||''),
+    previousPosition:Number(media.currentTime),ended:false});
+  installSchoolMediaEvents();watchMorningMediaEvents(media);
   var observeUntil=Date.now()+180000;
   // A resolved play() promise is not proof of moving video.
   writeMorningStatus();
@@ -132,7 +337,35 @@ function publishMorningPlaying(v,media) {
   if(typeof w.setTimeout==='function')w.setTimeout(tick,2000);
   return true;
 }
-async function publishMorningProgress(env){env=env||{};var m={};try{await optionalPages('browse',{browseId:MORNING_CHANNEL,params:MORNING_PARAMS},function(x){collectMorningProgress(x,m)},4,env.apiBase);if(Object.keys(m).length){S.morningProgress=m;await writeMorningProgress(m);if(typeof w.setTimeout=='function')[4000,8000,12000,16000,20000,24000,28000,32000,36000,40000].forEach(function(ms){w.setTimeout(function(){writeMorningProgress(S.morningProgress)},ms)})}}catch(e){if(typeof console!='undefined'&&console.log)console.log('[allowed-only] morning progress unavailable '+e)}return m}
+async function publishMorningProgress(env){
+  if(S.morningProgressTask)return S.morningProgressTask;
+  env=env||{};var context=S.ctx;
+  S.morningRefreshAtElapsed=w.performance.now();
+  var task=(async function(){
+    var progress={};
+    try{
+      await optionalPages('browse',{browseId:MORNING_CHANNEL,params:MORNING_PARAMS},
+        function(x){collectMorningProgress(x,progress)},4,env.apiBase);
+      if(S.ctx===context&&S.ready===true&&S.loggedIn===true)
+        await writeMorningProgress(progress);
+    }catch(e){if(typeof console!='undefined'&&console.log)console.log('[allowed-only] morning progress unavailable')}
+    return progress;
+  })();
+  S.morningProgressTask=task;
+  try{return await task}finally{if(S.morningProgressTask===task)S.morningProgressTask=null}
+}
+function refreshMorningProgressOnFocus(){
+  var d=w.document,elapsed=w.performance.now();
+  if(!d||d.hidden||S.ready!==true||S.loggedIn!==true||!S.ctx||S.morningProgressTask)return;
+  if(Number.isFinite(S.morningRefreshAtElapsed)&&elapsed-S.morningRefreshAtElapsed<60000)return;
+  publishMorningProgress({});
+}
+function watchMorningLifecycle(){
+  if(S.morningLifecycle==='watching'||!w.document||!w.addEventListener)return;
+  S.morningLifecycle='watching';
+  w.addEventListener('focus',refreshMorningProgressOnFocus);
+  w.document.addEventListener('visibilitychange',refreshMorningProgressOnFocus);
+}
 async function accountLibraries(env){env=env||{};var cards=S.savedPlaylists,collections=new Set,librarySource={ownership:'account',provenance:'account-library',endpoint:'FEmusic_library'},collectionSource={ownership:'account',provenance:'account-collection',endpoint:'FEmusic_library',collection:'artist-album'};await optionalPages('browse',{browseId:'FElibrary',params:'FEplaylist_aggregation'},function(x){collectPlaylistIds(x,cards)},8,env.apiBase);await Promise.all(Array.from(cards).map(function(id){return optionalPages('browse',{browseId:id},collectPlaylistVideoIds,0,env.apiBase)}));var musicPage=function(source){return function(x){collectMusicLibraryVideoIds(x,S.music,source);collectMusicCollectionVideoIds(x,S.music,collectionSource);collectMusicCollectionBrowseIds(x,collections,collectionSource)}};await optionalPages('browse',{browseId:'FEmusic_library',params:'FEmusic_last_played'},musicPage(librarySource),12,env.apiBase);await Promise.all(Array.from(collections).map(function(id){return optionalPages('browse',{browseId:id},function(x){return collectMusicLibraryVideoIds(x,S.music,{ownership:'account',provenance:'account-collection',endpoint:id,collection:'artist-album'})},12,env.apiBase)}));await optionalPages('browse',{browseId:'FEstorefront',params:'ogUCKAQ='},collectPurchasedVideoIds,12,env.apiBase);return S.accountVideos}
 function startBackgroundEnrichment(env){env=env||{};var run=function(){Promise.all([optionalPages('browse',{browseId:'VLLL'},liked,8,env.apiBase),optionalPages('browse',{browseId:'FEchannels'},channels,8,env.apiBase),post('guide',{},env.apiBase).then(function(x){guide(x)}).catch(function(){}),accountLibraries(env),publishMorningProgress(env)]).catch(function(){})};if(typeof w.setTimeout=='function')w.setTimeout(run,2500);else Promise.resolve().then(run)}async function boot(env){env=env||{};cfg();if(!S.ctx)throw Error('no context');var lo=false,so=false,errs=[];await Promise.all([post('browse',{browseId:'VLLL'},env.apiBase).then(function(x){liked(x);lo=true}).catch(function(e){errs.push('liked '+e)}),post('browse',{browseId:'FEchannels'},env.apiBase).then(function(x){channels(x);so=true}).catch(function(e){errs.push('subscriptions '+e)})]);if(!lo||!so){for(var i=0;i<errs.length;i++)S.errors.push(errs[i]);throw Error('allowlist partial: '+(errs[errs.length-1]||'required source unavailable'))}S.loggedIn=true;S.ready=true;startBackgroundEnrichment(env);return S}
 
@@ -151,11 +384,168 @@ function installFetch(){if(typeof w.fetch!='function')return;S.fetch0=w.fetch.bi
 function installXhr(){if(typeof w.XMLHttpRequest!='function'||!S.fetch0)return;var p=w.XMLHttpRequest.prototype;if(p.__ao)return;p.__ao=1;var O=p.open,D=p.send,H=p.setRequestHeader,M=new WeakMap;function m(x){var y=M.get(x);if(!y){y={h:{}};M.set(x,y)}return y}function mark(g){try{g.__aog=1}catch(e){}return g}S.arm=function(){try{return armXhr()}catch(e){return false}};function armXhr(){if(!S.fetch0||typeof w.XMLHttpRequest!='function')return false;var q=w.XMLHttpRequest.prototype;if(!q)return false;if(S.xhrArmed)return true;var RT=Object.getOwnPropertyDescriptor(q,'responseText'),R=Object.getOwnPropertyDescriptor(q,'response'),ok=true;try{if(!(RT&&RT.get&&RT.get.__aog)){if(RT&&RT.get&&RT.configurable!==false){Object.defineProperty(q,'responseText',{configurable:true,get:mark(function(){return text(this,RT.get.call(this))})})}else ok=false}}catch(e){ok=false}try{if(!(R&&R.get&&R.get.__aog)){if(R&&R.get&&R.configurable!==false){Object.defineProperty(q,'response',{configurable:true,get:mark(function(){var s=R.get.call(this);if(!isapi(m(this).u))return s;if(this.responseType=='json'&&obj(s)){var y=m(this);if(y.fj!==undefined)return y.fj;S.stripped=0;y.fj=payload(y.u,s,y.b);if(S.stripped>0&&typeof console!='undefined'&&console.log)console.log('[allowed-only] stripped '+S.stripped+' video(s) from '+y.u.pathname);return y.fj}if((this.responseType==''||this.responseType=='text')&&typeof s=='string')return text(this,s);return s})})}else ok=false}}catch(e){ok=false}S.xhrArmed=ok;if(typeof console!='undefined'&&console.log)console.log('[allowed-only] xhr response interception '+(ok?'armed':'pending retry'));return ok}p.open=function(method,u){var y=m(this);y.u=url(u);y.b=null;y.ft=y.fj=undefined;return O.apply(this,arguments)};p.setRequestHeader=function(k,v){m(this).h[k]=v;return H.apply(this,arguments)};try{p.__ttWrap=1}catch(e){}p.send=function(b){var x=this,y=m(x);if(w.__ttShouldBlockAdRequest&&w.__ttShouldBlockAdRequest(y.u)){try{x.abort()}catch(e){}return}if(isapi(y.u)){if(Object.keys(y.h).length)S.hdr=Object.assign({},y.h);cfg();S.key=S.key||y.u.searchParams.get('key');var z=typeof b=='string'&&json(b);y.b=z;if(z&&z.context)S.ctx=S.ctx||z.context}if(!S.xhrArmed)armXhr();if(filtapi(y.u)){var q=w.XMLHttpRequest.prototype,RT=Object.getOwnPropertyDescriptor(q,'responseText'),R=Object.getOwnPropertyDescriptor(q,'response');try{if(!(Object.getOwnPropertyDescriptor(x,'responseText')||{}).__aog&&RT&&RT.get&&RT.get.__aog){Object.defineProperty(x,'responseText',{configurable:true,get:mark(function(){return text(x,RT.get.call(x))})})}}catch(e){}try{if(!(Object.getOwnPropertyDescriptor(x,'response')||{}).__aog&&R&&R.get&&R.get.__aog){Object.defineProperty(x,'response',{configurable:true,get:mark(function(){var s=R.get.call(x);if(this.responseType=='json'&&obj(s)){var yy=m(x);if(yy.fj!==undefined)return yy.fj;S.stripped=0;yy.fj=payload(yy.u,s,yy.b);if(S.stripped>0&&typeof console!='undefined'&&console.log)console.log('[allowed-only] stripped '+S.stripped+' video(s) from '+yy.u.pathname);return yy.fj}if((this.responseType==''||this.responseType=='text')&&typeof s=='string')return text(x,s);return s})})}}catch(e){}}if(filtapi(y.u)&&!S.ready){var q2=ensure();if(!q2&&S.ctx===null&&typeof console!='undefined'&&console.log)console.log('[allowed-only] api request before context: filtering on read');if(q2&&q2.then){q2.then(function(){D.call(x,b)},function(){D.call(x,b)});return}}return D.call(x,b)};function text(x,s){var y=m(x);if(!filtapi(y.u)||typeof s!='string'||!s)return s;if(y.ft!==undefined)return y.ft;var z=json(s);if(!z)return s;S.stripped=0;y.fj=payload(y.u,z,y.b);if(S.stripped>0&&typeof console!='undefined'&&console.log)console.log('[allowed-only] stripped '+S.stripped+' video(s) from '+y.u.pathname);return y.ft=JSON.stringify(y.fj)}armXhr();try{if(typeof w.setTimeout=='function'){w.setTimeout(function(){if(!S.xhrArmed)armXhr()},100);w.setTimeout(function(){if(!S.xhrArmed)armXhr()},500);w.setTimeout(function(){if(!S.xhrArmed)armXhr()},2000);w.setTimeout(function(){if(!S.xhrArmed)armXhr()},6000)}}catch(e){}}
 function bridge(){try{if(w.HTMLMediaElementExtension&&w.HTMLMediaElement&&w.HTMLMediaElement.prototype)w.HTMLMediaElement.prototype.canPlayType=w.HTMLMediaElementExtension.canPlayType}catch(e){}}
 function routeVideoId(){try{var l=w.location;if(!l)return null;var u=new URL(l.href||'https://www.youtube.com/');var v=u.searchParams.get('v');if(v&&/^[\w-]+$/.test(v))return v;var pm=/\/watch\/([\w-]+)/.exec(u.pathname);if(pm)return pm[1];var s=u.hash||'';if(s.indexOf('watch')>=0){var qi=s.indexOf('?');if(qi>=0){try{var hv=new URLSearchParams(s.slice(qi+1)).get('v');if(hv&&/^[\w-]+$/.test(hv))return hv}catch(e){}}var hm=/watch\/([\w-]+)/.exec(s);if(hm)return hm[1]}return null}catch(e){return null}}
-function mediaDecision(v){var d=(S.ready===false&&S.booting===true)?'pending':(ok(v)?'open':'closed');S.mediaGate=d;return d}
+function mediaDecision(v){
+  var decision;
+  if(S.ready!==true)decision='pending';
+  else if(ok(v))decision='open';
+  else if(S.loggedIn===false)decision='closed';
+  // The account list can be ready before the player response has identified
+  // this video's owner. Unknown ownership is still pending; the real player
+  // response/channel evidence must supply positive permission before playback.
+  else if(v&&!S.v2c.has(v))decision='pending';
+  else decision='closed';
+  S.mediaGate=decision;return decision;
+}
 function mediaBlockedLog(){if(typeof console!='undefined'&&console.log)console.log('[allowed-only] media blocked '+routeVideoId())}
-function installMediaGuard(){try{var P=w.HTMLMediaElement&&w.HTMLMediaElement.prototype;if(!P)return;if(typeof P.play=='function'&&!(P.play.__ttMedia)){var OP=P.play;function playAndReport(self,a,v){var r;try{r=OP.apply(self,a)}catch(e){return Promise.reject(e)}return Promise.resolve(r).then(function(x){publishMorningPlaying(v,self);return x})}P.play=function(){var v=routeVideoId();if(!v)return Promise.resolve();var d=mediaDecision(v);if(d==='open')return playAndReport(this,arguments,v);var self=this,a=arguments;if(d==='pending')return new Promise(function(res,rej){Promise.resolve().then(function(){var v2=routeVideoId(),d2=mediaDecision(v2);if(d2==='open'){playAndReport(self,a,v2).then(res,rej)}else{mediaBlockedLog();rej(new Error(REASON))}})});mediaBlockedLog();return Promise.reject(new Error(REASON))};P.play.__ttMedia=1}if(typeof P.load=='function'&&!(P.load.__ttMedia)){var OL=P.load;P.load=function(){var v=routeVideoId(),d=v?mediaDecision(v):'open';if(d!=='open'){mediaBlockedLog();throw new Error(REASON)}return OL.apply(this,arguments)};P.load.__ttMedia=1}var sd=Object.getOwnPropertyDescriptor(P,'src');if(sd&&sd.set&&!sd.set.__ttMedia){var ws=function(val){var v=routeVideoId(),d=v?mediaDecision(v):'open';if(d!=='open'){var src;try{src=String(val).replace(/^[\x00-\x20]+|[\x00-\x20]+$/g,'')}catch(e){mediaBlockedLog();return}if(src.toLowerCase().lastIndexOf('blob:',0)===0){mediaBlockedLog();return}}sd.set.call(this,val)};ws.__ttMedia=1;Object.defineProperty(P,'src',{configurable:sd.configurable!==false,enumerable:!!sd.enumerable,get:function(){return sd.get?sd.get.call(this):void 0},set:ws})}var U=w.URL;if(U&&typeof U.createObjectURL=='function'&&!(U.createObjectURL.__ttMedia)){var OU=U.createObjectURL.bind(U);var nc=function(x){var v=routeVideoId(),d=v?mediaDecision(v):'open';if(d!=='open'&&x&&typeof x=='object'){mediaBlockedLog();throw new Error(REASON)}return OU(x)};nc.__ttMedia=1;U.createObjectURL=nc}}catch(e){}}
-function guard(){if(!S.installed)return;try{if(typeof w.XMLHttpRequest=='function'){var q=w.XMLHttpRequest.prototype;if(q&&!q.__ttWrap){delete q.__ao;try{installXhr()}catch(e){S.armFail++}}else if(!S.xhrArmed&&S.arm){S.arm()}}if(typeof w.fetch=='function'&&(!w.fetch.__tt||!S.fetch0)){installFetch()}if(w.HTMLMediaElement)installMediaGuard()}catch(e){}}function install(){if(S.installed)return;S.installed=true;bridge();installFetch();installXhr();installMediaGuard();installRouteGate();cfg();renderStatus();watchStatus();guard();if(typeof console!='undefined'&&console.log)console.log('[allowed-only] filter active');if(S.ctx)ensure()}
-w.__ttAllowedOnly={install:install,state:S,allowed:ok,configure:cfg,filterTree:filter,blockPlayerResponse:player,collectLikedVideoIds:liked,collectAllChannelIds:channels,collectGuideSubscriptionIds:guide,responseChannelId:responseChannelId,rememberChannelPageVideos:rememberChannelPageVideos,collectPlaylistIds:collectPlaylistIds,collectPlaylistVideoIds:collectPlaylistVideoIds,learnAccountPlaylistResponse:learnAccountPlaylistResponse,processApiPayload:payload,collectMusicLibraryVideoIds:collectMusicLibraryVideoIds,collectMusicCollectionVideoIds:collectMusicCollectionVideoIds,collectMusicCollectionBrowseIds:collectMusicCollectionBrowseIds,collectPurchasedVideoIds:collectPurchasedVideoIds,accountLibraries:accountLibraries,startBackgroundEnrichment:startBackgroundEnrichment,continuationTokens:cont,firstVideoId:vid,firstChannelId:authcid,discoverChannelId:cid,videoOwnerChannelId:vcid,addPageStyle:addPageStyle,BLOCK_REASON:REASON,statusText:statusText,renderStatus:renderStatus,statusTick:statusTick,guard:guard,routeVideoId:routeVideoId,mediaDecision:mediaDecision,installMediaGuard:installMediaGuard,verifyDirectVideo:verifyDirectVideo,gateDirectRoute:gateDirectRoute,installRouteGate:installRouteGate,retryDelaySchedule:retryDelaySchedule,bootWithRetry:bootWithRetry,filtapi:filtapi,collectChannelNames:collectChannelNames,tileShouldStay:tileShouldStay,sweepDom:sweepDom,collectMorningProgress:collectMorningProgress,publishMorningProgress:publishMorningProgress,writeMorningProgress:writeMorningProgress,writeMorningPlaying:writeMorningPlaying,publishMorningPlaying:publishMorningPlaying};return w.__ttAllowedOnly;
+// A pending allowlist is not permission to play. It also must not throw from
+// YouTube's synchronous MediaSource constructor: that aborts initialization and
+// leaves an empty player even when the account becomes ready a moment later.
+// Only inert object-URL allocation is allowed while pending. Source attachment,
+// load and play wait for positive authorization of the same route.
+var mediaPending=new Map,mediaPendingTimer=null;
+var MEDIA_PENDING_LIMIT=16,MEDIA_PENDING_MS=180000;
+function mediaPendingNow(){return w.performance.now()}
+function noteMediaInitialization(stage,video,decision){
+  var events=S.mediaInitializationEvents||(S.mediaInitializationEvents=[]);
+  events.push({stage:stage,video:video||null,decision:decision,at_ms:Math.round(mediaPendingNow())});
+  if(events.length>16)events.shift();
+}
+function cancelPendingPlay(media,reason){
+  var r=mediaPending.get(media);if(!r||!r.play)return;
+  var reject=r.reject;r.play=null;r.promise=null;r.resolve=null;r.reject=null;
+  if(reject)reject(new Error(reason));
+}
+function cancelPendingMedia(media,reason){
+  var r=mediaPending.get(media);if(!r)return;
+  noteMediaInitialization('cancel',r.video,reason||REASON);
+  mediaPending.delete(media);r.phase='cancelled';
+  if(r.reject)r.reject(new Error(reason||REASON));
+  if(!mediaPending.size&&mediaPendingTimer!==null){
+    w.clearTimeout(mediaPendingTimer);mediaPendingTimer=null;
+  }
+}
+function flushPendingMedia(){
+  if(mediaPendingTimer!==null)w.clearTimeout(mediaPendingTimer);
+  mediaPendingTimer=null;
+  mediaPending.forEach(function(r,media){
+    if(r.phase!=='waiting')return;
+    if(w.document&&w.document.hidden){cancelPendingMedia(media,'Media window hidden');return}
+    if(routeVideoId()!==r.video){cancelPendingMedia(media,'Media route changed');return}
+    var decision=mediaDecision(r.video);
+    if(decision==='closed'){cancelPendingMedia(media,REASON);return}
+    if(mediaPendingNow()>=r.deadline){cancelPendingMedia(media,'Media authorization timed out');return}
+    if(decision!=='open')return;
+    noteMediaInitialization('dispatch',r.video,decision);
+    mediaPending.delete(media);r.phase='running';
+    try{
+      if(r.source)r.source();
+      if(r.load)r.load();
+      if(r.play)Promise.resolve(r.play()).then(r.resolve,r.reject);
+      r.phase='finished';
+    }catch(e){r.phase='failed';if(r.reject)r.reject(e)}
+  });
+  if(mediaPending.size&&mediaPendingTimer===null)
+    mediaPendingTimer=w.setTimeout(flushPendingMedia,100);
+}
+function queuePendingMedia(media,video,kind,execute){
+  noteMediaInitialization(kind,video,mediaDecision(video));
+  var r=mediaPending.get(media);
+  if(r&&(r.video!==video||kind==='source')){
+    cancelPendingMedia(media,'Media source changed');r=null;
+  }
+  if(!r){
+    if(mediaPending.size>=MEDIA_PENDING_LIMIT){
+      return kind==='play'?Promise.reject(new Error('Media initialization queue is full')):null;
+    }
+    r={phase:'waiting',video:video,deadline:mediaPendingNow()+MEDIA_PENDING_MS,
+      source:null,load:null,play:null,promise:null,resolve:null,reject:null};
+    mediaPending.set(media,r);
+  }
+  if(kind==='play'){
+    if(!r.promise){
+      r.play=execute;
+      r.promise=new Promise(function(resolve,reject){r.resolve=resolve;r.reject=reject});
+    }
+  }else{
+    if(kind==='load')cancelPendingPlay(media,'Media load interrupted playback');
+    r[kind]=execute;
+  }
+  if(mediaDecision(video)==='open')flushPendingMedia();
+  else if(mediaPendingTimer===null)mediaPendingTimer=w.setTimeout(flushPendingMedia,100);
+  return r.promise;
+}
+function installMediaGuard(){try{
+  installSchoolMediaEvents();
+  var P=w.HTMLMediaElement&&w.HTMLMediaElement.prototype;if(!P)return;
+  if(typeof P.play==='function'&&!P.play.__ttMedia){
+    var OP=P.play;
+    function playAndReport(self,args,video){
+      if(schoolBannerActive()){try{self.pause()}catch(e){}return Promise.reject(new Error(SCHOOL_BANNER_REASON))}
+      var result;try{result=OP.apply(self,args)}catch(e){return Promise.reject(e)}
+      return Promise.resolve(result).then(function(value){publishMorningPlaying(video,self);return value});
+    }
+    P.play=function(){
+      if(schoolBannerActive()){cancelPendingMedia(this,SCHOOL_BANNER_REASON);try{this.pause()}catch(e){}
+        return Promise.reject(new Error(SCHOOL_BANNER_REASON))}
+      var video=routeVideoId();if(!video)return Promise.resolve();
+      var decision=mediaDecision(video),self=this,args=arguments;
+      if(decision==='pending'||decision==='open'&&mediaPending.has(self))
+        return queuePendingMedia(self,video,'play',function(){return playAndReport(self,args,video)});
+      if(decision==='open')return playAndReport(self,args,video);
+      cancelPendingMedia(self,REASON);mediaBlockedLog();return Promise.reject(new Error(REASON));
+    };
+    P.play.__ttMedia=1;
+  }
+  if(typeof P.load==='function'&&!P.load.__ttMedia){
+    var OL=P.load;
+    P.load=function(){
+      var video=routeVideoId(),decision=video?mediaDecision(video):'open',self=this,args=arguments;
+      if(decision==='pending'||decision==='open'&&mediaPending.has(self)){
+        queuePendingMedia(self,video,'load',function(){return OL.apply(self,args)});return;
+      }
+      if(decision!=='open'){cancelPendingMedia(self,REASON);mediaBlockedLog();throw new Error(REASON)}
+      return OL.apply(self,args);
+    };
+    P.load.__ttMedia=1;
+  }
+  if(typeof P.pause==='function'&&!P.pause.__ttMedia){
+    var OPAUSE=P.pause;
+    P.pause=function(){
+      cancelPendingPlay(this,'Media playback paused');
+      return OPAUSE.apply(this,arguments);
+    };
+    P.pause.__ttMedia=1;
+  }
+  var sd=Object.getOwnPropertyDescriptor(P,'src');
+  if(sd&&sd.set&&!sd.set.__ttMedia){
+    var ws=function(value){
+      var video=routeVideoId(),decision=video?mediaDecision(video):'open',src,self=this;
+      try{src=String(value).replace(/^[\x00-\x20]+|[\x00-\x20]+$/g,'')}catch(e){mediaBlockedLog();return}
+      if(decision!=='open'&&src.toLowerCase().lastIndexOf('blob:',0)===0){
+        if(decision==='pending')queuePendingMedia(self,video,'source',function(){sd.set.call(self,value)});
+        else{cancelPendingMedia(self,REASON);mediaBlockedLog()}
+        return;
+      }
+      cancelPendingMedia(self,'Media source changed');sd.set.call(self,value);
+    };
+    ws.__ttMedia=1;
+    Object.defineProperty(P,'src',{configurable:sd.configurable!==false,enumerable:!!sd.enumerable,
+      get:function(){return sd.get?sd.get.call(this):void 0},set:ws});
+  }
+  var U=w.URL;
+  if(U&&typeof U.createObjectURL==='function'&&!U.createObjectURL.__ttMedia){
+    var OU=U.createObjectURL.bind(U);
+    var nc=function(value){
+      var video=routeVideoId(),decision=video?mediaDecision(video):'open';
+      noteMediaInitialization('allocate',video,decision);
+      if(decision==='closed'&&value&&typeof value==='object'){mediaBlockedLog();throw new Error(REASON)}
+      return OU(value);
+    };
+    nc.__ttMedia=1;U.createObjectURL=nc;
+  }
+}catch(e){}}
+function guard(){if(!S.installed)return;try{if(typeof w.XMLHttpRequest=='function'){var q=w.XMLHttpRequest.prototype;if(q&&!q.__ttWrap){delete q.__ao;try{installXhr()}catch(e){S.armFail++}}else if(!S.xhrArmed&&S.arm){S.arm()}}if(typeof w.fetch=='function'&&(!w.fetch.__tt||!S.fetch0)){installFetch()}if(w.HTMLMediaElement)installMediaGuard()}catch(e){}}function install(){if(S.installed)return;S.installed=true;bridge();installFetch();installXhr();installMediaGuard();installRouteGate();cfg();renderStatus();watchStatus();watchMorningLifecycle();guard();if(typeof console!='undefined'&&console.log)console.log('[allowed-only] filter active');if(S.ctx)ensure()}
+w.__ttAllowedOnly={install:install,state:S,allowed:ok,configure:cfg,filterTree:filter,blockPlayerResponse:player,collectLikedVideoIds:liked,collectAllChannelIds:channels,collectGuideSubscriptionIds:guide,responseChannelId:responseChannelId,rememberChannelPageVideos:rememberChannelPageVideos,collectPlaylistIds:collectPlaylistIds,collectPlaylistVideoIds:collectPlaylistVideoIds,learnAccountPlaylistResponse:learnAccountPlaylistResponse,processApiPayload:payload,collectMusicLibraryVideoIds:collectMusicLibraryVideoIds,collectMusicCollectionVideoIds:collectMusicCollectionVideoIds,collectMusicCollectionBrowseIds:collectMusicCollectionBrowseIds,collectPurchasedVideoIds:collectPurchasedVideoIds,accountLibraries:accountLibraries,startBackgroundEnrichment:startBackgroundEnrichment,continuationTokens:cont,firstVideoId:vid,firstChannelId:authcid,discoverChannelId:cid,videoOwnerChannelId:vcid,addPageStyle:addPageStyle,BLOCK_REASON:REASON,statusText:statusText,renderStatus:renderStatus,statusTick:statusTick,guard:guard,routeVideoId:routeVideoId,mediaDecision:mediaDecision,installMediaGuard:installMediaGuard,verifyDirectVideo:verifyDirectVideo,gateDirectRoute:gateDirectRoute,installRouteGate:installRouteGate,retryDelaySchedule:retryDelaySchedule,bootWithRetry:bootWithRetry,filtapi:filtapi,collectChannelNames:collectChannelNames,tileShouldStay:tileShouldStay,sweepDom:sweepDom,collectMorningProgress:collectMorningProgress,publishMorningProgress:publishMorningProgress,morningStatusPayload:morningStatusPayload,morningProgressFresh:morningProgressFresh,refreshMorningProgressOnFocus:refreshMorningProgressOnFocus,writeMorningProgress:writeMorningProgress,writeMorningPlaying:writeMorningPlaying,publishMorningPlaying:publishMorningPlaying,setSchoolBannerLease:setSchoolBannerLease};return w.__ttAllowedOnly;
 });
 
 ;(function(g){

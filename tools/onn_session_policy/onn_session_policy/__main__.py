@@ -30,6 +30,7 @@ def arguments():
     sub.add_parser("get-token", help="obtain protected endpoint token and save privately")
     sub.add_parser("status", help="show fresh canonical app status")
     sub.add_parser("running", help="show this controller's own live status")
+    sub.add_parser("authenticate-once", help="explicit bounded PIN-only test through running private controller")
     sub.add_parser("stop", help="assistant override of current session, then stop owned controller")
     sub.add_parser("probe", help="read app health without waking")
     sub.add_parser("override", help="assistant override current session; keep controller monitoring")
@@ -48,6 +49,8 @@ async def main(args):
         print(json.dumps({"schema": 1, "state_source": "live", **asdict(snapshot)}))
     elif args.command == "running":
         print(json.dumps(await control_request(args.state_dir, "status")))
+    elif args.command == "authenticate-once":
+        print(json.dumps(await control_request(args.state_dir, "authenticate-once")))
     elif args.command in ("probe", "override", "stop"):
         if args.command == "stop":
             failed = None

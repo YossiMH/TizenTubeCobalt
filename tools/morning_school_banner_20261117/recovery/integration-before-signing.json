@@ -1,0 +1,12 @@
+{
+  "guard_patch_sha256": "55e2b45f3e44d440a25f441a38ad5259a18878fca44bb178bf36294a99159f65",
+  "guard_integrated_unsigned_sha256": "1eb53ee3f86c83432916917dc5239033b614a8e081a4fcb41d6528b826b14e92",
+  "player_sha256": "299bcd8c478d739a086d692c78f82d0f481b14d92a417ead92e43c5b2da66290",
+  "changed_payloads": [
+    "assets/player.js",
+    "assets/player.sha256"
+  ],
+  "bytes": 96957,
+  "installed": false,
+  "deployment_status": "pending live acceptance"
+}

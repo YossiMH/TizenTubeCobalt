@@ -6,13 +6,17 @@
 #undef main
 #include <assert.h>
 
+static char topology_directory[256];
+
 static Runtime fresh_runtime(void) {
     Runtime r;
     memset(&r, 0, sizeof(r));
     r.bridge_fd = -1;
     r.signal_fd = -1;
     r.lock_fd = -1;
+    r.topology_fd = -1;
     r.mode = MODE_CONTROLLED;
+    assert(watch_topology(&r, topology_directory) == 0);
     return r;
 }
 
@@ -68,6 +72,82 @@ static void close_readers(Runtime *r) {
             r->devices[i].phase = SLOT_EMPTY;
         }
     }
+    if (r->topology_fd >= 0) {
+        assert(close(r->topology_fd) == 0);
+        r->topology_fd = -1;
+    }
+}
+
+static void test_transient_phone_node_prevents_clear_barrier(void) {
+    Runtime r = fresh_runtime();
+    int writer = add_pipe(&r, 0, SOURCE_PHONE);
+    char path[256];
+    assert(snprintf(path, sizeof(path), "%s/event18", topology_directory) < (int)sizeof(path));
+    int transient = open(path, O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC, 0600);
+    assert(transient >= 0);
+    assert(close(transient) == 0);
+    assert(unlink(path) == 0);
+    /* The directory snapshot is identical, but the kernel retains the lost
+     * connection's create/delete history. The real DRAIN must consume it. */
+    apply_command(&r, "DRAIN 121");
+    char text[OUTPUT_SIZE + 1];
+    output(&r, text);
+    assert(r.topology_phase == TOPOLOGY_LOST && r.phase == RUN_STOP);
+    assert(strstr(text, "\"operation\":\"input_topology\""));
+    assert(strstr(text, "\"result\":\"clear\"") == NULL);
+    assert(close(writer) == 0);
+    close_readers(&r);
+}
+
+static void test_topology_loss_precedes_status(void) {
+    Runtime r = fresh_runtime();
+    int writer = add_pipe(&r, 0, SOURCE_PHONE);
+    char path[256];
+    assert(snprintf(path, sizeof(path), "%s/event19", topology_directory) < (int)sizeof(path));
+    int transient = open(path, O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC, 0600);
+    assert(transient >= 0);
+    assert(close(transient) == 0);
+    assert(unlink(path) == 0);
+    apply_command(&r, "STATUS");
+    char text[OUTPUT_SIZE + 1];
+    output(&r, text);
+    assert(r.topology_phase == TOPOLOGY_LOST && r.phase == RUN_STOP);
+    assert(strstr(text, "\"kind\":\"status\"") == NULL);
+    assert(close(writer) == 0);
+    close_readers(&r);
+}
+
+static void test_unrelated_directory_entry_preserves_proof(void) {
+    Runtime r = fresh_runtime();
+    int writer = add_pipe(&r, 0, SOURCE_PHONE);
+    char path[256];
+    assert(snprintf(path, sizeof(path), "%s/non-input-file", topology_directory) < (int)sizeof(path));
+    int entry = open(path, O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC, 0600);
+    assert(entry >= 0);
+    assert(close(entry) == 0);
+    assert(unlink(path) == 0);
+    apply_command(&r, "DRAIN 122");
+    char text[OUTPUT_SIZE + 1];
+    output(&r, text);
+    assert(r.topology_phase == TOPOLOGY_WATCHING && r.phase == RUN_CONTINUE);
+    assert(strstr(text, "\"nonce\":122,\"result\":\"clear\""));
+    assert(close(writer) == 0);
+    close_readers(&r);
+}
+
+static void test_removed_watch_denies_barrier(void) {
+    Runtime r = fresh_runtime();
+    int writer = add_pipe(&r, 0, SOURCE_PHONE);
+    assert(rmdir(topology_directory) == 0);
+    apply_command(&r, "DRAIN 123");
+    char text[OUTPUT_SIZE + 1];
+    output(&r, text);
+    assert(r.topology_phase == TOPOLOGY_LOST && r.phase == RUN_STOP);
+    assert(strstr(text, "\"reason\":\"watch_history_lost\""));
+    assert(strstr(text, "\"result\":\"clear\"") == NULL);
+    assert(close(writer) == 0);
+    close_readers(&r);
+    assert(mkdir(topology_directory, 0700) == 0);
 }
 
 static void test_queued_power_precedes_marker(void) {
@@ -223,6 +303,7 @@ static void test_closed_poll_slot_does_not_consume_controller_stdin(void) {
     assert(r.phase == RUN_CONTINUE);
     assert(close(commands[0]) == 0);
     assert(close(commands[1]) == 0);
+    close_readers(&r);
 }
 
 static void test_invalid_nonces_fail_open_without_marker(void) {
@@ -238,6 +319,7 @@ static void test_invalid_nonces_fail_open_without_marker(void) {
         assert(r.lease.phase != LEASE_ARMED);
         assert(strstr(text, "\"reason\":\"invalid_command\""));
         assert(strstr(text, "\"kind\":\"drain\"") == NULL);
+        close_readers(&r);
     }
 }
 
@@ -254,7 +336,7 @@ static int protocol_stream(void) {
     assert(flags >= 0 && fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK) == 0);
     flags = fcntl(STDOUT_FILENO, F_GETFL);
     assert(flags >= 0 && fcntl(STDOUT_FILENO, F_SETFL, flags | O_NONBLOCK) == 0);
-    emit(&r, "{\"kind\":\"ready\",\"version\":2,\"mode\":\"controlled\",\"pid\":%ld,\"max_lease_ms\":15000}",
+    emit(&r, "{\"kind\":\"ready\",\"version\":3,\"mode\":\"controlled\",\"pid\":%ld,\"max_lease_ms\":15000}",
          (long)getpid());
     int64_t deadline = clock_ms(CLOCK_MONOTONIC) + 10000;
     while (r.phase == RUN_CONTINUE && clock_ms(CLOCK_MONOTONIC) < deadline) {
@@ -275,7 +357,16 @@ static int protocol_stream(void) {
 }
 
 int main(int argc, char **argv) {
-    if (argc == 2 && strcmp(argv[1], "--protocol-stream") == 0) return protocol_stream();
+    const char *temporary = getenv("TMPDIR");
+    if (temporary == NULL || temporary[0] == '\0') temporary = "/tmp";
+    assert(snprintf(topology_directory, sizeof(topology_directory), "%s/onn-topology-test-XXXXXX", temporary)
+            < (int)sizeof(topology_directory));
+    assert(mkdtemp(topology_directory) != NULL);
+    if (argc == 2 && strcmp(argv[1], "--protocol-stream") == 0) {
+        int result = protocol_stream();
+        assert(rmdir(topology_directory) == 0);
+        return result;
+    }
     if (argc != 1) return 2;
     test_queued_power_precedes_marker();
     test_empty_phone_is_clear();
@@ -287,6 +378,11 @@ int main(int argc, char **argv) {
     test_input_loss_never_emits_clear();
     test_closed_poll_slot_does_not_consume_controller_stdin();
     test_invalid_nonces_fail_open_without_marker();
-    puts("PASS: real-pipe DRAIN ordering, bounded backlog, all-phone coverage, disconnect, loss, nonce validation");
+    test_transient_phone_node_prevents_clear_barrier();
+    test_topology_loss_precedes_status();
+    test_unrelated_directory_entry_preserves_proof();
+    test_removed_watch_denies_barrier();
+    assert(rmdir(topology_directory) == 0);
+    puts("PASS: real-pipe DRAIN ordering and real-inotify transient input history, loss, status/barrier ordering");
     return 0;
 }

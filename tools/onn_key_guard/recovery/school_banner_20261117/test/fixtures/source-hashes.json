@@ -1,0 +1,8 @@
+{
+  "base_apk_sha256": "2a63048d454e7b66407e42de5bdce1d46586399bba9ccee4169727d36601190f",
+  "provenance": "JADX 1.5.6 decompilation of exact installed Guard v8 APK; host fixture only",
+  "source_sha256": {
+    "ControllerProtocol.java": "90f2892403edeb8b6958da31e0dd396cbd6ab4265a4f8e32deca9ffaff328ef6",
+    "PlayerScriptAsset.java": "f83e9a089ba2d491ef5394684a7ecc5992086f87a01af1030171ba8d09c4fa92"
+  }
+}

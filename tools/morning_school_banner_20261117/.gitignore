@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.apk
+*.dex
+*.class
+*.jar
+*.keystore
+*.jks
+*.token
+sign-two-apks.ps1
+exchange.ready.json
+signing-receipt.json
+signing-receipt.tmp
+signing.once
+*-signed.apk.json

@@ -1,5 +1,21 @@
 # Onn key guard policy runtime
 
+## Current school-banner repair (November 17, 2026)
+
+The installed baseline is **version code 8 / version 3.2-prepared** and contains
+startup-window fixes newer than this directory's earlier full-source snapshot.
+The [school-banner recovery sources](recovery/school_banner_20261117/INTEGRATION.md)
+add the separately authorized school reminder after actual playback completion,
+through 09:30 America/Los_Angeles, excluding Sundays and U.S. federal holidays.
+Its pinned patcher retains every unrelated installed method. Root `x.js` supplies
+durable watched progress and the finite media lease.
+
+Edit those readable sources first, run their tests, and use the pinned builder
+and [shared integration tools](../morning_school_banner_20261117/README.md).
+This repair is installed; see the shared deployment evidence for bounded device acceptance and remaining direct physical observations.
+
+## Earlier source snapshot
+
 Version 3.1-prepared (Android version code 7) keeps daily enforcement in `rollout=prepared` until an explicit DUMP administrative command enables it. Streaming audio adapters are `unverified`; the compiled Hebrew preference policy makes no app selections.
 
 ## Input provenance and session admission
