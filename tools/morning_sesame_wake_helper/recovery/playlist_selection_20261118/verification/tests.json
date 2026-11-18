@@ -1,0 +1,16 @@
+{
+  "host_regression_assertions": 177,
+  "renderer_scope_assertions": 17,
+  "source_transport_assertions": 117,
+  "adapter_assertions": 13,
+  "history_policy_assertions": 30,
+  "public_live_check": {
+    "date": "2026-11-18",
+    "playlist_id": "PLxKlPmCFYxy9y498dCB1tIddaxZz3OQCA",
+    "qualifying_episodes": 83,
+    "elapsed_ms": 12258,
+    "sort_proof": "exact playlist membership intersected with positively verified channel Latest shelf"
+  },
+  "private_account_history_included": false,
+  "device_deployment_status": "installed; coordinated live acceptance passed; see tools/morning_school_banner_20261118/verification/deployment.json"
+}

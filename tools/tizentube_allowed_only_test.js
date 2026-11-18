@@ -500,7 +500,7 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
     const savedConsoleLog = console.log;
     class MediaSourceFixture {}
     class HostMediaElement {
-      constructor() { this._src = ''; this._plays = 0; }
+      constructor() { this._src = ''; this._plays = 0; this.tagName = 'VIDEO'; }
       get src() { return this._src; }
       set src(value) { this._src = String(value); }
       load() {}
@@ -551,8 +551,9 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           mod.state.booting = true;
           assert.strictEqual(mod.mediaDecision('any'), 'pending');
         });
-        check('mediaDecision reports closed for unauthorized signed-in-ready routes', () => {
+        check('mediaDecision reports closed for a known unauthorized owner', () => {
           resetSignedInReady();
+          mod.state.v2c.set('FZpaYeCQO00', 'UCnotSubscribed');
           assert.strictEqual(mod.mediaDecision('FZpaYeCQO00'), 'closed');
         });
         check('mediaDecision reports open only for current allowlist hits', () => {
@@ -642,6 +643,7 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
         if (typeof mod.installMediaGuard === 'function') mod.installMediaGuard();
 
         resetSignedInReady();
+        mod.state.v2c.set('FZpaYeCQO00', 'UCnotSubscribed');
         setWatchRoute('https://www.youtube.com/watch?v=FZpaYeCQO00');
         const blockedEl = new HostMediaElement();
         blockedEl.src = 'about:blank';
@@ -768,8 +770,8 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           assert.strictEqual(mod.mediaDecision('transition'), 'pending');
           assert.strictEqual(mod.state.mediaGate, 'pending');
           mod.state.booting = false;
-          assert.strictEqual(mod.mediaDecision('transition'), 'closed');
-          assert.strictEqual(mod.state.mediaGate, 'closed');
+          assert.strictEqual(mod.mediaDecision('transition'), 'pending');
+          assert.strictEqual(mod.state.mediaGate, 'pending');
           mod.state.loggedIn = true;
           mod.state.ready = true;
           mod.state.liked.add('transitionOpen');
@@ -813,13 +815,13 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
             'self-healed wrappers must stay single-layered');
         });
 
-        // Pending authorization must fail closed on every synchronous media
-        // setup surface, with pristine counting originals proving the
-        // underlying host APIs are never reached.
+        // Pending authorization permits inert URL allocation. Source attachment,
+        // loading and playback remain queued until positive permission arrives.
         let creatorCalls = 0;
         const countingCreateObjectURL = function createObjectURL(input) {
           creatorCalls += 1;
-          if (!(input instanceof Blob)) throw new TypeError('createObjectURL requires a Blob');
+          if (!(input instanceof Blob) && !(input instanceof MediaSourceFixture))
+            throw new TypeError('createObjectURL requires a media source or Blob');
           return 'blob:fixture-' + creatorCalls;
         };
         URL.createObjectURL = countingCreateObjectURL;
@@ -836,14 +838,10 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
         check('pending decision is explicit while account lists load', () => {
           assert.strictEqual(mod.mediaDecision('pendingLiked'), 'pending');
         });
-        check('pending route refuses MediaSource object URLs without invoking the creator', () => {
-          let thrown = null;
-          try { URL.createObjectURL(new MediaSourceFixture()); } catch (e) { thrown = e; }
-          assert.ok(thrown, 'pending createObjectURL(MediaSource) must throw');
-          assert.strictEqual(thrown.message, mod.BLOCK_REASON,
-            'expected BLOCK_REASON while pending, got ' + JSON.stringify(thrown && thrown.message));
-          assert.strictEqual(creatorCalls, 0,
-            'the underlying creator must never run while pending, ran ' + creatorCalls + ' time(s)');
+        check('pending route permits inert MediaSource object URL allocation', () => {
+          const objectUrl = URL.createObjectURL(new MediaSourceFixture());
+          assert.strictEqual(objectUrl, 'blob:fixture-1');
+          assert.strictEqual(creatorCalls, 1, 'inert allocation reaches the original creator once');
         });
         check('pending route refuses blob src assignment and preserves prior source', () => {
           const pendingSrcEl = new HostMediaElement();
@@ -852,15 +850,11 @@ assert.strictEqual(typeof mod.sweepDom, 'function', 'sweepDom must be exported')
           assert.strictEqual(pendingSrcEl.src, 'about:blank',
             'prior src must survive a pending blob refusal, got ' + JSON.stringify(pendingSrcEl.src));
         });
-        check('pending route refuses load() without invoking the original method', () => {
+        check('pending route queues load without invoking the original method', () => {
           const pendingLoadEl = new HostMediaElement();
-          let thrown = null;
-          try { pendingLoadEl.load(); } catch (e) { thrown = e; }
-          assert.ok(thrown, 'pending load() must throw');
-          assert.strictEqual(thrown.message, mod.BLOCK_REASON,
-            'expected BLOCK_REASON while pending, got ' + JSON.stringify(thrown && thrown.message));
+          assert.doesNotThrow(() => pendingLoadEl.load());
           assert.strictEqual(nativeLoadCalls, 0,
-            'the original load must never run while pending, ran ' + nativeLoadCalls + ' time(s)');
+            'the original load must wait for positive authorization');
         });
       }
     } finally {
@@ -927,30 +921,25 @@ assert.strictEqual(mod.rememberChannelPageVideos(mismatchedChannelPage), 0,
   'mismatched channel provenance must not seed video ownership');
 
 
+// Morning history requires a complete signed-in playlist identity on each page.
+const morningPlaylist = 'PLxKlPmCFYxy9y498dCB1tIddaxZz3OQCA';
 const morningProgressFixture = {
-  contents: { sectionListRenderer: { contents: [
-    { tileRenderer: {
-      contentType: 'TILE_CONTENT_TYPE_VIDEO',
-      contentId: 'progress-one',
-      onSelectCommand: { watchEndpoint: { videoId: 'progress-one' } },
-      header: { tileHeaderRenderer: { thumbnailOverlays: [
-        { thumbnailOverlayResumePlaybackRenderer: { percentDurationWatched: 73 } }
-      ] } }
-    } },
-    { tileRenderer: {
-      contentType: 'TILE_CONTENT_TYPE_VIDEO',
-      contentId: 'progress-two',
-      onSelectCommand: { watchEndpoint: { videoId: 'progress-two' } },
-      header: { tileHeaderRenderer: { thumbnailOverlays: [] } }
-    } }
-  ] } }
+  responseContext: {serviceTrackingParams: [{params: [
+    {key: 'logged_in', value: '1'}, {key: 'browse_id', value: 'VL' + morningPlaylist}]}]},
+  contents: {playlistVideoListRenderer: {contents: [73, undefined].map((percent, i) => {
+    const videoId = ['aaaaaaaaaaa', 'bbbbbbbbbbb'][i];
+    const thumbnailOverlays = [{thumbnailOverlayTimeStatusRenderer: {text: {simpleText: '58:37'}}}];
+    if (percent !== undefined) thumbnailOverlays.push({thumbnailOverlayResumePlaybackRenderer: {percentDurationWatched: percent}});
+    return {tileRenderer: {contentType: 'TILE_CONTENT_TYPE_VIDEO', contentId: videoId,
+      onSelectCommand: {watchEndpoint: {videoId, playlistId: morningPlaylist}},
+      header: {tileHeaderRenderer: {thumbnailOverlays}}}};
+  })}}
 };
 assert.deepStrictEqual(mod.collectMorningProgress(morningProgressFixture, {}), {
-  'progress-one': 73,
-  'progress-two': 0
-}, 'morning progress collector must preserve resume percentage and treat no resume overlay as unplayed');
-
-
+  aaaaaaaaaaa: 73, bbbbbbbbbbb: 0
+}, 'recognized signed-in playlist cards preserve progress and explicit unstarted state');
+assert.throws(() => mod.collectMorningProgress({contents: morningProgressFixture.contents}, {}),
+  /identity_missing/, 'unscoped progress cannot become unwatched history');
 
 // Empty filtered shelves must disappear from the data response so surviving
 // allowed shelves are not pushed below one or more blank TV rows.

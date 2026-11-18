@@ -3,7 +3,6 @@ if(w.__ttAllowedOnly)return w.__ttAllowedOnly;
 var S={liked:new Set,subs:new Set,playlist:new Set,savedPlaylists:new Set,savedPlaylistContinuations:new Set,savedLibraryContinuations:new Set,music:new Set,purchased:new Set,accountVideos:new Set,v2c:new Map,ctx:null,key:null,hdr:{},ready:false,p:null,fetch0:null,installed:false,errors:[],retries:0,loggedIn:null,lastLoggedIn:null,stripped:0,booting:false,mediaGate:'pending',statusEl:null,statusWatcher:null,xhrArmed:false,arm:null,armFail:0,allowedNames:new Set,morningProgress:null,morningPlaying:null};
 var R={busy:false,pending:null,hash:null,installed:false};
 var REASON='Only videos you liked or videos from channels you subscribe to are available.';
-var MORNING_CHANNEL='UC7DM7591Xkt1M2D3fs_wAlg',MORNING_PARAMS='EgZ2aWRlb3PyBgQKAjoA';
 function statusText(){if(S.booting)return'Restricted YouTube - Loading your liked videos and subscriptions...';if(S.loggedIn===true&&(S.errors.length||!S.ready))return'Restricted YouTube - Protecting you: list unavailable, retrying';if(S.ready&&S.loggedIn===true)return'Restricted YouTube - Ready: '+S.liked.size+' liked, '+S.subs.size+' subscribed';if(S.loggedIn===false&&S.ready)return'Restricted YouTube - Signed out: all videos blocked';if(!S.ready)return'Restricted YouTube - Protecting you: list unavailable, retrying';return'Restricted YouTube - Starting...'}
 function addPageStyle(d,id,css){if(!d||!d.createElement)return null;try{if(d.getElementById){var old=d.getElementById(id);if(old)return old}}catch(e){}var st=d.createElement('style');st.id=id;if(st.setAttribute)st.setAttribute('id',id);try{var q=d.querySelector&&d.querySelector('style[nonce],script[nonce]'),n=q&&(q.nonce||(q.getAttribute&&q.getAttribute('nonce')));if(n&&st.setAttribute)st.setAttribute('nonce',n)}catch(e){}st.textContent=css;var r=d.head||d.body||d.documentElement;if(r&&r.appendChild)try{r.appendChild(st)}catch(e){}return st}
 function renderStatus(){var t=statusText(),d=w.document;if(!d||!d.createElement)return t;var e=S.statusEl;if(!e){addPageStyle(d,'tt-allowed-only-style','#tt-allowed-only-status{position:fixed;top:12px;right:12px;z-index:2147483647;padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.82);color:#fff;font:600 18px/1.25 Arial,sans-serif;pointer-events:none;max-width:52vw;white-space:normal;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,.45)}');e=d.createElement('div');S.statusEl=e;e.id='tt-allowed-only-status';if(e.setAttribute){e.setAttribute('id','tt-allowed-only-status');e.setAttribute('role','status')}e.textContent=t;var r=d.body||d.documentElement;if(r&&e.parentNode!==r&&r.appendChild)try{r.appendChild(e)}catch(x){}}else if(e.textContent!==t)e.textContent=t;return t}
@@ -53,7 +52,7 @@ function sweepDom(){if(!S.allowedNames.size&&(!S.ready||S.subs.size>0))return 0;
 function cont(x){var a=[];function add(c){if(typeof c=='string'&&c&&a.indexOf(c)<0)a.push(c)}walk(x,function(o,p){var k=p.length?String(p[p.length-1]):'';if(k=='continuationItemRenderer'){add(o.continuationEndpoint&&o.continuationEndpoint.continuationCommand&&o.continuationEndpoint.continuationCommand.token);add(o.continuationEndpoint&&o.continuationEndpoint.nextContinuationData&&o.continuationEndpoint.nextContinuationData.continuation)}if(o.nextContinuationData)add(o.nextContinuationData.continuation)});return a}
 function json(s){try{return typeof s=='string'&&s?JSON.parse(s):null}catch(e){return null}}
 function authed(){try{return Object.keys(S.hdr).some(function(k){return k.toLowerCase()=='authorization'&&!!S.hdr[k]})||(S.ctx&&S.ctx.user&&(S.ctx.user.onBehalfOfUser||S.ctx.user.delegatedThirdPartyIdentity||S.ctx.user.authenticatedUser))}catch(e){return false}}
-function cfg(){try{var y=w.ytcfg;if(!y)return;var get=typeof y.get=='function'?function(k){return y.get(k)}:function(k){return y.data_&&y.data_[k]};S.ctx=S.ctx||get('INNERTUBE_CONTEXT');S.key=S.key||get('INNERTUBE_API_KEY');var li=get('LOGGED_IN'),signed=authed();if(signed)S.loggedIn=true;else if(li===true)S.loggedIn=true;else if(li===false)S.loggedIn=false;if(S.loggedIn!==null&&S.loggedIn!==S.lastLoggedIn){S.lastLoggedIn=S.loggedIn;S.ready=false;S.p=null;S.liked.clear();S.subs.clear();S.playlist.clear();S.savedPlaylists.clear();S.savedPlaylistContinuations.clear();S.savedLibraryContinuations.clear();S.music.clear();S.purchased.clear();S.accountVideos.clear();S.v2c.clear();S.allowedNames.clear();S.morningProgress=null;S.morningProgressAt=0;S.morningAccountProgress=undefined;S.morningAccountProgressAt=0;S.morningStatusUntilElapsed=0;S.errors=[];S.retries=0;S.stripped=0;S.booting=false;S.mediaGate='pending';S.ctx=null;S.key=null;renderStatus()}}catch(e){}}
+function cfg(){try{var y=w.ytcfg;if(!y)return;var get=typeof y.get=='function'?function(k){return y.get(k)}:function(k){return y.data_&&y.data_[k]};S.ctx=S.ctx||get('INNERTUBE_CONTEXT');S.key=S.key||get('INNERTUBE_API_KEY');var li=get('LOGGED_IN'),signed=authed();if(signed)S.loggedIn=true;else if(li===true)S.loggedIn=true;else if(li===false)S.loggedIn=false;if(S.loggedIn!==null&&S.loggedIn!==S.lastLoggedIn){S.lastLoggedIn=S.loggedIn;S.ready=false;S.p=null;S.liked.clear();S.subs.clear();S.playlist.clear();S.savedPlaylists.clear();S.savedPlaylistContinuations.clear();S.savedLibraryContinuations.clear();S.music.clear();S.purchased.clear();S.accountVideos.clear();S.v2c.clear();S.allowedNames.clear();S.morningProgress=null;S.morningProgressAt=0;S.morningHistoryStatus=null;S.morningHistoryAccountIdentity=null;S.morningStatusUntilElapsed=0;S.errors=[];S.retries=0;S.stripped=0;S.booting=false;S.mediaGate='pending';S.ctx=null;S.key=null;renderStatus()}}catch(e){}}
 function url(x){try{return new URL(typeof x=='string'?x:x&&x.url||'',w.location&&w.location.href||'https://www.youtube.com/')}catch(e){return null}}
 function isapi(u){return u&&u.pathname.indexOf('/youtubei/v1/')>=0}
 function filtapi(u){return isapi(u)&&/(browse|search|next|player|reel|queue|get_mobile_playback|notification)/.test(u.pathname)}
@@ -64,79 +63,113 @@ function apiurl(ep,base){var u=new URL('/youtubei/v1/'+ep,base||(w.location&&w.l
 async function post(ep,b,base){var h=Object.assign({},S.hdr);h['content-type']='application/json';delete h['content-length'];var f=S.fetch0||(typeof w.fetch=='function'?w.fetch.bind(w):null);var r=await f(apiurl(ep,base),{method:'POST',credentials:'include',headers:h,body:JSON.stringify(Object.assign({context:S.ctx},b||{}))});if(!r.ok)throw Error(ep+' '+r.status);return r.json()}
 async function pages(ep,b,collect,max,base){var q=[b],seen=new Set,n=0;while(q.length&&n<(max||120)){var x=await post(ep,q.shift(),base);collect(x);n++;cont(x).forEach(function(c){if(!seen.has(c)){seen.add(c);q.push({continuation:c})}})}return n}
 async function optionalPages(ep,b,collect,max,base){try{return await pages(ep,b,collect,max,base)}catch(e){return 0}}
-function resumePercent(x){var r=null;walk(x,function(o){if(r!==null)return;var q=o&&o.thumbnailOverlayResumePlaybackRenderer,n=q&&Number(q.percentDurationWatched);if(Number.isFinite(n))r=Math.max(0,Math.min(100,n))});return r}
-function collectMorningProgress(x,t){t=t||{};walk(x,function(o,p){var k=p.length?String(p[p.length-1]):'';if(k!=='tileRenderer'||o.contentType!=='TILE_CONTENT_TYPE_VIDEO')return;var v=vid(o);if(!v||Object.prototype.hasOwnProperty.call(t,v))return;var n=resumePercent(o);t[v]=n===null?0:n});return t}
-// Account resume markers can lag or disappear. Keep independently observed
-// progress across page/app restarts without treating a successful launch as a watch.
-var MORNING_LOCAL_KEY='ttMorningObservedProgressV1',MORNING_LOCAL_LIMIT=2048;
+// Morning eligibility comes only from a fresh, authenticated, complete playlist response.
+var MORNING_PLAYLIST='PLxKlPmCFYxy9y498dCB1tIddaxZz3OQCA';
+var MORNING_HISTORY_MAX_PAGES=40,MORNING_HISTORY_MAX_VIDEOS=512;
 var morningMediaTracking=new WeakMap,morningObservedMedia=new WeakSet;
 function morningVideoId(v){return typeof v==='string'&&/^[\w-]{11}$/.test(v)}
 function morningPercent(p){return typeof p==='number'&&Number.isFinite(p)&&p>=0&&p<=100}
-function pruneMorningLocal(records){
-  var keys=Object.keys(records);
-  if(keys.length<=MORNING_LOCAL_LIMIT)return;
-  keys.sort(function(a,b){return records[b].updated_at_ms-records[a].updated_at_ms||a.localeCompare(b)});
-  for(var i=MORNING_LOCAL_LIMIT;i<keys.length;i++)delete records[keys[i]];
-}
-function loadMorningLocal(){
-  if(S.morningLocalRecords)return S.morningLocalRecords;
-  var records=Object.create(null),now=Date.now();
-  try{
-    var raw=w.localStorage&&w.localStorage.getItem(MORNING_LOCAL_KEY);
-    if(raw&&raw.length<=524288){
-      var data=JSON.parse(raw),entries=data&&data.schema===1&&data.entries;
-      if(entries&&typeof entries==='object'&&!Array.isArray(entries))Object.keys(entries).forEach(function(v){
-        var r=entries[v];
-        if(morningVideoId(v)&&r&&morningPercent(r.percent)&&typeof r.updated_at_ms==='number'
-            &&Number.isFinite(r.updated_at_ms)&&r.updated_at_ms>0&&r.updated_at_ms<=now+1000)
-          records[v]={percent:r.percent,updated_at_ms:r.updated_at_ms};
-      });
-    }
-    S.morningLocalStorage=w.localStorage?'available':'unavailable';
-  }catch(e){S.morningLocalStorage='unavailable'}
-  pruneMorningLocal(records);S.morningLocalRecords=records;return records;
-}
-function localMorningPercentages(){
-  var records=loadMorningLocal(),values=Object.create(null);
-  Object.keys(records).forEach(function(v){values[v]=records[v].percent});return values;
-}
-function mergeMorningProgress(account){
-  var result=Object.create(null),local=localMorningPercentages();
-  if(account&&typeof account==='object')Object.keys(account).forEach(function(v){
-    if(morningVideoId(v)&&morningPercent(account[v]))result[v]=account[v];
+function morningPageIdentity(x){
+  if(!trusted(x))throw Error('morning_history_response_failed');
+  var signed=false,scoped=false,invalid=false;
+  var tracking=x&&x.responseContext&&x.responseContext.serviceTrackingParams;
+  if(!Array.isArray(tracking))throw Error('morning_history_identity_missing');
+  tracking.forEach(function(service){
+    (Array.isArray(service&&service.params)?service.params:[]).forEach(function(p){
+      if(p&&p.key==='logged_in'){if(p.value==='1')signed=true;else invalid=true}
+      if(p&&p.key==='browse_id'){if(p.value==='VL'+MORNING_PLAYLIST)scoped=true;else invalid=true}
+    });
   });
-  Object.keys(local).forEach(function(v){result[v]=Math.max(result[v]||0,local[v])});
-  if(Object.keys(result).length)result.__local_observed=local;
+  if(!signed||!scoped||invalid)throw Error('morning_history_identity_mismatch');
+  return true;
+}
+function resumePercent(x){
+  var result=null,invalid=false;
+  walk(x,function(o){
+    Object.keys(o).forEach(function(k){
+      if(/resume.*playback|playback.*progress/i.test(k)&&k!=='thumbnailOverlayResumePlaybackRenderer')
+        invalid=true;
+    });
+    if(Object.prototype.hasOwnProperty.call(o,'thumbnailOverlayResumePlaybackRenderer')){
+      var p=o.thumbnailOverlayResumePlaybackRenderer;
+      if(!p||!morningPercent(p.percentDurationWatched))invalid=true;
+      else if(result!==null&&result!==p.percentDurationWatched)invalid=true;
+      else result=p.percentDurationWatched;
+    }
+  });
+  if(invalid)throw Error('morning_history_progress_unrecognized');
   return result;
 }
-function freshMorningAccount(now){
-  var age=now-Number(S.morningAccountProgressAt);
-  return S.morningAccountProgress&&Number.isFinite(age)&&age>=-1000&&age<=300000
-    ?S.morningAccountProgress:null;
+function collectMorningProgress(x,t){
+  morningPageIdentity(x);t=t||Object.create(null);
+  var found=0;
+  walk(x,function(o,p){
+    var k=p.length?String(p[p.length-1]):'';
+    if(k!=='tileRenderer'||o.contentType!=='TILE_CONTENT_TYPE_VIDEO')return;
+    var ep=o.onSelectCommand&&o.onSelectCommand.watchEndpoint,v=ep&&ep.videoId;
+    var head=o.header&&o.header.tileHeaderRenderer,overlays=head&&head.thumbnailOverlays;
+    if(!morningVideoId(v)||o.contentId!==v||ep.playlistId!==MORNING_PLAYLIST
+        ||!Array.isArray(overlays)||!overlays.some(function(z){return z&&z.thumbnailOverlayTimeStatusRenderer}))
+      throw Error('morning_history_card_invalid');
+    var n=resumePercent(o);
+    if(n===null){
+      // No resume marker means unstarted only on a successfully authenticated,
+      // explicitly scoped, recognized playlist card. Unknown watch markers fail.
+      if(/\bwatched\b/i.test(textOf(o)))throw Error('morning_history_progress_unrecognized');
+      n=0;
+    }
+    if(Object.prototype.hasOwnProperty.call(t,v)&&t[v]!==n)
+      throw Error('morning_history_conflicting_progress');
+    t[v]=n;found++;
+  });
+  if(!found||Object.keys(t).length>MORNING_HISTORY_MAX_VIDEOS)
+    throw Error('morning_history_cards_missing');
+  return t;
 }
-function persistMorningLocal(force){
-  var now=Date.now(),elapsed=w.performance.now();
-  if(!force&&Number.isFinite(S.morningLocalPersistElapsed)
-      &&elapsed-S.morningLocalPersistElapsed<15000)return;
-  try{
-    if(!w.localStorage)return;
-    w.localStorage.setItem(MORNING_LOCAL_KEY,JSON.stringify({schema:1,entries:loadMorningLocal()}));
-    S.morningLocalPersistElapsed=elapsed;S.morningLocalStorage='available';
-  }catch(e){S.morningLocalStorage='unavailable'}
+function morningContinuationTokens(x){
+  var result=[];
+  function add(token){
+    if(typeof token!=='string'||!token||token.length>16384)throw Error('morning_history_continuation_invalid');
+    if(result.indexOf(token)<0)result.push(token);
+  }
+  walk(x,function(o){
+    Object.keys(o).forEach(function(k){
+      if(k==='nextContinuationData')add(o[k]&&o[k].continuation);
+      else if(k==='continuationCommand')add(o[k]&&o[k].token);
+      else if(k==='continuationItemRenderer'){
+        var ep=o[k]&&o[k].continuationEndpoint;
+        if(!ep||(!ep.continuationCommand&&!ep.nextContinuationData))
+          throw Error('morning_history_continuation_invalid');
+      }else if(k==='continuations'){
+        if(!Array.isArray(o[k])||o[k].some(function(c){return !c||!c.nextContinuationData}))
+          throw Error('morning_history_continuation_unrecognized');
+      }else if(/ContinuationData$|continuationItemViewModel/.test(k))
+        throw Error('morning_history_continuation_unrecognized');
+    });
+  });
+  return result;
 }
-function recordMorningObserved(v,percent,ended){
-  if(!morningVideoId(v)||!morningPercent(percent))return false;
-  var records=loadMorningLocal(),old=records[v],previous=old?old.percent:0;
-  if(old&&percent<=previous){if(ended===true)persistMorningLocal(true);return false;}
-  records[v]={percent:Math.max(previous,percent),updated_at_ms:Date.now()};
-  pruneMorningLocal(records);
-  // Crossing the eligibility threshold and actual completion are committed
-  // synchronously; ordinary progress is batched to limit storage writes.
-  persistMorningLocal(!old||previous<=25&&percent>25||ended===true);
-  S.morningProgress=mergeMorningProgress(freshMorningAccount(Date.now()));
-  S.morningProgressAt=Date.now();
+function invalidateMorningHistory(phase,now){
+  S.morningProgress=null;S.morningProgressAt=0;
+  S.morningHistoryStatus={phase:phase,pages:0,videos:0,captured_at_ms:now};
+  S.morningInvalidationAt=now;
   S.morningStatusUntilElapsed=w.performance.now()+120000;
-  return true;
+  S.morningStatusNextElapsed=0;
+}
+function validMorningHistory(history,now){
+  if(!history||history.schema!==1||history.source!=='youtube_playlist'
+      ||history.playlist_id!==MORNING_PLAYLIST||history.signed_in!==true||history.complete!==true
+      ||!Number.isInteger(history.captured_at_ms)||history.captured_at_ms<=0
+      ||now-history.captured_at_ms<0||now-history.captured_at_ms>300000
+      ||!Array.isArray(history.covered_ids)||!history.progress||typeof history.progress!=='object'
+      ||Array.isArray(history.progress))return false;
+  var ids=history.covered_ids,keys=Object.keys(history.progress),seen=new Set;
+  if(!ids.length||ids.length>MORNING_HISTORY_MAX_VIDEOS||keys.length!==ids.length)return false;
+  return ids.every(function(v){
+    if(!morningVideoId(v)||seen.has(v)||!Object.prototype.hasOwnProperty.call(history.progress,v)
+        ||!morningPercent(history.progress[v]))return false;
+    seen.add(v);return true;
+  });
 }
 function currentMorningTracking(media){
   var r=media&&morningMediaTracking.get(media);
@@ -145,19 +178,7 @@ function currentMorningTracking(media){
   var source=String(media.currentSrc||media.src||'');
   return r.source&&source!==r.source?null:r;
 }
-function observeMorningMedia(media){
-  var r=currentMorningTracking(media);if(!r||r.ended)return false;
-  var position=Number(media.currentTime),duration=Number(media.duration),previous=r.previousPosition;
-  if(!morningIsActive(r.video)||!Number.isFinite(position)||!Number.isFinite(previous)
-      ||!Number.isFinite(duration)||duration<=0||position<0||position<=previous){
-    r.previousPosition=position;return false;
-  }
-  // High-frequency timeupdate events must accumulate enough real movement;
-  // resetting the baseline on every sub-50ms event would lose all progress.
-  if(position<=previous+0.05)return false;
-  r.previousPosition=position;
-  return recordMorningObserved(r.video,Math.min(100,100*position/duration),false);
-}
+
 // This lease is renewed by the authenticated session controller. It cannot
 // survive a page reload or a lost controller and never resumes media on release.
 var SCHOOL_BANNER_REASON='Morning school banner is active.';
@@ -215,7 +236,6 @@ function noteMorningEnded(media){
   r.ended=true;
   S.morningLastEnded={video_id:r.video,position_seconds:position,duration_seconds:duration,
     playing:'ended',sample_wall_ms:Date.now()};
-  recordMorningObserved(r.video,100,true);
   S.morningPlaying=null;
   activateSchoolBannerForEnd(r.video);
   writeMorningStatus();return true;
@@ -227,7 +247,6 @@ function schoolMediaEvent(event){
 function watchMorningMediaEvents(media){
   if(!media||typeof media.addEventListener!=='function'||morningObservedMedia.has(media))return;
   morningObservedMedia.add(media);
-  media.addEventListener('timeupdate',function(){observeMorningMedia(media)},true);
   media.addEventListener('ended',function(){noteMorningEnded(media)},true);
   media.addEventListener('play',schoolMediaEvent,true);
   media.addEventListener('playing',schoolMediaEvent,true);
@@ -247,16 +266,22 @@ function morningIsActive(v) {
     && m.paused===false && m.ended!==true && Number(m.readyState)>=2;
 }
 function morningProgressFresh(now) {
-  var at=Number(S.morningProgressAt),age=now-at;
-  return !!S.morningProgress&&Object.keys(S.morningProgress).length>0
-    &&Number.isFinite(at)&&at>0&&age>=-1000&&age<=300000;
+  if(S.morningProgress&&S.morningHistoryAccountIdentity!==morningAccountIdentity()){
+    invalidateMorningHistory('unavailable',now);
+  }
+  return S.ready===true&&S.loggedIn===true&&!!S.morningProgress
+    &&validMorningHistory(S.morningProgress.__youtube_history,now);
 }
 function morningStatusPayload(now) {
   var body='yumi=morning-sesame&ms_state=idle';
-  if(morningProgressFresh(now))
-    body+='&ms_progress='+encodeURIComponent(JSON.stringify(S.morningAccountProgress!==undefined
-      ?mergeMorningProgress(freshMorningAccount(now)):S.morningProgress))
+  var fresh=morningProgressFresh(now);
+  if(S.morningInvalidationAt)
+    body+='&ms_progress='+encodeURIComponent('{}')+'&ms_progress_at='+S.morningInvalidationAt;
+  else if(fresh)
+    body+='&ms_progress='+encodeURIComponent(JSON.stringify(S.morningProgress))
       +'&ms_progress_at='+S.morningProgressAt;
+  else if(S.morningHistoryStatus&&/^(loading|unavailable)$/.test(S.morningHistoryStatus.phase))
+    body+='&ms_progress='+encodeURIComponent('{}')+'&ms_progress_at='+S.morningHistoryStatus.captured_at_ms;
   var v=S.morningPlaying;
   if(v&&morningIsActive(v)&&now-S.morningPlayingAt>=-1000&&now-S.morningPlayingAt<=5000) {
     body=body.replace('ms_state=idle','ms_state=playing');
@@ -267,31 +292,43 @@ function morningStatusPayload(now) {
 }
 async function writeMorningStatus() {
   var f=S.fetch0||(typeof w.fetch==='function'?w.fetch.bind(w):null);
-  if(!f||S.morningStatusPhase==='posting')return false;
+  if(!f)return false;
+  if(S.morningStatusPhase==='posting'){S.morningStatusQueued=true;return false}
   S.morningStatusPhase='posting';
   S.morningStatusNextElapsed=w.performance.now()+2000;
+  var body=morningStatusPayload(Date.now()),invalidation=S.morningInvalidationAt;
   try {
     await f('http://localhost:8012/apps/YouTube',{method:'POST',mode:'no-cors',
-      headers:{'content-type':'application/x-www-form-urlencoded'},body:morningStatusPayload(Date.now())});
+      headers:{'content-type':'application/x-www-form-urlencoded'},body:body});
+    if(invalidation&&S.morningInvalidationAt===invalidation){
+      S.morningInvalidationAt=0;
+      if(S.morningProgress)S.morningStatusQueued=true;
+    }
     return true;
   } catch(e) { return false; }
-  finally {S.morningStatusPhase='idle'}
+  finally {
+    S.morningStatusPhase='idle';
+    if(S.morningStatusQueued){
+      S.morningStatusQueued=false;
+      w.setTimeout(function(){writeMorningStatus()},0);
+    }
+  }
 }
 function pumpMorningStatus() {
   var elapsed=w.performance.now(),d=w.document;
   if(!d||d.hidden||S.ready!==true||S.loggedIn!==true||S.morningStatusPhase==='posting')return;
+  var fresh=morningProgressFresh(Date.now()),invalid=!!S.morningInvalidationAt;
   if(!(elapsed<Number(S.morningStatusUntilElapsed))
-      ||elapsed<Number(S.morningStatusNextElapsed||0)||!morningProgressFresh(Date.now()))return;
+      ||elapsed<Number(S.morningStatusNextElapsed||0)||(!fresh&&!invalid))return;
   writeMorningStatus();
 }
 async function writeMorningProgress(m) {
-  if(!m||typeof m!=='object')return false;
-  var account=Object.create(null);
-  Object.keys(m).forEach(function(v){if(morningVideoId(v)&&morningPercent(m[v]))account[v]=m[v]});
-  S.morningAccountProgress=account;S.morningAccountProgressAt=Date.now();
-  S.morningProgress=mergeMorningProgress(account);
-  if(!Object.keys(S.morningProgress).length)return false;
-  S.morningProgressAt=Date.now();
+  var history=m&&m.__youtube_history;
+  if(S.ready!==true||S.loggedIn!==true||!validMorningHistory(history,Date.now()))return false;
+  // Copy only the authenticated envelope; no local or legacy fields participate.
+  S.morningProgress={__youtube_history:JSON.parse(JSON.stringify(history))};
+  S.morningProgressAt=history.captured_at_ms;
+  S.morningHistoryAccountIdentity=morningAccountIdentity();
   S.morningStatusUntilElapsed=w.performance.now()+120000;
   return writeMorningStatus();
 }
@@ -305,7 +342,6 @@ async function writeMorningPlaying(v) {
   if(advanced) {
     S.morningPlayingAt=Date.now();
     S.morningPlayingPosition=position;
-    observeMorningMedia(m);
   }
   await writeMorningStatus();
   return advanced;
@@ -337,23 +373,63 @@ function publishMorningPlaying(v,media) {
   if(typeof w.setTimeout==='function')w.setTimeout(tick,2000);
   return true;
 }
+function morningAccountIdentity(){
+  var values=[];Object.keys(S.hdr).sort().forEach(function(k){
+    if(/^(authorization|x-goog-authuser|x-goog-pageid)$/i.test(k))values.push(k.toLowerCase()+':'+S.hdr[k]);
+  });
+  return JSON.stringify([values,S.ctx&&S.ctx.user||null]);
+}
+async function morningHistoryPost(body,base,deadline){
+  var remaining=Math.min(8000,deadline-Date.now()),timer;
+  if(remaining<=0)throw Error('morning_history_timeout');
+  try{return await Promise.race([post('browse',body,base),new Promise(function(resolve,reject){
+    timer=w.setTimeout(function(){reject(Error('morning_history_timeout'))},remaining);
+  })])}finally{if(timer!=null)w.clearTimeout(timer)}
+}
 async function publishMorningProgress(env){
   if(S.morningProgressTask)return S.morningProgressTask;
-  env=env||{};var context=S.ctx;
+  env=env||{};var context=S.ctx,identity=morningAccountIdentity(),deadline=Date.now()+20000;
   S.morningRefreshAtElapsed=w.performance.now();
+  // A refresh invalidates the old selection snapshot until all pages succeed.
+  invalidateMorningHistory('loading',Date.now());
   var task=(async function(){
-    var progress={};
+    var progress=Object.create(null),queue=[{browseId:'VL'+MORNING_PLAYLIST}],seen=new Set,pagesRead=0;
     try{
-      await optionalPages('browse',{browseId:MORNING_CHANNEL,params:MORNING_PARAMS},
-        function(x){collectMorningProgress(x,progress)},4,env.apiBase);
-      if(S.ctx===context&&S.ready===true&&S.loggedIn===true)
-        await writeMorningProgress(progress);
-    }catch(e){if(typeof console!='undefined'&&console.log)console.log('[allowed-only] morning progress unavailable')}
-    return progress;
+      await writeMorningStatus();
+      if(!context||S.ready!==true||S.loggedIn!==true||!authed())
+        throw Error('morning_history_not_signed_in');
+      while(queue.length){
+        if(pagesRead>=MORNING_HISTORY_MAX_PAGES)throw Error('morning_history_incomplete');
+        var page=await morningHistoryPost(queue.shift(),env.apiBase,deadline);
+        collectMorningProgress(page,progress);pagesRead++;
+        morningContinuationTokens(page).forEach(function(c){
+          if(seen.has(c))throw Error('morning_history_repeated_continuation');
+          seen.add(c);queue.push({continuation:c});
+        });
+        if(S.ctx!==context||S.ready!==true||S.loggedIn!==true||!authed()
+            ||morningAccountIdentity()!==identity)throw Error('morning_history_account_changed');
+      }
+      var history={schema:1,source:'youtube_playlist',playlist_id:MORNING_PLAYLIST,
+        captured_at_ms:Date.now(),signed_in:true,complete:true,
+        covered_ids:Object.keys(progress),progress:progress};
+      await writeMorningProgress({__youtube_history:history});
+      S.morningHistoryStatus={phase:'complete',pages:pagesRead,videos:history.covered_ids.length,
+        captured_at_ms:history.captured_at_ms};
+      return history;
+    }catch(e){
+      if(S.ctx===context){
+        invalidateMorningHistory('unavailable',Date.now());
+        S.morningHistoryStatus.pages=pagesRead;
+        await writeMorningStatus();
+      }
+      if(typeof console!='undefined'&&console.log)console.log('[allowed-only] authenticated playlist history unavailable');
+      return null;
+    }
   })();
   S.morningProgressTask=task;
   try{return await task}finally{if(S.morningProgressTask===task)S.morningProgressTask=null}
 }
+
 function refreshMorningProgressOnFocus(){
   var d=w.document,elapsed=w.performance.now();
   if(!d||d.hidden||S.ready!==true||S.loggedIn!==true||!S.ctx||S.morningProgressTask)return;
@@ -545,7 +621,7 @@ function installMediaGuard(){try{
   }
 }catch(e){}}
 function guard(){if(!S.installed)return;try{if(typeof w.XMLHttpRequest=='function'){var q=w.XMLHttpRequest.prototype;if(q&&!q.__ttWrap){delete q.__ao;try{installXhr()}catch(e){S.armFail++}}else if(!S.xhrArmed&&S.arm){S.arm()}}if(typeof w.fetch=='function'&&(!w.fetch.__tt||!S.fetch0)){installFetch()}if(w.HTMLMediaElement)installMediaGuard()}catch(e){}}function install(){if(S.installed)return;S.installed=true;bridge();installFetch();installXhr();installMediaGuard();installRouteGate();cfg();renderStatus();watchStatus();watchMorningLifecycle();guard();if(typeof console!='undefined'&&console.log)console.log('[allowed-only] filter active');if(S.ctx)ensure()}
-w.__ttAllowedOnly={install:install,state:S,allowed:ok,configure:cfg,filterTree:filter,blockPlayerResponse:player,collectLikedVideoIds:liked,collectAllChannelIds:channels,collectGuideSubscriptionIds:guide,responseChannelId:responseChannelId,rememberChannelPageVideos:rememberChannelPageVideos,collectPlaylistIds:collectPlaylistIds,collectPlaylistVideoIds:collectPlaylistVideoIds,learnAccountPlaylistResponse:learnAccountPlaylistResponse,processApiPayload:payload,collectMusicLibraryVideoIds:collectMusicLibraryVideoIds,collectMusicCollectionVideoIds:collectMusicCollectionVideoIds,collectMusicCollectionBrowseIds:collectMusicCollectionBrowseIds,collectPurchasedVideoIds:collectPurchasedVideoIds,accountLibraries:accountLibraries,startBackgroundEnrichment:startBackgroundEnrichment,continuationTokens:cont,firstVideoId:vid,firstChannelId:authcid,discoverChannelId:cid,videoOwnerChannelId:vcid,addPageStyle:addPageStyle,BLOCK_REASON:REASON,statusText:statusText,renderStatus:renderStatus,statusTick:statusTick,guard:guard,routeVideoId:routeVideoId,mediaDecision:mediaDecision,installMediaGuard:installMediaGuard,verifyDirectVideo:verifyDirectVideo,gateDirectRoute:gateDirectRoute,installRouteGate:installRouteGate,retryDelaySchedule:retryDelaySchedule,bootWithRetry:bootWithRetry,filtapi:filtapi,collectChannelNames:collectChannelNames,tileShouldStay:tileShouldStay,sweepDom:sweepDom,collectMorningProgress:collectMorningProgress,publishMorningProgress:publishMorningProgress,morningStatusPayload:morningStatusPayload,morningProgressFresh:morningProgressFresh,refreshMorningProgressOnFocus:refreshMorningProgressOnFocus,writeMorningProgress:writeMorningProgress,writeMorningPlaying:writeMorningPlaying,publishMorningPlaying:publishMorningPlaying,setSchoolBannerLease:setSchoolBannerLease};return w.__ttAllowedOnly;
+w.__ttAllowedOnly={install:install,state:S,allowed:ok,configure:cfg,filterTree:filter,blockPlayerResponse:player,collectLikedVideoIds:liked,collectAllChannelIds:channels,collectGuideSubscriptionIds:guide,responseChannelId:responseChannelId,rememberChannelPageVideos:rememberChannelPageVideos,collectPlaylistIds:collectPlaylistIds,collectPlaylistVideoIds:collectPlaylistVideoIds,learnAccountPlaylistResponse:learnAccountPlaylistResponse,processApiPayload:payload,collectMusicLibraryVideoIds:collectMusicLibraryVideoIds,collectMusicCollectionVideoIds:collectMusicCollectionVideoIds,collectMusicCollectionBrowseIds:collectMusicCollectionBrowseIds,collectPurchasedVideoIds:collectPurchasedVideoIds,accountLibraries:accountLibraries,startBackgroundEnrichment:startBackgroundEnrichment,continuationTokens:cont,firstVideoId:vid,firstChannelId:authcid,discoverChannelId:cid,videoOwnerChannelId:vcid,addPageStyle:addPageStyle,BLOCK_REASON:REASON,statusText:statusText,renderStatus:renderStatus,statusTick:statusTick,guard:guard,routeVideoId:routeVideoId,mediaDecision:mediaDecision,installMediaGuard:installMediaGuard,verifyDirectVideo:verifyDirectVideo,gateDirectRoute:gateDirectRoute,installRouteGate:installRouteGate,retryDelaySchedule:retryDelaySchedule,bootWithRetry:bootWithRetry,filtapi:filtapi,collectChannelNames:collectChannelNames,tileShouldStay:tileShouldStay,sweepDom:sweepDom,collectMorningProgress:collectMorningProgress,validMorningHistory:validMorningHistory,publishMorningProgress:publishMorningProgress,morningStatusPayload:morningStatusPayload,morningProgressFresh:morningProgressFresh,refreshMorningProgressOnFocus:refreshMorningProgressOnFocus,writeMorningProgress:writeMorningProgress,writeMorningPlaying:writeMorningPlaying,publishMorningPlaying:publishMorningPlaying,setSchoolBannerLease:setSchoolBannerLease};return w.__ttAllowedOnly;
 });
 
 ;(function(g){

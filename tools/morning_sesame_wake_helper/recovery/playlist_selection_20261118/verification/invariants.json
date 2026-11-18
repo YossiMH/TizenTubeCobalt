@@ -1,0 +1,42 @@
+{
+  "base_apk_sha256": "e9353160b28c323581ae82504507c73df2030123a2a2e90303683af276e40a8f",
+  "base_dex_sha256": "b09b50cce6562f0ff0e2f7b6619f3350ffa08e7dd87451439bbad60fd51ece95",
+  "candidate_dex_sha256": "a653862bc7acae0689647bfa7b80c5526a9abf75251f574045389d793404f9e2",
+  "existing_classes": 78,
+  "existing_methods": 371,
+  "replaced_classes": {
+    "MorningEpisodePolicy": "3200e780dde6b355862897034a51512d9b2382a57447ba40de508508c39d282a",
+    "MorningSelectionRepair": "8b6b5f492c15f2ab68dab0d4608dc196b24696a6bac717bf18a607bac18b57b6",
+    "MorningChannelPage": "228a2d985f967de53fec1e629f3412d84a797c6cb481cbdcd8d43ca0cf305b8e"
+  },
+  "methods_in_replaced_classes": 19,
+  "changed_adapter_methods": [
+    {
+      "class": "WakeAndPlayActivity",
+      "signature": ".method private fetchCandidates()Ljava/util/Map;",
+      "old_sha256": "2c3b4f9302b070cb91007b871fe542d87cec4440f167c5bda97cb5cd9a15eff7"
+    }
+  ],
+  "unchanged_existing_methods": 351,
+  "added_classes": [
+    "dev/yossi/morningsesame/MorningPlaylistPage.smali",
+    "dev/yossi/morningsesame/MorningPlaylistSource.smali",
+    "dev/yossi/morningsesame/MorningYouTubeHistory.smali"
+  ],
+  "retained_payloads": {
+    "resources.arsc": "1fa3cb291285348ec1b33c85e7317d989467707f4791c4e5302f2d312d1e18c8",
+    "AndroidManifest.xml": "d0dae7cffdce30200fe3e69f9ef5a5ebaa3f02f0c9a008f2b0a9beeecae6f35c"
+  },
+  "new_source_sha256": {
+    "MorningEpisodePolicy": "38f25a4bd8686eee0898b880e35e8f5353db572b71c9111d9f1f51d230e5777e",
+    "MorningSelectionRepair": "30324287b58650b5dd78aaf9edeb3323a0e80d6ce7a5db98ec37450c96cdba27",
+    "MorningChannelPage": "43d8493bad5c3a432571aec81d5f04c9bb4c5e07ec641b43080f5319802c92ea",
+    "MorningYouTubeHistory": "8451f42d29358ce1c39dd53c6fb7ef5f6883ffa8e15b68f8aa48587d21adba47",
+    "MorningPlaylistPage": "75c6d82792b06d83fa2baf749b1bad6431ca598d7d40ac00f44f862bfc637e9b",
+    "MorningPlaylistSource": "281e002639ad4ceff75ea693c373cfbe8a7644c6a85886320ce1120c46f67557"
+  },
+  "unsigned_apk": "MorningSesame-playlist-selection-unsigned.apk",
+  "unsigned_apk_sha256": "d45a0bc4df8b843533f1046430208bc7393b12f2733c10bb74ddd8429436e1f1",
+  "signed": false,
+  "installed": false
+}

@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "revision": "morning-playlist-school-reminder-20261118",
+  "installed": true,
+  "source_base_commit": "11ad110ea46f59dae2ae65320197aa0e3d56209a",
+  "installed_payloads": {
+    "helper": {
+      "bytes": 70035,
+      "sha256": "4b378a10bebb6e6030f271cc7eb19f53abbc708d884afcb1cdc7a7c5d4da9999"
+    },
+    "guard": {
+      "bytes": 119633,
+      "sha256": "1a56676eb5eaef7fda9a0d8a33543e6002accb2ec49bb26fd3d7133ea3b0c2a3"
+    },
+    "player": {
+      "bytes": 83041,
+      "sha256": "b42d6c054448ea37d691751466aee224b77d8b29d89e81f7a2a4df99ad589b11",
+      "served_bytes_verified": true
+    }
+  },
+  "existing_signing_certificates_preserved": true,
+  "existing_manifests_and_resources_preserved": true,
+  "media_sidecar_permissions": {
+    "directory": "0755",
+    "files": "0644",
+    "directory_traversal_verified": true,
+    "concrete_manifest_private": true
+  },
+  "host_regressions": {
+    "selector_assertions": 177,
+    "player_history_and_media_gate_assertions": 113,
+    "reminder_timeline_checks": 83,
+    "retained_banner_policy_checks": 109,
+    "retained_player_route_checks": 19
+  },
+  "live_acceptance": {
+    "rich_media_cycle": {
+      "passed": true,
+      "checks": 11,
+      "samples": 115,
+      "phases": [
+        "hold",
+        "fade_out",
+        "video",
+        "return",
+        "hold"
+      ],
+      "timed_release_verified": true
+    },
+    "phone_dismissal": {
+      "passed": true,
+      "event_source": "synthetic_authenticated_phone_key",
+      "during_music_playback": true,
+      "media_focus_and_native_grabs_released": true,
+      "canonical_identity_restored": true
+    },
+    "installed_player_history": {
+      "ready": true,
+      "signed_in": true,
+      "source": "youtube_playlist",
+      "playlist_id": "PLxKlPmCFYxy9y498dCB1tIddaxZz3OQCA",
+      "complete": true,
+      "pages": 6,
+      "covered_count": 83,
+      "refresh_errors": 0,
+      "fresh_dial_envelope_verified": true
+    },
+    "visual_checks": {
+      "screenshots": 3,
+      "first_frame_and_exact_text_legible": true,
+      "video_text_absent": true,
+      "return_crossfade_checked": true
+    }
+  },
+  "next_alarm": {
+    "epoch_ms": 1795014000000,
+    "timezone": "America/Los_Angeles",
+    "local_time": "2026-11-18T07:00:00-08:00"
+  },
+  "final_device_state": "asleep",
+  "private_receipts_retained": true,
+  "private_account_watch_data_included": false,
+  "timing_note": "Return offsets +3/+5/+8/+11 are relative to actual video completion. Music positions are track playhead positions. Sampled fields may straddle one animation tick."
+}
