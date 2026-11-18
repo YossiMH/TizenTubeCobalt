@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "v3_sha256": "3996d6a1b3c683cfd02b6ba9c799bb4538f75bb18a8ba64c2d28cfa5af0afa8e",
+  "bytes": 119940,
+  "changed_payloads_from_v2": [
+    "AndroidManifest.xml",
+    "classes.dex"
+  ],
+  "dex_canonically_identical_to_v2": true,
+  "java_source_pins_unchanged": true,
+  "player_identical_to_v2": true,
+  "exact_package_query": "dev.yossi.morningsesame",
+  "original_manifest_node_bytes_preserved": true
+}

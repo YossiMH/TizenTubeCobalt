@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "kind": "player_assets_only",
+  "base_sha256": "3996d6a1b3c683cfd02b6ba9c799bb4538f75bb18a8ba64c2d28cfa5af0afa8e",
+  "unsigned_sha256": "42e6ce4c6362cbb167421e34a122344ba83898ff9007d386fba8f6f93ab62962",
+  "unsigned_bytes": 121472,
+  "player_sha256": "de55b9aadef8ae82f561ced2a3fdc9f123074ceaed3d7ab924d027a945242be1",
+  "previous_player_sha256": "b68753418534e0f8b0b5576c63784327d45f717fafef616f95fe51aa0aa14c7a",
+  "changed_entries": [
+    "assets/player.js",
+    "assets/player.sha256"
+  ],
+  "preserved_entries_sha256": {
+    "AndroidManifest.xml": "a016b7c4bd01c4194238a39585c7ef6a680bdcdd7d51829bc3b42aa00b1e9fa3",
+    "res/xml/keyguard_service.xml": "a6cb176fa6690af0762f8929207422ed25dc9ca38d39e1c5923396d976372951",
+    "resources.arsc": "4af60925371adde37c9fb2a4e68a82264657e3e583f0336ec1e7340e21c37bdd",
+    "classes.dex": "f6cda831ecbd6908f3d1565b6b79eba964cdc6eb88123a7c5be2a207c679012d",
+    "assets/school_banner_revision.json": "36028fb004e9259f4d082557b50a41ccad6ae1d77025fef933cbf221f0be184d",
+    "assets/school_reminder_manifest.json": "608d2062067eb304cc82f5dd6c68a11f3bfef848de171808dcafa59993a754d1",
+    "assets/school_reminder_revision.json": "2a1ad7a6bb650b478b948252de2d35162f424ba96f1b034b78a683df812d2e47"
+  },
+  "unchanged_manifest_and_dex": true,
+  "legacy_player_url": "/1fe2154764b819ad81036d04882cca104f3c28787.js"
+}

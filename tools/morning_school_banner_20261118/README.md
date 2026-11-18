@@ -1,6 +1,6 @@
 # Morning Full Episodes selection and school reminder — November 18, 2026
 
-This workstream applies the revised episode rule and adds the supplied video and music to the existing school reminder. The scheduled morning, episode protection, phone override and school-calendar policy keep their installed owners. Both packages are installed and their payloads verified. Live checks passed for the rich-media cycle, timed release, authenticated phone dismissal and the installed player's fresh account-history refresh. The device was restored asleep after acceptance.
+This page records the playlist and rich-reminder revision and its earlier acceptance. The natural November 18 7:00 AM run subsequently failed before episode selection: the helper did not receive the player's account-history evidence, so episode protection and the reminder were never enrolled. The [startup integration repair](STARTUP_REPAIR.md) adds admitted startup protection, a run-bound history bridge and a finite failure reminder. Its separate deployment record tracks the complete scheduled-path acceptance.
 
 ## User rules
 
@@ -14,7 +14,7 @@ Except on Sundays and U.S. national holidays, after the scheduled episode actual
 
 > No more TV, Bernie -- it's time to leave for school!
 
-The installed calendar uses `America/Los_Angeles` and includes the customary Friday/Monday observance of fixed-date federal holidays. Saturday remains eligible unless it is a holiday. The reminder transition requires actual completion evidence; a nominal duration or the clock passing 8:00 does not establish that the episode ended.
+The installed calendar uses `America/Los_Angeles` and includes the customary Friday/Monday observance of fixed-date federal holidays. Saturday remains eligible unless it is a holiday. A confirmed episode transitions on actual completion evidence. The startup repair separately admits an 8:00 AM reminder fallback if that morning's scheduled run never confirms an episode; it does not treat the clock passing 8:00 as completion of a confirmed episode.
 
 During the protected episode and reminder, the existing physical-remote and voice/Google Home protections remain in force. Phone virtual-remotes retain dismissal precedence. Dismissal and the 9:30 cutoff release the reminder's media, callbacks and audio focus. The existing authorization, observer proof and bounded recovery continue to determine whether protection is active.
 
@@ -47,11 +47,13 @@ The existing `test_banner` diagnostic remains capped at 60 seconds. It uses a de
 | --- | --- |
 | Repository-root `x.js` | Fetch every authenticated page of the exact playlist; publish the authoritative account snapshot; retain actual-end reporting and phone-first banner lease checks |
 | `tools/morning_sesame_wake_helper/recovery/playlist_selection_20261118/` | Validate account evidence and eligibility; retrieve complete public playlist membership; intersect with the positively verified Classics **Latest** upload shelf |
+| `tools/morning_sesame_wake_helper/recovery/startup_history_20261118/` | Current helper history IPC, exact run binding, API 34 sender identity and preserved post-worker playback fencing |
+| `tools/onn_key_guard/recovery/morning_window_20261118/` | Current admitted startup window, authenticated history cache, failure reminder and bounded whole-path test grant |
 | `tools/onn_key_guard/recovery/school_reminder_20261118/` | Local video/music renderer, precise animation timeline, private sidecar verification and narrow Guard builder |
 | `tools/onn_key_guard/recovery/school_banner_20261117/` | Retained school calendar, actual-completion authorization, phone precedence and existing build/test support |
 | `tools/onn_session_policy/` | Retained controller, native input proof, canonical status and media authorization ownership |
 
-`x.js` publishes `__youtube_history` inside the DIAL `ms_progress` value. The snapshot requires schema 1, source `youtube_playlist`, exact playlist ID `PLxKlPmCFYxy9y498dCB1tIddaxZz3OQCA`, `signed_in:true`, `complete:true`, a nonfuture capture time at most five minutes old, and matching `covered_ids` plus numeric 0–100 `progress` entries. The player verifies signed-in status and exact playlist scope on every page, then publishes only after all continuations complete. A card without a resume overlay becomes 0 only when it was explicitly observed in that authenticated playlist response. Numeric partial progress is preserved even when YouTube also displays a generic WATCHED label.
+The startup repair delivers `__youtube_history` through the authenticated controller and the existing signature-protected Guard receiver. DIAL `ms_progress` remains an optional compatibility publication. The snapshot requires schema 1, source `youtube_playlist`, exact playlist ID `PLxKlPmCFYxy9y498dCB1tIddaxZz3OQCA`, `signed_in:true`, `complete:true`, a nonfuture capture time at most five minutes old, and matching `covered_ids` plus numeric 0–100 `progress` entries. The player verifies signed-in status and exact playlist scope on every page, then publishes only after all continuations complete. A card without a resume overlay becomes 0 only when it was explicitly observed in that authenticated playlist response. Numeric partial progress is preserved even when YouTube also displays a generic WATCHED label.
 
 The helper requires full public playlist membership before it returns candidates. It can retain a verified newest upload prefix if a later upload page fails, but only exact playlist members with explicit eligible account progress can be selected. Network failure never activates the retired local-history fallback. The two source-specific READMEs document request budgets and precise error outcomes.
 
@@ -86,9 +88,11 @@ The repository's older full helper/Guard Java snapshots predate unpublished chan
 | Guard input DEX | `5dae22b5dcfad6996559480b2deb6f6067b469a4315fa6ef12c232f4fe03c32c` |
 | Guard's input player asset | `299bcd8c478d739a086d692c78f82d0f481b14d92a417ead92e43c5b2da66290` |
 
-The helper builder replaces three selector classes, adds three classes, and changes one existing fetch adapter. Its final DEX round trip proves 351 existing methods remain unchanged and verifies that manifest/resources match the input. The Guard reminder builder replaces only `SchoolBannerRuntime` and its nested runtime classes, adds `SchoolReminder*`, preserves its public hook ABI, and proves all retained classes/methods unchanged. Compile-only API stubs do not enter either DEX. The reminder builder initially retains the input `assets/player.js`; release integration then replaces that asset with repository-root `x.js` before signing.
+The helper builder replaces three selector classes, adds three classes, and changes one existing fetch adapter. Its final DEX round trip proves 351 existing methods remain unchanged and verifies that manifest/resources match the input. The Guard reminder builder replaces only `SchoolBannerRuntime` and its nested runtime classes, adds `SchoolReminder*`, preserves its public hook ABI, and proves all retained classes/methods unchanged. Compile-only API stubs do not enter either DEX. The reminder builder initially retains the input `assets/player.js`; release integration replaces both that asset and its matching `assets/player.sha256` with repository-root `x.js` and its digest before signing. The current startup builder accepts `--player-script x.js` and performs both replacements together.
 
-## Reproduction
+## Original reminder-revision reproduction
+
+These commands document the earlier playlist/reminder build chain. For the current startup repair, use the pinned November 18 installed bases and commands in [STARTUP_REPAIR.md](STARTUP_REPAIR.md).
 
 Run these from a full repository checkout. Java with the `jdk.compiler` module, Python, Node, Android API 35, D8 and the Smali classes in the pinned JADX distribution are required. The helper host regressions also use an `org.json` JAR. Existing November 17 source/test prerequisites remain at their repository paths.
 
@@ -120,23 +124,29 @@ python tools/onn_key_guard/recovery/school_reminder_20261118/build_guard_reminde
   --output /tmp/reminder-build
 ```
 
-For the integrated Guard, copy the reminder builder's unsigned APK payloads while replacing `assets/player.js` with the current root script. The following step preserves all other ZIP entries and verifies the exact script bytes before signing:
+For the integrated Guard, copy the reminder builder's unsigned APK payloads while replacing `assets/player.js` with the root script and updating `assets/player.sha256` to its exact SHA-256 plus a newline. The following step preserves all other ZIP entries and verifies the exact script bytes before signing:
 
 ```sh
 python - <<'PY'
 from pathlib import Path
+import hashlib
 import zipfile
 source = Path('/tmp/reminder-build/guard-reminder-unsigned.apk')
 target = Path('/tmp/reminder-build/guard-integrated-unsigned.apk')
 player = Path('x.js').read_bytes()
+replacements = {'assets/player.js': player,
+                'assets/player.sha256': (hashlib.sha256(player).hexdigest() + '\n').encode()}
 with zipfile.ZipFile(source) as old, zipfile.ZipFile(target, 'w') as new:
-    assert old.namelist().count('assets/player.js') == 1
+    for name in replacements:
+        assert old.namelist().count(name) == 1
     for entry in old.infolist():
-        new.writestr(entry, player if entry.filename == 'assets/player.js' else old.read(entry.filename))
+        new.writestr(entry, replacements.get(entry.filename, old.read(entry.filename)))
 with zipfile.ZipFile(source) as old, zipfile.ZipFile(target) as new:
-    assert new.read('assets/player.js') == player
+    for name, expected in replacements.items():
+        assert new.read(name) == expected
+    assert new.read('assets/player.sha256') == (hashlib.sha256(new.read('assets/player.js')).hexdigest() + '\n').encode()
     for name in old.namelist():
-        if name != 'assets/player.js':
+        if name not in replacements:
             assert new.read(name) == old.read(name)
 PY
 ```
@@ -149,7 +159,9 @@ The selector's 177 host assertions cover exact thresholds, account freshness and
 
 The reminder regression entrypoint exercises the actual timeline and the retained banner/calendar/asset tests. Detailed source-specific evidence is retained with each recovery directory.
 
-### Installed payloads
+### Earlier installed payloads
+
+These hashes identify the inputs to the subsequent startup repair. Current deployment and full scheduled-path results are recorded separately in [verification/startup_deployment.json](verification/startup_deployment.json).
 
 Both APKs installed successfully with the existing signing certificates, manifests and resources preserved. The deployed player asset was served and its bytes verified.
 
@@ -173,6 +185,6 @@ An authenticated synthetic phone-key dismissal while music was playing released 
 
 The actual Cobalt player was reloaded with the installed script, verified ready and signed in, and completed six authenticated playlist pages covering 83 episodes with zero reported refresh errors. Its fresh complete `__youtube_history` envelope was read back through DIAL. Account percentages and watched-video IDs remain in private evidence. The next scheduled alarm was verified for November 18 at 7:00 AM in `America/Los_Angeles`, and the device was restored asleep.
 
-All three captured states were visually checked: the correct first frame with the exact legible sentence, video playback with text absent, and the return crossfade. The public summary of installed hashes and check counts is [verification/deployment.json](verification/deployment.json); full receipts and images remain private.
+All three captured states were visually checked: the correct first frame with the exact legible sentence, video playback with text absent, and the return crossfade. The historical public summary of these earlier installed hashes and check counts is [verification/deployment.json](verification/deployment.json); full receipts and images remain private.
 
 The public reproduction tools are `recovery/acceptance.py` and `recovery/rich_acceptance.py`. They retain bounded diagnostics and authenticated event handling. Receipts and screenshots remain private deployment evidence.

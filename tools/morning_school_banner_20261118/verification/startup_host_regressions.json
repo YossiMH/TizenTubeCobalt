@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "kind": "host_regression_summary",
+  "player": {
+    "existing_account_and_media_assertions": 113,
+    "startup_assertions": 65,
+    "source_sha256": "de55b9aadef8ae82f561ced2a3fdc9f123074ceaed3d7ab924d027a945242be1",
+    "playback_handoff_scenarios": 18,
+    "playback_handoff_assertions": 99,
+    "playback_handoff_receipt": "player-startup-handoff-result.json",
+    "before_fix_receipt": "player-startup-before-result.json"
+  },
+  "helper": {
+    "boundary_assertions": 100,
+    "receipt": "../../morning_sesame_wake_helper/recovery/startup_history_20261118/verification/host_boundary.json"
+  },
+  "guard_policy": {
+    "morning_window_checks": 91,
+    "retained_school_calendar_checks": 109
+  },
+  "controller": {
+    "tests_discovered": 88,
+    "passed": 85,
+    "skipped": 3,
+    "skip_reasons": {
+      "host_AF_UNIX_smoke_requires_device": 1,
+      "native_drain_harness_dependency_unavailable_in_staging_overlay": 2
+    },
+    "pending_handoff_new_tests": 9,
+    "latest_receipt": "../../onn_key_guard/recovery/morning_window_20261118/verification/pending-handoff-validation.json"
+  },
+  "staged_entrypoints_validated": true,
+  "verification_scope": "Production sources with platform I/O fixtures; device alarm, permission delivery and native protection require separate live acceptance.",
+  "staged_entrypoint_validation_note": "The staged entrypoint ran the initial 79 tests; the exact subsequently copied pending-handoff source passed the source-hashed 88-test suite."
+}

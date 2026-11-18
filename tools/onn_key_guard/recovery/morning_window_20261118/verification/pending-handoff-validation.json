@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "verified_at_utc": "2026-11-18T19:09:29.331254+00:00",
+  "scope": "prior-run pending phone handoff to admitted morning startup",
+  "python": {
+    "total": 88,
+    "passed": 85,
+    "skipped": 3,
+    "failed": 0,
+    "errors": 0,
+    "morning_window_tests": 22,
+    "new_pending_handoff_tests": 9,
+    "skip_reasons": [
+      "host policy forbids AF_UNIX; Termux socket smoke test required",
+      "provide ONN_DRAIN_HARNESS or a compiler and native test sources",
+      "provide ONN_DRAIN_HARNESS or a compiler and native test sources"
+    ]
+  },
+  "source_sha256": {
+    "controller/onn_session_policy/controller.py": "c944709f7f103715390d42043eeec32af91e96d11f5acee86a9b06e3e795c336",
+    "controller/onn_session_policy/policy.py": "a908cb8c40c24632a76d5685db50429d72846a288914f740928b92c82a7984e0",
+    "controller/tests/test_morning_window.py": "88c77ab01b065197db148bbaa5cc546bb2ad327f4beac8528229f753fd8c298e"
+  },
+  "device_changes_by_this_agent": false
+}

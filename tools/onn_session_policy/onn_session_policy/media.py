@@ -150,7 +150,8 @@ class CobaltMediaReader:
         if type(deadline_ms) is not int or type(awaiting_end) is not bool:
             raise ValueError("invalid school lease")
         if deadline_ms != 0 and (not 0 < deadline_ms - now <= 15_000
-                or not isinstance(video_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id)):
+                or not isinstance(video_id, str)
+                or not (re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id) or (video_id == "" and not awaiting_end))):
             raise ValueError("invalid school lease")
         arguments = json.dumps([deadline_ms, video_id, awaiting_end], separators=(",", ":"))
         expression = ("(function(){var a=window.__ttAllowedOnly;return !!(a&&"
@@ -160,6 +161,53 @@ class CobaltMediaReader:
         value = response.get("result", {}).get("result", {})
         return (not response.get("error") and not response.get("result", {}).get("exceptionDetails")
                 and value.get("type") == "boolean" and value.get("value") is True)
+
+    def set_morning_startup(self, deadline_ms, video_id=""):
+        """A finite warmup lease blocks media until the signature-selected candidate is known."""
+        now = time.time_ns() // 1_000_000
+        if type(deadline_ms) is not int or not isinstance(video_id, str) or (video_id
+                and not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id)):
+            raise ValueError("invalid startup lease")
+        if deadline_ms != 0 and not 0 < deadline_ms - now <= 15_000:
+            raise ValueError("invalid startup lease")
+        arguments = json.dumps([deadline_ms, video_id], separators=(",", ":"))
+        expression = ("(function(){var a=window.__ttAllowedOnly;return !!(a&&"
+            "typeof a.setMorningStartupLease==='function'&&a.setMorningStartupLease.apply(a,"
+            + arguments + "));})()")
+        response, _ = self._evaluate(expression)
+        value = response.get("result", {}).get("result", {})
+        return (not response.get("error") and not response.get("result", {}).get("exceptionDetails")
+                and value.get("type") == "boolean" and value.get("value") is True)
+
+    def morning_history(self, run_id, started_at_ms, deadline_ms):
+        """One bounded call starts/reuses the run's refresh and reads the account-bound snapshot."""
+        now = time.time_ns() // 1_000_000
+        if (not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", run_id)
+                or type(started_at_ms) is not int or type(deadline_ms) is not int
+                or deadline_ms - started_at_ms != 300_000 or started_at_ms > now + 1000 or now >= deadline_ms):
+            raise ValueError("invalid history run")
+        request = json.dumps({"run_id":run_id, "started_at_ms":started_at_ms,
+                              "deadline_ms":deadline_ms}, separators=(",", ":"))
+        expression = ("JSON.stringify((function(){var a=window.__ttAllowedOnly,r=" + request + ";"
+            "if(document.hidden===true||!a||typeof a.requestMorningProgress!=='function'||"
+            "typeof a.morningHistoryForRun!=='function')return {state:'unavailable'};"
+            "var requested=a.requestMorningProgress(r),p=a.morningHistoryForRun(r);"
+            "return p?{state:'ready',progress:p}:{state:requested?'pending':'unavailable'};})())")
+        response, _ = self._evaluate(expression)
+        if response.get("error") or response.get("result", {}).get("exceptionDetails"):
+            raise AdapterError("morning_history_unavailable")
+        value = response.get("result", {}).get("result", {})
+        if value.get("type") != "string" or not isinstance(value.get("value"), str):
+            raise AdapterError("morning_history_invalid")
+        try:
+            result = json.loads(value["value"])
+        except ValueError as exc:
+            raise AdapterError("morning_history_invalid") from exc
+        if not isinstance(result, dict) or result.get("state") not in ("ready", "pending", "unavailable"):
+            raise AdapterError("morning_history_invalid")
+        if result["state"] == "ready" and not isinstance(result.get("progress"), dict):
+            raise AdapterError("morning_history_invalid")
+        return result
 
     def _evaluate(self, expression):
         try:

@@ -1,0 +1,428 @@
+{
+  "schema": 1,
+  "revision": "morning-startup-integration-20261118",
+  "status": "installed_bounded_alarm_acceptance_and_final_device_verification_passed",
+  "installed": true,
+  "source_input_packages": {
+    "helper": "4b378a10bebb6e6030f271cc7eb19f53abbc708d884afcb1cdc7a7c5d4da9999",
+    "guard": "1a56676eb5eaef7fda9a0d8a33543e6002accb2ec49bb26fd3d7133ea3b0c2a3"
+  },
+  "candidate_payloads": {
+    "helper_unsigned": {
+      "bytes": 63710,
+      "sha256": "c82417f604d6653547054594b60fd724610b4b528da5a89ecd3428100f1c450d"
+    },
+    "player": {
+      "bytes": 100772,
+      "sha256": "de55b9aadef8ae82f561ced2a3fdc9f123074ceaed3d7ab924d027a945242be1"
+    },
+    "guard_unsigned": {
+      "revision": "v4",
+      "bytes": 121472,
+      "sha256": "42e6ce4c6362cbb167421e34a122344ba83898ff9007d386fba8f6f93ab62962"
+    }
+  },
+  "installed_payloads": {
+    "helper": {
+      "bytes": 70035,
+      "sha256": "f6c7a49d7c259867a251f881b62eb1ceafe13ff2f30c2a698f5c372fb0829ce9",
+      "installed_readback_matched": true,
+      "signing_certificate_sha256": "2603b0cf10c08a140658cc7c0289d3e413e94e4297da4403dce4b85fd6b16fb8"
+    },
+    "guard": {
+      "revision": "v4",
+      "bytes": 131921,
+      "sha256": "cab3f6c55786e56d7f7bf5c5cc3a5379bc71e5c6d5df0482d4647af851827b47",
+      "signing_certificate_sha256": "2603b0cf10c08a140658cc7c0289d3e413e94e4297da4403dce4b85fd6b16fb8",
+      "installed": true,
+      "installed_readback_matched": true,
+      "signed_payloads_match_unsigned": true
+    },
+    "served_player": {
+      "bytes": 100772,
+      "etag": "\"de55b9aadef8ae82f561ced2a3fdc9f123074ceaed3d7ab924d027a945242be1\"",
+      "path": "/1fe2154764b819ad81036d04882cca104f3c28787.js",
+      "sha256": "de55b9aadef8ae82f561ced2a3fdc9f123074ceaed3d7ab924d027a945242be1"
+    }
+  },
+  "host_regressions": {
+    "retained_player_assertions": 113,
+    "startup_player_assertions": 65,
+    "helper_boundary_assertions": 100,
+    "morning_window_checks": 91,
+    "retained_school_banner_checks": 109,
+    "controller_tests": 88,
+    "controller_passed": 85,
+    "controller_skipped": 3,
+    "receipt": "startup_host_regressions.json",
+    "pending_handoff_new_tests": 9,
+    "playback_handoff_scenarios": 18,
+    "playback_handoff_assertions": 99
+  },
+  "preservation": {
+    "helper_unchanged_existing_methods": 383,
+    "helper_existing_methods": 388,
+    "helper_manifest_and_resources_unchanged": true,
+    "compile_stubs_excluded_from_dex": true,
+    "guard_unchanged_existing_methods": 656,
+    "guard_all_unowned_methods_verified": true,
+    "packaged_player_digest_matches_script": true,
+    "guard_exact_manifest_query_added": "dev.yossi.morningsesame",
+    "guard_original_manifest_nodes_and_indexes_preserved": true,
+    "guard_no_new_permissions_or_exported_components": true,
+    "guard_dex_canonically_identical_to_v2": true,
+    "guard_v4_only_changed_entries": [
+      "assets/player.js",
+      "assets/player.sha256"
+    ]
+  },
+  "natural_failure_evidence": {
+    "outcome": "account_selection_failed",
+    "elapsed_ms": 80238,
+    "candidate_count": 83,
+    "dial_http_status": 200,
+    "history_read_attempts": 6,
+    "usable_history_count": 0
+  },
+  "live_acceptance": {
+    "real_alarm_to_confirmed_episode": true,
+    "canonical_episode_protection": true,
+    "reminder_transition": null,
+    "phone_dismissal": null,
+    "timed_release": true,
+    "advancing_playback": true,
+    "native_lease_armed": true,
+    "foreground_recovery_after_other_app_launch": true,
+    "authenticated_phone_event_cancellation": true,
+    "phone_dismissal_method_exercised": "authenticated_synthetic_phone_key",
+    "actual_handset_phone_dismissal": null,
+    "native_phone_input_injection": null,
+    "physical_remote_suppression": null,
+    "voice_control_suppression": null,
+    "normal_daily_alarm_unchanged": true,
+    "native_lease_released_after_phone_event": true,
+    "scheduled_failure_fallback_reminder": true,
+    "complete_rich_reminder_cycle": true,
+    "timed_release_method": "accelerated_same_policy_deadline_in_bounded_alarm_grant",
+    "full_episode_natural_end_transition": null,
+    "natural_unattended_7AM_run_after_repair": null,
+    "natural_9_30AM_cutoff_after_repair": null
+  },
+  "final_device_state": {
+    "wakefulness": "Awake",
+    "foreground_package": "com.netflix.ninja",
+    "canonical_active_session": false,
+    "retained_terminal_session_phase": "phone_stopped",
+    "reminder_phase": "expired",
+    "reminder_overlay_visible": false,
+    "audio_focus": "released",
+    "native_lease": "disarmed",
+    "native_physical_grabs": [],
+    "input_observer": "live",
+    "native_health": "monitoring",
+    "phone_intent": "none",
+    "recovery_in_progress": false,
+    "supervisor_phase": "running",
+    "supervisor_starts": 1,
+    "normal_daily_alarm_local": "2026-11-19T07:00:00-08:00",
+    "normal_daily_alarm_wall_ms": 1795100400000,
+    "timezone": "America/Los_Angeles"
+  },
+  "private_account_watch_data_included": false,
+  "controller_source_sha256": {
+    "onn_session_policy/controller.py": "c944709f7f103715390d42043eeec32af91e96d11f5acee86a9b06e3e795c336",
+    "onn_session_policy/policy.py": "a908cb8c40c24632a76d5685db50429d72846a288914f740928b92c82a7984e0",
+    "tests/test_morning_window.py": "88c77ab01b065197db148bbaa5cc546bb2ad327f4beac8528229f753fd8c298e",
+    "onn_session_policy/media.py": "cbb8fd92804dcdef8a9f524036d00be2f463785a8418b4a69672153c9436299d"
+  },
+  "prior_live_alarm_attempt": {
+    "history_delivered": true,
+    "candidate_selected": true,
+    "episode_playback_confirmed": false,
+    "scheduled_failure_reminder": true,
+    "timed_release": true,
+    "observed_failure": "selected media remained paused while startup candidate handoff completed"
+  },
+  "live_alarm_attempt_a5": {
+    "status": "playback_and_protection_passed_test_harness_failed_before_phone_check",
+    "initial_device_state": "asleep",
+    "player_process": "fresh_Cobalt",
+    "scheduled_helper_alarm": true,
+    "fresh_account_history_delivered": true,
+    "eligible_candidate_selected": true,
+    "helper_result": "playback_confirmed",
+    "video_position_advanced": true,
+    "canonical_phase": "ACTIVE",
+    "native_lease": "armed",
+    "active_episode_retained_after_failure_reminder_deadline": true,
+    "Cobalt_recovered_after_Netflix_launch": true,
+    "test_harness_failure": {
+      "code": "established_phone_device_missing",
+      "cause": "acceptance parser required a colon after getevent vendor/product field labels; device output omits it",
+      "classification": "test_parser_failure",
+      "phone_dismissal_exercised": false
+    },
+    "pending": [
+      "phone_check_not_completed_in_A5"
+    ],
+    "followup": "A7 completed the authenticated synthetic phone event check"
+  },
+  "live_alarm_attempt_a6": {
+    "status": "playback_and_protection_passed_native_input_injection_failed",
+    "helper_result": "playback_confirmed",
+    "canonical_phase_past_fallback": "active",
+    "native_lease_past_fallback": "armed",
+    "Cobalt_recovered_after_Netflix_launch": true,
+    "acceptance_failure": {
+      "code": "adb_command_failed",
+      "stage": "first synthetic raw sendevent key-down",
+      "stderr_retained": false,
+      "underlying_failure_cause": "unknown",
+      "native_input_delivery_confirmed": false
+    },
+    "followup": "A7 exercised the existing authenticated synthetic phone event route"
+  },
+  "live_alarm_attempt_a7": {
+    "status": "passed",
+    "kind": "actual_alarm_bounded_pipeline_acceptance",
+    "bounded_duration_seconds": 180,
+    "diagnostic_fallback_after_seconds": 150,
+    "initial_device_state": "asleep",
+    "player_process": "fresh_Cobalt",
+    "scheduled_helper_alarm": true,
+    "fresh_history_state": "ready",
+    "fresh_account_history_covered_count": 83,
+    "eligible_candidate_selected": true,
+    "helper_result": "playback_confirmed",
+    "helper_completion_elapsed_ms": 100547,
+    "moving_playback_samples": 9,
+    "canonical_phase_past_fallback": "active",
+    "native_lease_past_fallback": "armed",
+    "Cobalt_recovered_after_Netflix_launch": true,
+    "phone_event": {
+      "accepted": true,
+      "balanced_down_and_up": true,
+      "linux_code": 172,
+      "native_evdev_exercised": false,
+      "real_handset_button": false,
+      "source": "authenticated_synthetic_phone_key"
+    },
+    "session_after_phone_event": "phone_stopped",
+    "reminder_after_phone_event": "dismissed",
+    "reminder_reason_after_phone_event": "phone_cancelled_episode",
+    "native_lease_after_release": "disarmed",
+    "normal_daily_alarm_unchanged": true,
+    "normal_daily_alarm_before_ms": 1795100400000,
+    "normal_daily_alarm_after_ms": 1795100400000,
+    "physical_remote_connected_at_start": false,
+    "unobserved": [
+      "actual_handset_phone_button",
+      "native_evdev_phone_delivery",
+      "physical_remote_suppression",
+      "voice_control_suppression"
+    ],
+    "private_receipt_sha256": "617c4adaeacc436ac2a05ee9be58dd02797e8cb8e175316486773e5a66188874"
+  },
+  "live_fallback_attempt_1": {
+    "status": "passed",
+    "kind": "actual_alarm_bounded_pipeline_acceptance",
+    "bounded_duration_seconds": 120,
+    "diagnostic_fallback_after_seconds": 15,
+    "controller_restarted_between_episode_and_fallback_tests": false,
+    "observation_count": 120,
+    "current_run_observation_count": 111,
+    "active_observation_count": 84,
+    "reason": "scheduled_fallback",
+    "unbound_episode_id": true,
+    "observed_phase_sequence": [
+      "hold",
+      "fade_out",
+      "video",
+      "return",
+      "hold"
+    ],
+    "first_random_hold_ms": 35815,
+    "next_random_hold_ms": 40733,
+    "completed_cycle": 1,
+    "video_samples": 10,
+    "return_samples": 10,
+    "all_active_samples_native_lease_armed": true,
+    "all_active_samples_overlay_visible": true,
+    "all_active_samples_audio_focus_held": true,
+    "media_errors_observed": false,
+    "simultaneous_music_and_video_audio_observed": false,
+    "text_absent_in_all_video_samples": true,
+    "music_position_paused_through_all_video_samples_ms": 40573,
+    "music_position_at_first_return_sample_ms": 41384,
+    "first_return_sample_phase_elapsed_ms": 795,
+    "music_position_difference_at_first_return_sample_ms": 811,
+    "return_timing_contract_ms": {
+      "text_fade_start": 3000,
+      "text_fade_complete": 5000,
+      "frame_crossfade_start": 8000,
+      "frame_crossfade_complete_and_next_hold": 11000
+    },
+    "return_transition_samples": [
+      {
+        "phase_elapsed_ms": 795,
+        "text_alpha": 0,
+        "frame_crossfade_alpha": 0,
+        "music_volume": 0.159
+      },
+      {
+        "phase_elapsed_ms": 1991,
+        "text_alpha": 0,
+        "frame_crossfade_alpha": 0,
+        "music_volume": 0.3982
+      },
+      {
+        "phase_elapsed_ms": 3051,
+        "text_alpha": 0.0255,
+        "frame_crossfade_alpha": 0,
+        "music_volume": 0.6102
+      },
+      {
+        "phase_elapsed_ms": 4117,
+        "text_alpha": 0.5585,
+        "frame_crossfade_alpha": 0,
+        "music_volume": 0.8234
+      },
+      {
+        "phase_elapsed_ms": 5170,
+        "text_alpha": 1,
+        "frame_crossfade_alpha": 0,
+        "music_volume": 1
+      },
+      {
+        "phase_elapsed_ms": 6203,
+        "text_alpha": 1,
+        "frame_crossfade_alpha": 0,
+        "music_volume": 1
+      },
+      {
+        "phase_elapsed_ms": 7258,
+        "text_alpha": 1,
+        "frame_crossfade_alpha": 0,
+        "music_volume": 1
+      },
+      {
+        "phase_elapsed_ms": 8450,
+        "text_alpha": 1,
+        "frame_crossfade_alpha": 0.15,
+        "music_volume": 1
+      },
+      {
+        "phase_elapsed_ms": 9517,
+        "text_alpha": 1,
+        "frame_crossfade_alpha": 0.5056667,
+        "music_volume": 1
+      },
+      {
+        "phase_elapsed_ms": 10588,
+        "text_alpha": 1,
+        "frame_crossfade_alpha": 0.86266667,
+        "music_volume": 1
+      }
+    ],
+    "first_next_hold_sample": {
+      "cycle": 1,
+      "phase_elapsed_ms": 606,
+      "text_alpha": 1,
+      "first_frame_alpha": 1
+    },
+    "timing_interpretation": "phase_elapsed_ms is the sampled monotonic animation phase time; music positions are track offsets. Samples may follow boundaries and straddle one rendering tick.",
+    "release": {
+      "phase": "expired",
+      "reason": "school_window_finished",
+      "overlay_visible": false,
+      "audio_focus": "released",
+      "media_state_absent": true,
+      "native_lease": "disarmed",
+      "first_expired_sample_after_deadline_ms": 138
+    },
+    "normal_daily_alarm_unchanged": true,
+    "normal_daily_alarm_before_ms": 1795100400000,
+    "normal_daily_alarm_after_ms": 1795100400000,
+    "physical_remote_connected_at_start": false,
+    "screenshot": {
+      "sha256": "5b6220c5a6d3853d75d33aa18fc8910b1afc11ad1751e023e1e48b9d3af66128",
+      "bytes": 2135556,
+      "visual_review": "exact complete reminder sentence legible over the first frame",
+      "image_kept_private": true
+    },
+    "private_receipt_sha256": "b11be81df5a6f91e096ac48b3daa2bdfcdf8ae71ade03f823ca214617f0687be"
+  },
+  "verification_limits": {
+    "actual_handset_phone_button": "not observed; authenticated synthetic Home event exercised the existing event path",
+    "native_phone_input_injection": "not completed; A6 raw sendevent failed on first key-down with no retained stderr",
+    "physical_remote_suppression": "not observed; no physical remote connected during bounded runs",
+    "voice_and_Google_Home_suppression": "not directly exercised",
+    "natural_daily_run": "the unattended next 7AM run has not occurred since this repair",
+    "full_episode_end": "bounded episode tests confirmed advancing playback and protection but did not wait through a complete episode to its natural end",
+    "natural_school_cutoff": "release was tested through the same deadline policy with a bounded accelerated grant; natural 9:30AM was not observed"
+  },
+  "installed_controller_files": {
+    "controller.py": {
+      "bytes": 50575,
+      "sha256": "c944709f7f103715390d42043eeec32af91e96d11f5acee86a9b06e3e795c336"
+    },
+    "media.py": {
+      "bytes": 12029,
+      "sha256": "cbb8fd92804dcdef8a9f524036d00be2f463785a8418b4a69672153c9436299d"
+    },
+    "policy.py": {
+      "bytes": 28778,
+      "sha256": "a908cb8c40c24632a76d5685db50429d72846a288914f740928b92c82a7984e0"
+    }
+  },
+  "final_read_only_verification": {
+    "status": "passed",
+    "checks_passed": 23,
+    "checks_total": 23,
+    "check_names": [
+      "helper_installed_sha256",
+      "helper_installed_size",
+      "guard_installed_sha256",
+      "guard_installed_size",
+      "controller.py_installed_sha256",
+      "policy.py_installed_sha256",
+      "media.py_installed_sha256",
+      "supervision_config_enabled_and_owned",
+      "supervision_media_source",
+      "supervisor_live_running",
+      "boot_launcher_references_owned_enabled_config",
+      "normal_alarm_nov19_0700_los_angeles",
+      "player_digest",
+      "player_etag",
+      "canonical_session_idle",
+      "reminder_released",
+      "reminder_audio_focus_released",
+      "canonical_observer_live",
+      "canonical_configuration_live",
+      "controller_live_idle",
+      "native_observer_live_and_released",
+      "netflix_restored",
+      "onn_awake"
+    ],
+    "installed_package_readbacks_match": true,
+    "installed_controller_readbacks_match": true,
+    "actual_served_player_hash_and_etag_match": true,
+    "supervision": {
+      "activation": "enabled",
+      "media_source": "auto",
+      "recovery_mode": "enabled",
+      "native_binary_name": "onn_input_guard_v3",
+      "owned_boot_launcher_present": true,
+      "boot_launcher_sha256": "bbcca58bd96458b7ee321d37a59a071827468044a20f3b861496acfc1e5fe3d8",
+      "configuration_sha256": "534e5a91c29997604e73a191adfe685b9446605b791924a1cedb2f1cee516b90",
+      "live_phase": "running",
+      "starts": 1
+    },
+    "earlier_verifier_assumptions_corrected": [
+      "native binary filename includes _v3",
+      "player server uses its existing exact stable script URL"
+    ],
+    "product_changes_for_verifier_corrections": false,
+    "private_receipt_sha256": "7ae25ae70a79e6ace0c67d9936ef85c3c52080f3a1a76c1854fe6976b9453c9e"
+  }
+}

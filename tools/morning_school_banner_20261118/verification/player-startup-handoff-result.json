@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "source_sha256": "de55b9aadef8ae82f561ced2a3fdc9f123074ceaed3d7ab924d027a945242be1",
+  "status": "passed",
+  "assertions": 99,
+  "tests": [
+    {
+      "name": "exact candidate dispatches once after repeated empty renewals",
+      "status": "passed",
+      "assertions": 9
+    },
+    {
+      "name": "candidate renewal preserves unresolved native play",
+      "status": "passed",
+      "assertions": 10
+    },
+    {
+      "name": "direct candidate native play survives renewal before tracking exists",
+      "status": "passed",
+      "assertions": 7
+    },
+    {
+      "name": "lease updates cannot start media without a retained request",
+      "status": "passed",
+      "assertions": 2
+    },
+    {
+      "name": "wrong candidate cancels",
+      "status": "passed",
+      "assertions": 5
+    },
+    {
+      "name": "explicit lease release cancels",
+      "status": "passed",
+      "assertions": 5
+    },
+    {
+      "name": "elapsed lease expiry cancels",
+      "status": "passed",
+      "assertions": 5
+    },
+    {
+      "name": "monotonic expiry with frozen wall clock cancels",
+      "status": "passed",
+      "assertions": 5
+    },
+    {
+      "name": "hidden page cancels",
+      "status": "passed",
+      "assertions": 5
+    },
+    {
+      "name": "route change cancels",
+      "status": "passed",
+      "assertions": 5
+    },
+    {
+      "name": "source replacement cancels",
+      "status": "passed",
+      "assertions": 5
+    },
+    {
+      "name": "explicit load cancels",
+      "status": "passed",
+      "assertions": 5
+    },
+    {
+      "name": "explicit parent pause cancels",
+      "status": "passed",
+      "assertions": 5
+    },
+    {
+      "name": "school reminder takes precedence",
+      "status": "passed",
+      "assertions": 6
+    },
+    {
+      "name": "denied channel cannot obtain playback through candidate lease",
+      "status": "passed",
+      "assertions": 2
+    },
+    {
+      "name": "unknown ownership waits for positive channel evidence",
+      "status": "passed",
+      "assertions": 7
+    },
+    {
+      "name": "late denied ownership cancels the pending exact candidate",
+      "status": "passed",
+      "assertions": 5
+    },
+    {
+      "name": "wrong candidate cancels an unresolved native play",
+      "status": "passed",
+      "assertions": 6
+    }
+  ],
+  "scope": "Independent black-box startup-only deferred play and unresolved native-play renewal boundaries",
+  "limits": [
+    "Host VM with deterministic media/timer fixtures.",
+    "Native pause rejects unresolved play as on-device race reproduction requires.",
+    "No device, external account history, or production source is mutated."
+  ]
+}

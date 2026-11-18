@@ -1,0 +1,44 @@
+{
+  "base_apk_sha256": "4b378a10bebb6e6030f271cc7eb19f53abbc708d884afcb1cdc7a7c5d4da9999",
+  "base_dex_sha256": "a653862bc7acae0689647bfa7b80c5526a9abf75251f574045389d793404f9e2",
+  "candidate_dex_sha256": "94c18f1d212238182283f8280463ae142f80315d63374e2d38559022b0c6d640",
+  "existing_classes": 81,
+  "existing_methods": 388,
+  "replaced_classes": {
+    "MorningSelectionRepair": "b5ea4f83343107ee5ac1da0a26d3377b834a40ae6e8955966c0f29bf705fbc0a"
+  },
+  "methods_in_replaced_classes": 3,
+  "changed_adapter_methods": [
+    {
+      "class": "AlarmReceiver",
+      "signature": ".method private static selectAndVerify(Landroid/content/Context;Ljava/lang/String;)V",
+      "old_sha256": "fccdc6c51743de57577637613e9f88069b4fbf95b1b785b382d0de41beba01b1"
+    },
+    {
+      "class": "StartupAuthenticationCoordinator$Request",
+      "signature": ".method private send(Ljava/lang/String;)V",
+      "old_sha256": "e783443181dcc5d91602e6ae62bd0ac90580d5226d91c13ecdfa85a661a56001"
+    }
+  ],
+  "unchanged_existing_methods": 383,
+  "added_classes": [
+    "dev/yossi/morningsesame/MorningHistoryReader$1.smali",
+    "dev/yossi/morningsesame/MorningHistoryReader.smali",
+    "dev/yossi/morningsesame/MorningHistoryReply.smali",
+    "dev/yossi/morningsesame/MorningOrderedBroadcast.smali"
+  ],
+  "retained_payloads": {
+    "resources.arsc": "1fa3cb291285348ec1b33c85e7317d989467707f4791c4e5302f2d312d1e18c8",
+    "AndroidManifest.xml": "d0dae7cffdce30200fe3e69f9ef5a5ebaa3f02f0c9a008f2b0a9beeecae6f35c"
+  },
+  "new_source_sha256": {
+    "MorningHistoryReply": "7a76e06367ffe00fb24df83df34aba0ea8e5631685aefe79d0dcc0eae42cba10",
+    "MorningHistoryReader": "af21db63aab992098a932bb4ef8263429764284c37f2f2664669e2c76a3b870f",
+    "MorningOrderedBroadcast": "e2efb53103d6b6afce307884d7f8d9029185b6d58eb4f996d8511dd2aea0c7d2",
+    "MorningSelectionRepair": "3d322d34a01cec274366673b0137a751a74ab34c4fa618a690bb657de97877ea"
+  },
+  "unsigned_apk": "MorningSesame-startup-history-unsigned.apk",
+  "unsigned_apk_sha256": "c82417f604d6653547054594b60fd724610b4b528da5a89ecd3428100f1c450d",
+  "signed": false,
+  "installed": false
+}

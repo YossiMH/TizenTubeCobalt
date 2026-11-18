@@ -1,0 +1,100 @@
+{
+  "base_apk_sha256": "1a56676eb5eaef7fda9a0d8a33543e6002accb2ec49bb26fd3d7133ea3b0c2a3",
+  "base_dex_sha256": "cd97484ea6911cd0395bef60060a57fde50e31ed8656f5e7a29b5e67ab2ea566",
+  "unsigned_apk": "guard-morning-unsigned.apk",
+  "unsigned_sha256": "3996d6a1b3c683cfd02b6ba9c799bb4538f75bb18a8ba64c2d28cfa5af0afa8e",
+  "unsigned_bytes": 119940,
+  "patched_methods": [
+    {
+      "class": "MorningPlaybackReceiver",
+      "method": "onReceive(Landroid/content/Context;Landroid/content/Intent;)V",
+      "before_sha256": "a9b0f4595e5b27a8c81883aca152c03c315c2c4fe6cc1d0b4c773a400d8f73d5",
+      "after_sha256": "0102672047b1b9d2df0c4281afed2dd4d7b2edf8bea5ee8c122ffbc221e978fc"
+    },
+    {
+      "class": "PolicyRuntime",
+      "method": "scheduledStartupAuthentication(Landroid/content/Intent;)Lorg/json/JSONObject;",
+      "before_sha256": "4f85e0d8cfe715ea1e49980b9e77d900bb2128161f0270e8a894a3dc402ba0ce",
+      "after_sha256": "7f3b4c2946a16e9e8133b8a24586dd945007aba1bdb45c494874502c636f1f48"
+    },
+    {
+      "class": "PolicyRuntime",
+      "method": "handleEvent(Lorg/json/JSONObject;)Lorg/json/JSONObject;",
+      "before_sha256": "1848ab28e5aceef87c8f0de757435ba5b49df28ecfa5d5bbed02d3f4c67e7514",
+      "after_sha256": "55c8613d4fab33892555d16fb46c95cd2ff0be32e105b9f0864dff06e5819967"
+    },
+    {
+      "class": "PolicyRuntime",
+      "method": "allowsStartupWork(Ljava/lang/String;)Z",
+      "before_sha256": "0fd34057761f8978d96280099e9fb25d011ebe3ac2a76deaee1b678dd07dd91e",
+      "after_sha256": "20a18bd273fc4f71680b367b901cb56537c9e234ccf5dd58bded4f6accb47075"
+    },
+    {
+      "class": "PolicyRuntime",
+      "method": "startSession(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;)V",
+      "before_sha256": "9a696073315f67a4cdc7c4bf10a203397660f6f0303f2c7d40e3f1b470a85c03",
+      "after_sha256": "831da224b7d96246c1a4313050194341a7ff84780a45b3fce0c7be213bf7e859"
+    },
+    {
+      "class": "PolicyRuntime",
+      "method": "admin(Landroid/content/Intent;)Lorg/json/JSONObject;",
+      "before_sha256": "a69ce15692bd123b72d1bd3bae6a00c177a9ab18139299a19cfdbe4cd6cef95e",
+      "after_sha256": "22385113429bfe5f251cc7df02ea5815bd1bd074dbccac3a98a6bad151cded58"
+    },
+    {
+      "class": "SesameSessionPolicy",
+      "method": "begin(Ljava/lang/String;Ljava/lang/String;IJ)Ldev/yossi/onnkeyguard/SesameSessionPolicy$BeginResult;",
+      "before_sha256": "67daee0c6b938017d4c0b383390acc881d2762b9094bde0bbd38816baf7c8f76",
+      "after_sha256": "5eb063b2f276f9ef88849194403377f2d2b19eb46ee3d327186de173a89c76b2"
+    }
+  ],
+  "added_method": "PolicyRuntime.cancelMorningWindowWork",
+  "retained_methods_verified": 656,
+  "all_unowned_methods_verified": true,
+  "new_classes": [
+    "dev/yossi/onnkeyguard/MorningHistoryCache.smali",
+    "dev/yossi/onnkeyguard/MorningWindowGrant.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerPolicy$1.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerPolicy$AudioRecovery.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerPolicy$Phase.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerPolicy$Snapshot.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerPolicy.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$1.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$2.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$3.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$4.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$5.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$6.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime$7.smali",
+    "dev/yossi/onnkeyguard/SchoolBannerRuntime.smali"
+  ],
+  "payloads": {
+    "AndroidManifest.xml": "a016b7c4bd01c4194238a39585c7ef6a680bdcdd7d51829bc3b42aa00b1e9fa3",
+    "res/xml/keyguard_service.xml": "a6cb176fa6690af0762f8929207422ed25dc9ca38d39e1c5923396d976372951",
+    "resources.arsc": "4af60925371adde37c9fb2a4e68a82264657e3e583f0336ec1e7340e21c37bdd",
+    "classes.dex": "f6cda831ecbd6908f3d1565b6b79eba964cdc6eb88123a7c5be2a207c679012d",
+    "assets/player.js": "b68753418534e0f8b0b5576c63784327d45f717fafef616f95fe51aa0aa14c7a",
+    "assets/player.sha256": "89897b902a2241674184d8aa1d3378fe50066e5434e99838a352eb2919936f10",
+    "assets/school_banner_revision.json": "36028fb004e9259f4d082557b50a41ccad6ae1d77025fef933cbf221f0be184d",
+    "assets/school_reminder_revision.json": "2a1ad7a6bb650b478b948252de2d35162f424ba96f1b034b78a683df812d2e47"
+  },
+  "candidate_dex": {
+    "sha256": "f6cda831ecbd6908f3d1565b6b79eba964cdc6eb88123a7c5be2a207c679012d",
+    "bytes": 188980,
+    "sha1_signature_valid": true,
+    "adler32_checksum_valid": true
+  },
+  "source_sha256": {
+    "src/dev/yossi/onnkeyguard/MorningHistoryCache.java": "83f4ae9e92933cf6d4eb845f7d5f4759601abe43b54619625c442fa8b55deffd",
+    "src/dev/yossi/onnkeyguard/MorningWindowGrant.java": "0f9c0d85bb727220898b6e4bff36994ce2788fed54454400876f9e5c0a4d5e57",
+    "src/dev/yossi/onnkeyguard/SchoolBannerPolicy.java": "44186dac55aac9e9112353c27040e19dff0fac09a57ec1231280c0b8f576cf36",
+    "src/dev/yossi/onnkeyguard/SchoolBannerRuntime.java": "3fded18581d99541fa70654f1887fbbd5c3653abcca7975a8af1428a4458d24b"
+  },
+  "manifest_visibility": {
+    "exact_package": "dev.yossi.morningsesame",
+    "unowned_binary_xml_nodes_unchanged": true
+  },
+  "signed": false,
+  "installed": false,
+  "private_media_manifest_preserved": true
+}

@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "kind": "host_boundary_harness",
+  "result": "100 independent helper boundary assertions passed",
+  "production_sources": {
+    "MorningHistoryReply.java": "7a76e06367ffe00fb24df83df34aba0ea8e5631685aefe79d0dcc0eae42cba10",
+    "MorningHistoryReader.java": "af21db63aab992098a932bb4ef8263429764284c37f2f2664669e2c76a3b870f",
+    "MorningOrderedBroadcast.java": "e2efb53103d6b6afce307884d7f8d9029185b6d58eb4f996d8511dd2aea0c7d2",
+    "MorningSelectionRepair.java": "3d322d34a01cec274366673b0137a751a74ab34c4fa618a690bb657de97877ea",
+    "MorningYouTubeHistory.java": "8451f42d29358ce1c39dd53c6fb7ef5f6883ffa8e15b68f8aa48587d21adba47",
+    "MorningEpisodePolicy.java": "38f25a4bd8686eee0898b880e35e8f5353db572b71c9111d9f1f51d230e5777e"
+  },
+  "deployed_fixture_sha256": {
+    "WorkerFenceContinuation.java": "7b9f8b0324871eccf236ba5836c7da1f17d464ebcf99df42e5a5276140e07793",
+    "StartupFencePolicy.java": "363c2137cf06b9bf255d3af45abbda40dd606b8079c9317dcab6c77e4acee65b",
+    "WorkerFenceContinuation.smali": "21baeeaed1d43d3023fd01bc6f5adcf3365517e4e2e2752db17ca1addfd4e329"
+  },
+  "fixture_java_repairs": {
+    "RunCoordinator.isStartupBound(this.context, this.runId) ^ CONFIRM": "!RunCoordinator.isStartupBound(this.context, this.runId)",
+    "? false : CONFIRM;": "? false : true;"
+  },
+  "limits": [
+    "Android transport, storage, handler scheduling, and RunCoordinator are test fixtures.",
+    "Actual parser, reader, API-level shim, selection adapter, history validator, episode selector, and deployed worker continuation execute.",
+    "This does not prove installed Android signature delivery or the real scheduled device path."
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "source_sha256": "b68753418534e0f8b0b5576c63784327d45f717fafef616f95fe51aa0aa14c7a",
+  "status": "failed",
+  "assertions": 37,
+  "tests": [
+    {
+      "name": "exact candidate dispatches once after repeated empty renewals",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "candidate renewal preserves unresolved native play",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "direct candidate native play survives renewal before tracking exists",
+      "status": "failed",
+      "assertions": 3,
+      "error": "renewal cannot pause the unresolved direct native request\n\n1 !== 0\n"
+    },
+    {
+      "name": "lease updates cannot start media without a retained request",
+      "status": "passed",
+      "assertions": 2
+    },
+    {
+      "name": "wrong candidate cancels",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "explicit lease release cancels",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "elapsed lease expiry cancels",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "monotonic expiry with frozen wall clock cancels",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "hidden page cancels",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "route change cancels",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "source replacement cancels",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "explicit load cancels",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "explicit parent pause cancels",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "school reminder takes precedence",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "denied channel cannot obtain playback through candidate lease",
+      "status": "passed",
+      "assertions": 2
+    },
+    {
+      "name": "unknown ownership waits for positive channel evidence",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "late denied ownership cancels the pending exact candidate",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    },
+    {
+      "name": "wrong candidate cancels an unresolved native play",
+      "status": "failed",
+      "assertions": 2,
+      "error": "startup-only request retains its original promise\n+ actual - expected\n\n+ 'rejected'\n- 'pending'\n"
+    }
+  ],
+  "scope": "Independent black-box startup-only deferred play and unresolved native-play renewal boundaries",
+  "limits": [
+    "Host VM with deterministic media/timer fixtures.",
+    "Native pause rejects unresolved play as on-device race reproduction requires.",
+    "No device, external account history, or production source is mutated."
+  ]
+}

@@ -6,7 +6,7 @@ var REASON='Only videos you liked or videos from channels you subscribe to are a
 function statusText(){if(S.booting)return'Restricted YouTube - Loading your liked videos and subscriptions...';if(S.loggedIn===true&&(S.errors.length||!S.ready))return'Restricted YouTube - Protecting you: list unavailable, retrying';if(S.ready&&S.loggedIn===true)return'Restricted YouTube - Ready: '+S.liked.size+' liked, '+S.subs.size+' subscribed';if(S.loggedIn===false&&S.ready)return'Restricted YouTube - Signed out: all videos blocked';if(!S.ready)return'Restricted YouTube - Protecting you: list unavailable, retrying';return'Restricted YouTube - Starting...'}
 function addPageStyle(d,id,css){if(!d||!d.createElement)return null;try{if(d.getElementById){var old=d.getElementById(id);if(old)return old}}catch(e){}var st=d.createElement('style');st.id=id;if(st.setAttribute)st.setAttribute('id',id);try{var q=d.querySelector&&d.querySelector('style[nonce],script[nonce]'),n=q&&(q.nonce||(q.getAttribute&&q.getAttribute('nonce')));if(n&&st.setAttribute)st.setAttribute('nonce',n)}catch(e){}st.textContent=css;var r=d.head||d.body||d.documentElement;if(r&&r.appendChild)try{r.appendChild(st)}catch(e){}return st}
 function renderStatus(){var t=statusText(),d=w.document;if(!d||!d.createElement)return t;var e=S.statusEl;if(!e){addPageStyle(d,'tt-allowed-only-style','#tt-allowed-only-status{position:fixed;top:12px;right:12px;z-index:2147483647;padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.82);color:#fff;font:600 18px/1.25 Arial,sans-serif;pointer-events:none;max-width:52vw;white-space:normal;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,.45)}');e=d.createElement('div');S.statusEl=e;e.id='tt-allowed-only-status';if(e.setAttribute){e.setAttribute('id','tt-allowed-only-status');e.setAttribute('role','status')}e.textContent=t;var r=d.body||d.documentElement;if(r&&e.parentNode!==r&&r.appendChild)try{r.appendChild(e)}catch(x){}}else if(e.textContent!==t)e.textContent=t;return t}
-function statusTick(){try{cfg();guard();if(!S.ready&&S.ctx)ensure();renderStatus();pumpMorningStatus()}catch(e){}}function watchStatus(){if(S.statusWatcher||typeof w.setInterval!='function')return;S.statusWatcher=w.setInterval(statusTick,1500)}
+function statusTick(){try{cfg();guard();if(!S.ready&&S.ctx)ensure();renderStatus();pumpMorningHistoryRefresh();pumpMorningStatus()}catch(e){}}function watchStatus(){if(S.statusWatcher||typeof w.setInterval!='function')return;S.statusWatcher=w.setInterval(statusTick,1500)}
 function obj(x){return x&&typeof x=='object'}
 function walk(x,fn,path){path=path||[];if(!obj(x))return;fn(x,path);if(Array.isArray(x)){for(var i=0;i<x.length;i++)walk(x[i],fn,path.concat(i))}else Object.keys(x).forEach(function(k){walk(x[k],fn,path.concat(k))})}
 function uc(x){return typeof x=='string'&&/^UC[\w-]+$/.test(x)?x:null}
@@ -149,9 +149,9 @@ function morningContinuationTokens(x){
   });
   return result;
 }
-function invalidateMorningHistory(phase,now){
+function invalidateMorningHistory(phase,now,reason){
   S.morningProgress=null;S.morningProgressAt=0;
-  S.morningHistoryStatus={phase:phase,pages:0,videos:0,captured_at_ms:now};
+  S.morningHistoryStatus={phase:phase,reason:reason||'',pages:0,videos:0,captured_at_ms:now};
   S.morningInvalidationAt=now;
   S.morningStatusUntilElapsed=w.performance.now()+120000;
   S.morningStatusNextElapsed=0;
@@ -182,6 +182,126 @@ function currentMorningTracking(media){
 // This lease is renewed by the authenticated session controller. It cannot
 // survive a page reload or a lost controller and never resumes media on release.
 var SCHOOL_BANNER_REASON='Morning school banner is active.';
+var MORNING_STARTUP_REASON='Morning episode is starting.';
+// Only a play() actually stopped by the empty startup lease may wait for the
+// selected candidate. Renewing/releasing a lease never starts arbitrary media.
+var morningStartupDeferred=new Map,morningStartupPlayTimer=null,morningStartupEpoch=0;
+var morningNativePlay=new WeakMap;
+function mediaSource(media){return String(media.currentSrc||media.src||'')}
+function cancelMorningStartupPlay(media,reason){
+  var r=morningStartupDeferred.get(media);if(!r)return;
+  morningStartupDeferred.delete(media);r.cancelled=true;
+  r.reject(new Error(reason||MORNING_STARTUP_REASON));
+  if(r.dispatched&&media.paused!==true)try{media.pause()}catch(e){}
+  if(!morningStartupDeferred.size&&morningStartupPlayTimer!==null){
+    w.clearTimeout(morningStartupPlayTimer);morningStartupPlayTimer=null;
+  }
+}
+function cancelMorningStartupPlays(reason){
+  morningStartupDeferred.forEach(function(r,m){cancelMorningStartupPlay(m,reason)});
+}
+function startupPlayInvalid(r,media){
+  if(!morningStartupLeaseLive()||r.epoch!==S.morningStartupLease.epoch
+      ||r.request!==S.morningHistoryRequest)return 'Morning startup request cancelled';
+  if(w.document&&w.document.hidden)return 'Media window hidden';
+  if(routeVideoId()!==r.video)return 'Media route changed';
+  if(mediaSource(media)!==r.source)return 'Media source changed';
+  if(schoolBannerActive())return SCHOOL_BANNER_REASON;
+  var expected=S.morningStartupLease.expected_video_id;
+  if(expected&&expected!==r.video)return 'Morning candidate changed';
+  if(!r.dispatched&&w.performance.now()>=r.deadline)return 'Morning startup play timed out';
+  return '';
+}
+function flushMorningStartupPlays(){
+  if(morningStartupPlayTimer!==null)w.clearTimeout(morningStartupPlayTimer);
+  morningStartupPlayTimer=null;
+  morningStartupDeferred.forEach(function(r,media){
+    var reason=startupPlayInvalid(r,media);
+    if(reason){cancelMorningStartupPlay(media,reason);return}
+    if(r.dispatched)return;
+    var decision=mediaDecision(r.video);
+    if(decision==='closed'){cancelMorningStartupPlay(media,REASON);return}
+    if(S.morningStartupLease.expected_video_id!==r.video||decision!=='open')return;
+    r.dispatched=true;noteMediaInitialization('startup_dispatch',r.video,'open');
+    Promise.resolve().then(function(){
+      var invalid=startupPlayInvalid(r,media);
+      if(r.cancelled||invalid)throw new Error(invalid||'Morning startup request cancelled');
+      return r.execute();
+    }).then(function(value){
+      if(morningStartupDeferred.get(media)!==r)return;
+      morningStartupDeferred.delete(media);r.resolve(value);
+    },function(error){
+      if(morningStartupDeferred.get(media)!==r)return;
+      morningStartupDeferred.delete(media);r.reject(error);
+    });
+  });
+  if(morningStartupDeferred.size&&morningStartupPlayTimer===null)
+    morningStartupPlayTimer=w.setTimeout(flushMorningStartupPlays,100);
+}
+function deferMorningStartupPlay(media,video,execute){
+  var r=morningStartupDeferred.get(media);
+  if(r){var invalid=startupPlayInvalid(r,media);
+    if(!invalid&&r.video===video)return r.promise;
+    cancelMorningStartupPlay(media,invalid||'Media route changed');
+  }
+  if(morningStartupDeferred.size>=16)return Promise.reject(new Error('Morning startup play queue is full'));
+  var lease=S.morningStartupLease;
+  r={video:video,source:mediaSource(media),href:String(w.location&&w.location.href||''),
+    epoch:lease.epoch,request:S.morningHistoryRequest,deadline:lease.deadline_elapsed,
+    execute:execute,dispatched:false,cancelled:false,resolve:null,reject:null};
+  r.promise=new Promise(function(resolve,reject){r.resolve=resolve;r.reject=reject});
+  morningStartupDeferred.set(media,r);noteMediaInitialization('startup_wait',video,'pending');
+  if(morningStartupPlayTimer===null)morningStartupPlayTimer=w.setTimeout(flushMorningStartupPlays,100);
+  return r.promise;
+}
+function pauseMorningStartupMedia(){
+  var lease=S.morningStartupLease,expected=lease&&lease.expected_video_id;
+  var mayPlay=expected&&routeVideoId()===expected&&!schoolBannerActive()&&mediaDecision(expected)==='open';
+  var list=[],d=w.document;if(S.morningMedia)list.push(S.morningMedia);
+  try{var nodes=d&&d.querySelectorAll&&d.querySelectorAll('video,audio');
+    for(var i=0;nodes&&i<nodes.length;i++)if(list.indexOf(nodes[i])<0)list.push(nodes[i]);
+  }catch(e){}
+  list.forEach(function(media){
+    if(!media||typeof media.pause!=='function')return;
+    var tracked=currentMorningTracking(media),pending=morningNativePlay.get(media);
+    if(mayPlay&&(tracked&&tracked.video===expected||pending&&pending.video===expected
+        &&pending.source===mediaSource(media)&&pending.epoch===lease.epoch))return;
+    // Calling pause on an already-paused element would cancel its intercepted
+    // play request. A warming renewal must leave that bounded request pending.
+    if(media.paused!==true)try{media.pause()}catch(e){}
+  });
+}
+function clearMorningStartupLease(){
+  if(S.morningStartupLeaseTimer!=null)w.clearTimeout(S.morningStartupLeaseTimer);
+  S.morningStartupLeaseTimer=null;S.morningStartupLease=null;morningStartupEpoch++;
+  cancelMorningStartupPlays('Morning startup lease released');return true;
+}
+function morningStartupLeaseLive(){
+  var lease=S.morningStartupLease;if(!lease)return false;
+  if(Date.now()>=lease.deadline_ms||w.performance.now()>=lease.deadline_elapsed){clearMorningStartupLease();return false}
+  return true;
+}
+function morningMediaBlockReason(){
+  if(schoolBannerActive())return SCHOOL_BANNER_REASON;
+  if(morningStartupLeaseLive()){
+    var expected=S.morningStartupLease.expected_video_id;
+    if(!expected||routeVideoId()!==expected)return MORNING_STARTUP_REASON;
+  }
+  return '';
+}
+function setMorningStartupLease(deadlineMs,expectedVideoId){
+  if(deadlineMs===0)return clearMorningStartupLease();
+  var now=Date.now(),remaining=deadlineMs-now;
+  if(typeof deadlineMs!=='number'||!Number.isFinite(deadlineMs)||remaining<=0||remaining>15000
+      ||typeof expectedVideoId!=='string'||expectedVideoId!==''&&!morningVideoId(expectedVideoId))return false;
+  var live=morningStartupLeaseLive();if(!live)morningStartupEpoch++;
+  if(S.morningStartupLeaseTimer!=null)w.clearTimeout(S.morningStartupLeaseTimer);
+  var lease={deadline_ms:deadlineMs,deadline_elapsed:w.performance.now()+remaining,expected_video_id:expectedVideoId,epoch:morningStartupEpoch};
+  S.morningStartupLease=lease;
+  S.morningStartupLeaseTimer=w.setTimeout(function(){if(S.morningStartupLease===lease)clearMorningStartupLease()},remaining);
+  pauseMorningStartupMedia();flushMorningStartupPlays();
+  return true;
+}
 function clearSchoolBannerLease(){
   if(S.schoolBannerLeaseTimer!=null)w.clearTimeout(S.schoolBannerLeaseTimer);
   S.schoolBannerLeaseTimer=null;S.schoolBannerLease=null;return true;
@@ -196,6 +316,7 @@ function schoolBannerLeaseLive(){
 }
 function schoolBannerActive(){return schoolBannerLeaseLive()&&S.schoolBannerLease.active===true}
 function pauseSchoolMedia(){
+  cancelMorningStartupPlays(SCHOOL_BANNER_REASON);
   var list=[],d=w.document;
   if(S.morningMedia)list.push(S.morningMedia);
   try{var nodes=d&&d.querySelectorAll&&d.querySelectorAll('video,audio');
@@ -211,7 +332,8 @@ function setSchoolBannerLease(deadlineMs,expectedVideoId,awaitingEnd){
   if(deadlineMs===0)return clearSchoolBannerLease();
   var now=Date.now(),remaining=deadlineMs-now;
   if(typeof deadlineMs!=='number'||!Number.isFinite(deadlineMs)||remaining<=0||remaining>15000
-      ||!morningVideoId(expectedVideoId)||typeof awaitingEnd!=='boolean')return false;
+      ||typeof awaitingEnd!=='boolean'
+      ||!morningVideoId(expectedVideoId)&&!(expectedVideoId===''&&awaitingEnd===false))return false;
   var wasActive=schoolBannerLeaseLive()&&S.schoolBannerLease.expected_video_id===expectedVideoId
     &&S.schoolBannerLease.active===true;
   if(S.schoolBannerLeaseTimer!=null)w.clearTimeout(S.schoolBannerLeaseTimer);
@@ -241,7 +363,7 @@ function noteMorningEnded(media){
   writeMorningStatus();return true;
 }
 function schoolMediaEvent(event){
-  if(schoolBannerActive()&&event&&event.target&&typeof event.target.pause==='function')
+  if(morningMediaBlockReason()&&event&&event.target&&typeof event.target.pause==='function')
     try{event.target.pause()}catch(e){}
 }
 function watchMorningMediaEvents(media){
@@ -282,6 +404,13 @@ function morningStatusPayload(now) {
       +'&ms_progress_at='+S.morningProgressAt;
   else if(S.morningHistoryStatus&&/^(loading|unavailable)$/.test(S.morningHistoryStatus.phase))
     body+='&ms_progress='+encodeURIComponent('{}')+'&ms_progress_at='+S.morningHistoryStatus.captured_at_ms;
+  var historyStatus=S.morningHistoryStatus;
+  if(historyStatus){
+    body+='&ms_history_phase='+encodeURIComponent(historyStatus.phase||'unavailable');
+    body+='&ms_history_reason='+encodeURIComponent(historyStatus.reason||'');
+    body+='&ms_history_attempts='+(Number(historyStatus.attempts)||0);
+    body+='&ms_history_pages='+(Number(historyStatus.pages)||0);
+  }
   var v=S.morningPlaying;
   if(v&&morningIsActive(v)&&now-S.morningPlayingAt>=-1000&&now-S.morningPlayingAt<=5000) {
     body=body.replace('ms_state=idle','ms_state=playing');
@@ -296,10 +425,11 @@ async function writeMorningStatus() {
   if(S.morningStatusPhase==='posting'){S.morningStatusQueued=true;return false}
   S.morningStatusPhase='posting';
   S.morningStatusNextElapsed=w.performance.now()+2000;
-  var body=morningStatusPayload(Date.now()),invalidation=S.morningInvalidationAt;
+  var body=morningStatusPayload(Date.now()),invalidation=S.morningInvalidationAt,timer;
   try {
-    await f('http://localhost:8012/apps/YouTube',{method:'POST',mode:'no-cors',
-      headers:{'content-type':'application/x-www-form-urlencoded'},body:body});
+    await Promise.race([f('http://localhost:8012/apps/YouTube',{method:'POST',mode:'no-cors',
+      headers:{'content-type':'application/x-www-form-urlencoded'},body:body}),
+      new Promise(function(resolve,reject){timer=w.setTimeout(function(){reject(Error('morning_status_timeout'))},1000)})]);
     if(invalidation&&S.morningInvalidationAt===invalidation){
       S.morningInvalidationAt=0;
       if(S.morningProgress)S.morningStatusQueued=true;
@@ -307,6 +437,7 @@ async function writeMorningStatus() {
     return true;
   } catch(e) { return false; }
   finally {
+    if(timer!=null)w.clearTimeout(timer);
     S.morningStatusPhase='idle';
     if(S.morningStatusQueued){
       S.morningStatusQueued=false;
@@ -386,12 +517,27 @@ async function morningHistoryPost(body,base,deadline){
     timer=w.setTimeout(function(){reject(Error('morning_history_timeout'))},remaining);
   })])}finally{if(timer!=null)w.clearTimeout(timer)}
 }
+function morningHistoryReason(error){
+  var text=String(error&&error.message||error||'');
+  if(/^morning_history_[a-z_]+$/.test(text))return text;
+  if(/\b401\b/.test(text))return 'morning_history_http_401';
+  if(/\b403\b/.test(text))return 'morning_history_http_403';
+  if(/\b5[0-9][0-9]\b/.test(text))return 'morning_history_http_5xx';
+  return 'morning_history_network';
+}
+function morningHistoryWindowCurrent(generation){
+  if(generation==null)return true;
+  var h=S.morningHistoryWindow,d=w.document;
+  return !!h&&h.generation===generation&&!h.closed&&d&&!d.hidden
+    &&w.performance.now()<h.deadlineElapsed&&Date.now()<h.deadlineWall;
+}
 async function publishMorningProgress(env){
   if(S.morningProgressTask)return S.morningProgressTask;
-  env=env||{};var context=S.ctx,identity=morningAccountIdentity(),deadline=Date.now()+20000;
+  env=env||{};var context=S.ctx,identity=morningAccountIdentity();
+  var deadline=Math.min(Date.now()+20000,Number.isFinite(env.deadline_ms)?env.deadline_ms:Infinity);
   S.morningRefreshAtElapsed=w.performance.now();
   // A refresh invalidates the old selection snapshot until all pages succeed.
-  invalidateMorningHistory('loading',Date.now());
+  invalidateMorningHistory('loading',Date.now(),'morning_history_fetching');
   var task=(async function(){
     var progress=Object.create(null),queue=[{browseId:'VL'+MORNING_PLAYLIST}],seen=new Set,pagesRead=0;
     try{
@@ -399,6 +545,7 @@ async function publishMorningProgress(env){
       if(!context||S.ready!==true||S.loggedIn!==true||!authed())
         throw Error('morning_history_not_signed_in');
       while(queue.length){
+        if(!morningHistoryWindowCurrent(env.window_generation))throw Error('morning_history_request_cancelled');
         if(pagesRead>=MORNING_HISTORY_MAX_PAGES)throw Error('morning_history_incomplete');
         var page=await morningHistoryPost(queue.shift(),env.apiBase,deadline);
         collectMorningProgress(page,progress);pagesRead++;
@@ -409,32 +556,150 @@ async function publishMorningProgress(env){
         if(S.ctx!==context||S.ready!==true||S.loggedIn!==true||!authed()
             ||morningAccountIdentity()!==identity)throw Error('morning_history_account_changed');
       }
+      if(!morningHistoryWindowCurrent(env.window_generation))throw Error('morning_history_request_cancelled');
       var history={schema:1,source:'youtube_playlist',playlist_id:MORNING_PLAYLIST,
         captured_at_ms:Date.now(),signed_in:true,complete:true,
         covered_ids:Object.keys(progress),progress:progress};
-      await writeMorningProgress({__youtube_history:history});
-      S.morningHistoryStatus={phase:'complete',pages:pagesRead,videos:history.covered_ids.length,
-        captured_at_ms:history.captured_at_ms};
+      var bridgePosted=await writeMorningProgress({__youtube_history:history});
+      // A DIAL acknowledgement may arrive after the admitted run or account changed.
+      var active=S.morningHistoryWindow;
+      if(env.window_generation!=null&&(!active||active.generation!==env.window_generation
+          ||active.closed&&active.result!=='ok'))return null;
+      if(S.ctx!==context||S.ready!==true||S.loggedIn!==true||!authed()
+          ||morningAccountIdentity()!==identity)throw Error('morning_history_account_changed');
+      S.morningHistoryStatus={phase:'complete',reason:'ok',pages:pagesRead,videos:history.covered_ids.length,
+        captured_at_ms:history.captured_at_ms,bridge_posted:bridgePosted,
+        attempts:active&&active.generation===env.window_generation?active.attempts:0};
       return history;
     }catch(e){
-      if(S.ctx===context){
-        invalidateMorningHistory('unavailable',Date.now());
+      var h=S.morningHistoryWindow;
+      if(env.window_generation==null||h&&h.generation===env.window_generation&&(!h.closed||h.result==='ok')){
+        invalidateMorningHistory('unavailable',Date.now(),morningHistoryReason(e));
         S.morningHistoryStatus.pages=pagesRead;
         await writeMorningStatus();
       }
-      if(typeof console!='undefined'&&console.log)console.log('[allowed-only] authenticated playlist history unavailable');
+      if(typeof console!='undefined'&&console.log)
+        console.log('[allowed-only] authenticated playlist history unavailable: '+morningHistoryReason(e));
       return null;
     }
   })();
   S.morningProgressTask=task;
   try{return await task}finally{if(S.morningProgressTask===task)S.morningProgressTask=null}
 }
-
+var MORNING_REFRESH_WINDOW_MS=60000,MORNING_REFRESH_MAX_ATTEMPTS=6;
+function morningHistorySatisfies(minimum){
+  var history=S.morningProgress&&S.morningProgress.__youtube_history;
+  return S.ready===true&&S.loggedIn===true&&authed()
+    &&S.morningHistoryAccountIdentity===morningAccountIdentity()
+    &&validMorningHistory(history,Date.now())&&history.captured_at_ms>=minimum;
+}
+function finishMorningHistoryWindow(h,reason){
+  if(!h||h.closed)return;
+  h.closed=true;h.result=reason;if(h.timer!=null)w.clearTimeout(h.timer);h.timer=null;
+  if(reason==='ok'&&h.request){h.request.completed=true;h.request.completedIdentity=morningAccountIdentity()}
+  if(reason!=='ok'){
+    var last=S.morningHistoryStatus&&S.morningHistoryStatus.reason;
+    invalidateMorningHistory('unavailable',Date.now(),reason);
+    S.morningHistoryStatus.last_error=last||'';
+    writeMorningStatus();
+  }
+  if(S.morningHistoryStatus)S.morningHistoryStatus.attempts=h.attempts;
+}
+function scheduleMorningHistoryRefresh(h,delay){
+  if(!h||h.closed||S.morningHistoryWindow!==h)return;
+  if(h.timer!=null)w.clearTimeout(h.timer);
+  h.timer=w.setTimeout(function(){h.timer=null;pumpMorningHistoryRefresh()},Math.max(1,delay));
+}
+function beginMorningHistoryWindow(minimum,deadline,request){
+  var previous=S.morningHistoryWindow;
+  if(previous){previous.closed=true;if(previous.timer!=null)w.clearTimeout(previous.timer)}
+  var now=Date.now(),elapsed=w.performance.now(),budget=Math.min(MORNING_REFRESH_WINDOW_MS,deadline-now);
+  var h={generation:(S.morningHistoryGeneration||0)+1,minimum:minimum,
+    deadlineWall:now+budget,deadlineElapsed:elapsed+budget,attempts:request?request.attempts:0,nextAt:elapsed,
+    request:request||null,
+    identity:null,identityAt:elapsed,closed:false,timer:null};
+  S.morningHistoryGeneration=h.generation;S.morningHistoryWindow=h;
+  invalidateMorningHistory('loading',now,'morning_history_waiting_auth');
+  writeMorningStatus();pumpMorningHistoryRefresh();return h;
+}
+function pumpMorningHistoryRefresh(){
+  var h=S.morningHistoryWindow;if(!h||h.closed)return;
+  var now=Date.now(),elapsed=w.performance.now(),d=w.document;
+  if(elapsed>=h.deadlineElapsed||now>=h.deadlineWall){finishMorningHistoryWindow(h,'morning_history_retry_deadline');return}
+  if(morningHistorySatisfies(h.minimum)){finishMorningHistoryWindow(h,'ok');return}
+  if(!d||d.hidden||S.ready!==true||S.loggedIn!==true||!S.ctx||!authed()){
+    if(S.morningHistoryStatus){S.morningHistoryStatus.reason=d&&d.hidden?'morning_history_waiting_visible':'morning_history_waiting_auth';S.morningHistoryStatus.attempts=h.attempts}
+    scheduleMorningHistoryRefresh(h,Math.min(500,h.deadlineElapsed-elapsed));return;
+  }
+  if(S.morningProgressTask){scheduleMorningHistoryRefresh(h,250);return}
+  var identity=morningAccountIdentity();
+  if(identity!==h.identity){h.identity=identity;h.identityAt=elapsed}
+  if(elapsed-h.identityAt<750){
+    if(S.morningHistoryStatus)S.morningHistoryStatus.reason='morning_history_auth_settling';
+    scheduleMorningHistoryRefresh(h,750-(elapsed-h.identityAt));return;
+  }
+  if(elapsed<h.nextAt){scheduleMorningHistoryRefresh(h,h.nextAt-elapsed);return}
+  if(h.attempts>=MORNING_REFRESH_MAX_ATTEMPTS){finishMorningHistoryWindow(h,'morning_history_retries_exhausted');return}
+  h.attempts++;
+  if(h.request)h.request.attempts=h.attempts;
+  publishMorningProgress({deadline_ms:h.deadlineWall,window_generation:h.generation}).then(function(){
+    if(S.morningHistoryWindow!==h||h.closed)return;
+    if(S.morningHistoryStatus)S.morningHistoryStatus.attempts=h.attempts;
+    if(morningHistorySatisfies(h.minimum)){finishMorningHistoryWindow(h,'ok');return}
+    var delays=[2000,4000,8000,12000,12000];
+    h.nextAt=w.performance.now()+delays[Math.min(h.attempts-1,delays.length-1)];
+    scheduleMorningHistoryRefresh(h,Math.min(h.nextAt-w.performance.now(),h.deadlineElapsed-w.performance.now()));
+  });
+}
+function validMorningHistoryRequest(request){
+  var now=Date.now();
+  return !!request&&typeof request.run_id==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(request.run_id)
+    &&Number.isInteger(request.started_at_ms)&&request.started_at_ms>0&&request.started_at_ms<=now+1000
+    &&now-request.started_at_ms<=300000&&Number.isInteger(request.deadline_ms)
+    &&request.deadline_ms>now&&request.deadline_ms>request.started_at_ms
+    &&request.deadline_ms-request.started_at_ms<=300000;
+}
+function sameMorningHistoryRequest(a,b){
+  return !!a&&!!b&&a.run_id===b.run_id&&a.started_at_ms===b.started_at_ms&&a.deadline_ms===b.deadline_ms;
+}
+function requestMorningProgress(request){
+  var d=w.document;if(!d||d.hidden||!validMorningHistoryRequest(request))return false;
+  var previous=S.morningHistoryRequest;
+  if(previous&&previous.run_id===request.run_id){
+    if(!sameMorningHistoryRequest(previous,request))return false;
+    var h=S.morningHistoryWindow;
+    // Account rotation after a successful capture is a new need for evidence, but
+    // keeps the original run deadline and cumulative six-attempt limit.
+    if(previous.completed&&!morningHistorySatisfies(previous.started_at_ms)
+        &&previous.completedIdentity!==morningAccountIdentity()
+        &&(!h||h.request!==previous||h.closed&&h.result==='ok'))
+      beginMorningHistoryWindow(previous.started_at_ms,previous.deadline_ms,previous);
+    return true;
+  }
+  if(previous&&request.started_at_ms<previous.started_at_ms)return false;
+  var admitted={run_id:request.run_id,started_at_ms:request.started_at_ms,deadline_ms:request.deadline_ms,
+    attempts:0,completed:false,completedIdentity:null};
+  cancelMorningStartupPlays('Morning startup run changed');
+  S.morningHistoryRequest=admitted;
+  if(morningHistorySatisfies(request.started_at_ms)){
+    admitted.completed=true;admitted.completedIdentity=morningAccountIdentity();
+  }else beginMorningHistoryWindow(request.started_at_ms,request.deadline_ms,admitted);
+  return true;
+}
+// The controller reads this snapshot directly; DIAL is an optional compatibility publication.
+function morningHistoryForRun(request){
+  var d=w.document;
+  if(!d||d.hidden||!validMorningHistoryRequest(request)||!sameMorningHistoryRequest(S.morningHistoryRequest,request)
+      ||!morningHistorySatisfies(request.started_at_ms))return null;
+  return JSON.parse(JSON.stringify(S.morningProgress));
+}
 function refreshMorningProgressOnFocus(){
-  var d=w.document,elapsed=w.performance.now();
-  if(!d||d.hidden||S.ready!==true||S.loggedIn!==true||!S.ctx||S.morningProgressTask)return;
-  if(Number.isFinite(S.morningRefreshAtElapsed)&&elapsed-S.morningRefreshAtElapsed<60000)return;
-  publishMorningProgress({});
+  var d=w.document,now=Date.now();if(!d||d.hidden)return;
+  if(validMorningHistoryRequest(S.morningHistoryRequest)){requestMorningProgress(S.morningHistoryRequest);return}
+  if(S.morningHistoryWindow&&!S.morningHistoryWindow.closed){pumpMorningHistoryRefresh();return}
+  if(Number.isFinite(S.morningFocusRefreshAt)&&now-S.morningFocusRefreshAt<1000)return;
+  S.morningFocusRefreshAt=now;
+  beginMorningHistoryWindow(now,now+MORNING_REFRESH_WINDOW_MS);
 }
 function watchMorningLifecycle(){
   if(S.morningLifecycle==='watching'||!w.document||!w.addEventListener)return;
@@ -552,19 +817,53 @@ function queuePendingMedia(media,video,kind,execute){
 }
 function installMediaGuard(){try{
   installSchoolMediaEvents();
+  if(!S.morningStartupPlayEvents&&w.addEventListener){
+    S.morningStartupPlayEvents=true;
+    w.addEventListener('hashchange',function(event){
+      morningStartupDeferred.forEach(function(r,media){
+        if(routeVideoId()!==r.video||event&&event.newURL&&event.newURL!==r.href)
+          cancelMorningStartupPlay(media,'Media route changed');
+      });
+    });
+    if(w.document&&w.document.addEventListener)w.document.addEventListener('visibilitychange',function(){
+      if(w.document.hidden)cancelMorningStartupPlays('Media window hidden');
+    });
+  }
   var P=w.HTMLMediaElement&&w.HTMLMediaElement.prototype;if(!P)return;
   if(typeof P.play==='function'&&!P.play.__ttMedia){
     var OP=P.play;
     function playAndReport(self,args,video){
-      if(schoolBannerActive()){try{self.pause()}catch(e){}return Promise.reject(new Error(SCHOOL_BANNER_REASON))}
-      var result;try{result=OP.apply(self,args)}catch(e){return Promise.reject(e)}
-      return Promise.resolve(result).then(function(value){publishMorningPlaying(video,self);return value});
+      var blocked=morningMediaBlockReason();
+      if(blocked){try{self.pause()}catch(e){}return Promise.reject(new Error(blocked))}
+      if(routeVideoId()!==video||mediaDecision(video)!=='open')return Promise.reject(new Error(REASON));
+      var attempt={video:video,source:mediaSource(self),epoch:S.morningStartupLease&&S.morningStartupLease.epoch};
+      morningNativePlay.set(self,attempt);
+      var result;try{result=OP.apply(self,args)}catch(e){morningNativePlay.delete(self);return Promise.reject(e)}
+      return Promise.resolve(result).then(function(value){
+        if(morningNativePlay.get(self)===attempt)morningNativePlay.delete(self);
+        if(self.paused!==true&&mediaSource(self)===attempt.source)publishMorningPlaying(video,self);
+        return value;
+      },function(error){
+        if(morningNativePlay.get(self)===attempt)morningNativePlay.delete(self);throw error;
+      });
     }
     P.play=function(){
-      if(schoolBannerActive()){cancelPendingMedia(this,SCHOOL_BANNER_REASON);try{this.pause()}catch(e){}
-        return Promise.reject(new Error(SCHOOL_BANNER_REASON))}
-      var video=routeVideoId();if(!video)return Promise.resolve();
-      var decision=mediaDecision(video),self=this,args=arguments;
+      var video=routeVideoId(),self=this,args=arguments,blocked=morningMediaBlockReason();
+      if(blocked){
+        if(blocked===MORNING_STARTUP_REASON&&S.morningStartupLease.expected_video_id===''
+            &&morningVideoId(video)&&!(w.document&&w.document.hidden)
+            &&String(self.tagName||'').toUpperCase()==='VIDEO'&&mediaDecision(video)!=='closed'){
+          // Preserve inert source/load initialization; only playback is delayed.
+          if(self.paused!==true)try{self.pause()}catch(e){}
+          return deferMorningStartupPlay(self,video,function(){return playAndReport(self,args,video)});
+        }
+        cancelMorningStartupPlay(self,blocked);cancelPendingMedia(self,blocked);try{self.pause()}catch(e){}
+        return Promise.reject(new Error(blocked));
+      }
+      var pending=morningStartupDeferred.get(self);
+      if(pending){flushMorningStartupPlays();return pending.promise}
+      if(!video)return Promise.resolve();
+      var decision=mediaDecision(video);
       if(decision==='pending'||decision==='open'&&mediaPending.has(self))
         return queuePendingMedia(self,video,'play',function(){return playAndReport(self,args,video)});
       if(decision==='open')return playAndReport(self,args,video);
@@ -575,6 +874,7 @@ function installMediaGuard(){try{
   if(typeof P.load==='function'&&!P.load.__ttMedia){
     var OL=P.load;
     P.load=function(){
+      cancelMorningStartupPlay(this,'Media load interrupted playback');
       var video=routeVideoId(),decision=video?mediaDecision(video):'open',self=this,args=arguments;
       if(decision==='pending'||decision==='open'&&mediaPending.has(self)){
         queuePendingMedia(self,video,'load',function(){return OL.apply(self,args)});return;
@@ -587,6 +887,7 @@ function installMediaGuard(){try{
   if(typeof P.pause==='function'&&!P.pause.__ttMedia){
     var OPAUSE=P.pause;
     P.pause=function(){
+      cancelMorningStartupPlay(this,'Media playback paused');
       cancelPendingPlay(this,'Media playback paused');
       return OPAUSE.apply(this,arguments);
     };
@@ -595,6 +896,7 @@ function installMediaGuard(){try{
   var sd=Object.getOwnPropertyDescriptor(P,'src');
   if(sd&&sd.set&&!sd.set.__ttMedia){
     var ws=function(value){
+      cancelMorningStartupPlay(this,'Media source changed');
       var video=routeVideoId(),decision=video?mediaDecision(video):'open',src,self=this;
       try{src=String(value).replace(/^[\x00-\x20]+|[\x00-\x20]+$/g,'')}catch(e){mediaBlockedLog();return}
       if(decision!=='open'&&src.toLowerCase().lastIndexOf('blob:',0)===0){
@@ -621,7 +923,7 @@ function installMediaGuard(){try{
   }
 }catch(e){}}
 function guard(){if(!S.installed)return;try{if(typeof w.XMLHttpRequest=='function'){var q=w.XMLHttpRequest.prototype;if(q&&!q.__ttWrap){delete q.__ao;try{installXhr()}catch(e){S.armFail++}}else if(!S.xhrArmed&&S.arm){S.arm()}}if(typeof w.fetch=='function'&&(!w.fetch.__tt||!S.fetch0)){installFetch()}if(w.HTMLMediaElement)installMediaGuard()}catch(e){}}function install(){if(S.installed)return;S.installed=true;bridge();installFetch();installXhr();installMediaGuard();installRouteGate();cfg();renderStatus();watchStatus();watchMorningLifecycle();guard();if(typeof console!='undefined'&&console.log)console.log('[allowed-only] filter active');if(S.ctx)ensure()}
-w.__ttAllowedOnly={install:install,state:S,allowed:ok,configure:cfg,filterTree:filter,blockPlayerResponse:player,collectLikedVideoIds:liked,collectAllChannelIds:channels,collectGuideSubscriptionIds:guide,responseChannelId:responseChannelId,rememberChannelPageVideos:rememberChannelPageVideos,collectPlaylistIds:collectPlaylistIds,collectPlaylistVideoIds:collectPlaylistVideoIds,learnAccountPlaylistResponse:learnAccountPlaylistResponse,processApiPayload:payload,collectMusicLibraryVideoIds:collectMusicLibraryVideoIds,collectMusicCollectionVideoIds:collectMusicCollectionVideoIds,collectMusicCollectionBrowseIds:collectMusicCollectionBrowseIds,collectPurchasedVideoIds:collectPurchasedVideoIds,accountLibraries:accountLibraries,startBackgroundEnrichment:startBackgroundEnrichment,continuationTokens:cont,firstVideoId:vid,firstChannelId:authcid,discoverChannelId:cid,videoOwnerChannelId:vcid,addPageStyle:addPageStyle,BLOCK_REASON:REASON,statusText:statusText,renderStatus:renderStatus,statusTick:statusTick,guard:guard,routeVideoId:routeVideoId,mediaDecision:mediaDecision,installMediaGuard:installMediaGuard,verifyDirectVideo:verifyDirectVideo,gateDirectRoute:gateDirectRoute,installRouteGate:installRouteGate,retryDelaySchedule:retryDelaySchedule,bootWithRetry:bootWithRetry,filtapi:filtapi,collectChannelNames:collectChannelNames,tileShouldStay:tileShouldStay,sweepDom:sweepDom,collectMorningProgress:collectMorningProgress,validMorningHistory:validMorningHistory,publishMorningProgress:publishMorningProgress,morningStatusPayload:morningStatusPayload,morningProgressFresh:morningProgressFresh,refreshMorningProgressOnFocus:refreshMorningProgressOnFocus,writeMorningProgress:writeMorningProgress,writeMorningPlaying:writeMorningPlaying,publishMorningPlaying:publishMorningPlaying,setSchoolBannerLease:setSchoolBannerLease};return w.__ttAllowedOnly;
+w.__ttAllowedOnly={install:install,state:S,allowed:ok,configure:cfg,filterTree:filter,blockPlayerResponse:player,collectLikedVideoIds:liked,collectAllChannelIds:channels,collectGuideSubscriptionIds:guide,responseChannelId:responseChannelId,rememberChannelPageVideos:rememberChannelPageVideos,collectPlaylistIds:collectPlaylistIds,collectPlaylistVideoIds:collectPlaylistVideoIds,learnAccountPlaylistResponse:learnAccountPlaylistResponse,processApiPayload:payload,collectMusicLibraryVideoIds:collectMusicLibraryVideoIds,collectMusicCollectionVideoIds:collectMusicCollectionVideoIds,collectMusicCollectionBrowseIds:collectMusicCollectionBrowseIds,collectPurchasedVideoIds:collectPurchasedVideoIds,accountLibraries:accountLibraries,startBackgroundEnrichment:startBackgroundEnrichment,continuationTokens:cont,firstVideoId:vid,firstChannelId:authcid,discoverChannelId:cid,videoOwnerChannelId:vcid,addPageStyle:addPageStyle,BLOCK_REASON:REASON,statusText:statusText,renderStatus:renderStatus,statusTick:statusTick,guard:guard,routeVideoId:routeVideoId,mediaDecision:mediaDecision,installMediaGuard:installMediaGuard,verifyDirectVideo:verifyDirectVideo,gateDirectRoute:gateDirectRoute,installRouteGate:installRouteGate,retryDelaySchedule:retryDelaySchedule,bootWithRetry:bootWithRetry,filtapi:filtapi,collectChannelNames:collectChannelNames,tileShouldStay:tileShouldStay,sweepDom:sweepDom,collectMorningProgress:collectMorningProgress,validMorningHistory:validMorningHistory,publishMorningProgress:publishMorningProgress,morningStatusPayload:morningStatusPayload,morningProgressFresh:morningProgressFresh,refreshMorningProgressOnFocus:refreshMorningProgressOnFocus,requestMorningProgress:requestMorningProgress,morningHistoryForRun:morningHistoryForRun,writeMorningProgress:writeMorningProgress,writeMorningPlaying:writeMorningPlaying,publishMorningPlaying:publishMorningPlaying,setSchoolBannerLease:setSchoolBannerLease,setMorningStartupLease:setMorningStartupLease};return w.__ttAllowedOnly;
 });
 
 ;(function(g){

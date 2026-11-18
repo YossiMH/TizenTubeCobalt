@@ -105,6 +105,8 @@ class Controller:
         self._proof_min_generation = 0
         self.media = CobaltMediaReader(config.debugger_port)
         self._school_lease_armed = False
+        self._startup_lease_armed = False
+        self._startup_history_state = "inactive"
         self.media_evidence_source = "unobserved"
         self.debugger_forward = CobaltForward(android.prefix, config.debugger_port)
         self._last_forward_state = None
@@ -183,7 +185,8 @@ class Controller:
             server = await asyncio.start_unix_server(self._control, path=str(socket), limit=4096)
             os.chmod(socket, 0o600)
             tasks = [asyncio.create_task(function()) for function in (
-                self._status_loop, self._phone_loop, self._guard_loop, self._observe_loop, self._health_loop, self._fault_loop)]
+                self._status_loop, self._phone_loop, self._guard_loop, self._observe_loop,
+                self._morning_startup_loop, self._health_loop, self._fault_loop)]
             stop_task = asyncio.create_task(self.stop_requested.wait())
             log("controller_started", recovery_mode=self.config.recovery_mode.value)
             try:
@@ -200,6 +203,7 @@ class Controller:
                 await asyncio.gather(*tasks, stop_task, *([self.recovery_task] if self.recovery_task else []), return_exceptions=True)
                 await self.guard.close()
                 await self._update_school_lease(clear=True)
+                await self._update_startup_lease(clear=True)
                 self.media.close()
                 try:
                     await self.client.event({"type": "native_health", "status": NativeHealth.STOPPED.value})
@@ -227,9 +231,11 @@ class Controller:
             self.status_wakeup.clear()
             generation = self.state.phone_generation
             observer_generation = self.state.observer_generation
+            posted_generation = self.state.posted_generation
             try:
                 snapshot = await self.client.status()
-                self.state = apply_status(self.state, snapshot, mono_ms(), generation, observer_generation)
+                self.state = apply_status(self.state, snapshot, mono_ms(), generation, observer_generation,
+                                          request_posted_generation=posted_generation)
             except (AdapterError, ValueError, OSError):
                 self.state = failed_status(self.state)
                 if self.recovery_task is not None:
@@ -265,6 +271,7 @@ class Controller:
                         self.status_wakeup.set()
                         if event.get("value") in (1, 2) and event.get("linux_code") not in VOLUME_CODES:
                             await self._update_school_lease(clear=True)
+                            await self._update_startup_lease(clear=True)
                         break
                     except (AdapterError, ValueError, OSError) as exc:
                         # Retry this same key before later keys. Releases cannot
@@ -430,6 +437,99 @@ class Controller:
             # The existing page lease expires after at most twelve seconds.
             log("school_media_lease_unavailable")
 
+    def _morning_window(self, require_work=False):
+        now, wall = mono_ms(), wall_ms()
+        snapshot = self.state.snapshot
+        banner = snapshot.school_banner if snapshot else None
+        if (banner is None or banner.phase != "starting" or not banner.scheduled_admission
+                or snapshot.session.phase != Phase.MORNING_STARTING
+                or not recovery_context_allowed(self.state, now, wall)
+                or self.state.posted_generation < self.state.phone_generation
+                or not native_observer_live(self.guard.monitor, now)
+                or self.guard.phase != GuardPhase.RUNNING
+                or (require_work and wall >= min(banner.startup_deadline_ms, banner.fallback_at_ms))):
+            return None
+        return banner
+
+    async def _update_startup_lease(self, clear=False):
+        def requested():
+            banner = None if clear else self._morning_window()
+            return ((min(wall_ms() + 12_000, banner.expires_at_ms), banner.candidate_video_id)
+                    if banner is not None else None)
+        if requested() is None and not self._startup_lease_armed:
+            return
+        try:
+            async with self._media_lock:
+                desired = requested()
+                if desired is not None:
+                    if not await self.guard.recovery_barrier():
+                        desired = None
+                    else:
+                        desired = requested()
+                if desired is None and not self._startup_lease_armed:
+                    return
+                if not await self.debugger_forward.ensure(mono_ms()):
+                    return
+                desired = requested()
+                accepted = await self._run_cdp(self.media.set_morning_startup,
+                    *(desired if desired is not None else (0, "")))
+                if accepted:
+                    self._startup_lease_armed = desired is not None
+        except (AdapterError, OSError, ValueError, asyncio.TimeoutError):
+            log("morning_startup_media_lease_unavailable")
+
+    async def _publish_morning_history(self):
+        banner = self._morning_window(require_work=True)
+        if banner is None:
+            self._startup_history_state = "inactive"
+            return
+        generation, observer_generation = self.state.phone_generation, self.state.observer_generation
+        identity = (banner.run_id, banner.started_at_ms, banner.startup_deadline_ms)
+        def allowed():
+            current = self._morning_window(require_work=True)
+            return (current is not None and self.state.phone_generation == generation
+                    and self.state.observer_generation == observer_generation
+                    and (current.run_id, current.started_at_ms, current.startup_deadline_ms) == identity)
+        result = {"state":"unavailable"}
+        # Startup's helper and PIN activities may legitimately own the foreground.
+        # They do not consume the player's 60-second history retry window.
+        if (self.state.snapshot.authentication == Authentication.CLEAR
+                and self.state.snapshot.foreground_package == self.config.player_package):
+            try:
+                async with self._media_lock:
+                    if not allowed():
+                        return
+                    if await self.debugger_forward.ensure(mono_ms()) and allowed():
+                        if (self.state.snapshot.authentication == Authentication.CLEAR
+                                and self.state.snapshot.foreground_package == self.config.player_package):
+                            result = await self._run_cdp(self.media.morning_history, *identity)
+            except (AdapterError, OSError, ValueError, asyncio.TimeoutError):
+                result = {"state":"unavailable"}
+        if not allowed():
+            return
+        event = {"type":"morning_history", "run_id":identity[0], "started_at_ms":identity[1],
+                 "deadline_ms":identity[2], "sample_wall_ms":wall_ms(), "state":result["state"]}
+        if result["state"] == "ready":
+            event["progress"] = result["progress"]
+        try:
+            await self.client.event(event)
+            self._startup_history_state = result["state"]
+        except (AdapterError, OSError, ValueError):
+            self._startup_history_state = "unavailable"
+            # This transport failure is not fabricated phone input or an episode end.
+            # A prior cached history sample independently expires after three seconds.
+            log("morning_history_transport_unavailable")
+
+    async def _morning_startup_loop(self):
+        while not self.stop_requested.is_set():
+            cycle = mono_ms()
+            if self._startup_lease_armed and self._morning_window() is None:
+                # Install an actual-end/fallback school lease before releasing warmup.
+                await self._update_school_lease()
+            await self._update_startup_lease()
+            await self._publish_morning_history()
+            await self._pause(max(0.05, 2 - (mono_ms() - cycle) / 1000))
+
     async def _sample_cdp(self):
         if not await self.debugger_forward.ensure(mono_ms()):
             self.media.close()
@@ -485,7 +585,7 @@ class Controller:
             waiting = school_waiting_context_allowed(self.state, mono_ms(), wall_ms())
             if session is None and waiting:
                 session = self.state.snapshot.session
-            if (session is not None and (session.phase in (Phase.ACTIVE, Phase.SCHOOL_BANNER) or waiting)
+            if (session is not None and (session.phase in (Phase.ACTIVE, Phase.SCHOOL_BANNER, Phase.MORNING_STARTING) or waiting)
                     and observer_fresh(self.state, mono_ms())
                     and self.state.fault_fence == FaultFence.CLEAR
                     and native_observer_live(self.guard.monitor, mono_ms())):
@@ -495,7 +595,7 @@ class Controller:
                         results = [None, await self._sample_player()]
                     except (AdapterError, OSError, asyncio.TimeoutError) as exc:
                         results = [None, exc]
-                elif self.state.snapshot.session_mode == SessionMode.POWER_PROBE or session.phase == Phase.SCHOOL_BANNER:
+                elif self.state.snapshot.session_mode == SessionMode.POWER_PROBE or session.phase in (Phase.SCHOOL_BANNER, Phase.MORNING_STARTING):
                     try:
                         results = [await self.android.observation(), None]
                     except (AdapterError, OSError, asyncio.TimeoutError) as exc:
@@ -578,8 +678,10 @@ class Controller:
 
     async def _probe_recovery_status(self, allowed):
         generation, observer_generation = self.state.phone_generation, self.state.observer_generation
+        posted_generation = self.state.posted_generation
         result = await self._fenced_admin("probe", allowed, asyncio.get_running_loop().time() + 4.0)
-        self.state = apply_status(self.state, parse_status(result), mono_ms(), generation, observer_generation)
+        self.state = apply_status(self.state, parse_status(result), mono_ms(), generation, observer_generation,
+                                  request_posted_generation=posted_generation)
         return allowed()
 
     async def _recover_startup(self, run_id):
@@ -620,8 +722,10 @@ class Controller:
             return self._manual_authentication_allowed(generation)
         try:
             observer_generation = self.state.observer_generation
+            posted_generation = self.state.posted_generation
             snapshot = await self.client.status()
-            self.state = apply_status(self.state, snapshot, mono_ms(), generation, observer_generation)
+            self.state = apply_status(self.state, snapshot, mono_ms(), generation, observer_generation,
+                                      request_posted_generation=posted_generation)
             if not allowed():
                 return {"schema":1, "result":PinAuthentication.DENIED.value}
             if not await self._probe_recovery_status(allowed):
@@ -712,7 +816,10 @@ class Controller:
             if session_mode == SessionMode.POWER_PROBE and reason not in (Recovery.POWER, Recovery.INPUT):
                 return
             banner_recovery = self.state.snapshot.session.phase == Phase.SCHOOL_BANNER
+            morning_recovery = self.state.snapshot.session.phase == Phase.MORNING_STARTING
             if banner_recovery and reason not in (Recovery.POWER, Recovery.INPUT):
+                return
+            if morning_recovery and reason not in (Recovery.POWER, Recovery.INPUT, Recovery.PLAYBACK):
                 return
             if reason in (Recovery.POWER, Recovery.INPUT):
                 operation = "native_barrier_before_wake"
@@ -743,6 +850,17 @@ class Controller:
                     return
             if banner_recovery:
                 result = "school_banner_power_restored"
+            elif morning_recovery:
+                operation = "probe_morning_authentication"
+                if not await self._probe_recovery_status(allowed):
+                    return
+                if self.state.snapshot.authentication != Authentication.CLEAR:
+                    result = "morning_waiting_authentication"
+                    return
+                operation = "morning_recover"
+                reply = await self._fenced_admin("morning_recover", allowed,
+                                                 asyncio.get_running_loop().time() + 4.0)
+                result = "morning_player_restored" if reply.get("ok") is True else "app_rejected"
             elif session_mode == SessionMode.POWER_PROBE:
                 result = "power_probe_confirmed" if confirmation == Confirmation.STATE else "power_probe_requested"
             elif allowed():
